@@ -81,6 +81,25 @@ export function Orders() {
   const [existingTitles, setExistingTitles] = useState<string[]>([]);
   const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
   const [filteredTitles, setFilteredTitles] = useState<string[]>([]);
+  const [showAddElementModal, setShowAddElementModal] = useState(false);
+  const [selectedOrderForElement, setSelectedOrderForElement] =
+    useState<Order | null>(null);
+  const [elementForm, setElementForm] = useState({
+    name: "",
+    type: "",
+    quantity: 1,
+    unit: "",
+    unitPrice: 0,
+    notes: "",
+  });
+  const [existingElementNames, setExistingElementNames] = useState<string[]>(
+    []
+  );
+  const [showElementNameSuggestions, setShowElementNameSuggestions] =
+    useState(false);
+  const [filteredElementNames, setFilteredElementNames] = useState<string[]>(
+    []
+  );
 
   useEffect(() => {
     fetchData();
@@ -149,6 +168,13 @@ export function Orders() {
       ].filter((title) => title.trim() !== "");
       console.log("📝 Extracted order titles:", uniqueTitles);
       setExistingTitles(uniqueTitles);
+
+      // Extract unique element names from all order items
+      const uniqueElementNames = [
+        ...new Set(orderItemsData.map((item) => item.name)),
+      ].filter((name) => name.trim() !== "");
+      console.log("📦 Extracted element names:", uniqueElementNames);
+      setExistingElementNames(uniqueElementNames);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -333,6 +359,71 @@ export function Orders() {
   const selectTitle = (title: string) => {
     setOrderForm({ ...orderForm, title });
     setShowTitleSuggestions(false);
+  };
+
+  const handleElementNameInputChange = (value: string) => {
+    setElementForm({ ...elementForm, name: value });
+
+    if (value.length > 0) {
+      const filtered = existingElementNames.filter((name) =>
+        name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredElementNames(filtered);
+      setShowElementNameSuggestions(filtered.length > 0);
+    } else {
+      setShowElementNameSuggestions(false);
+    }
+  };
+
+  const selectElementName = (name: string) => {
+    setElementForm({ ...elementForm, name });
+    setShowElementNameSuggestions(false);
+  };
+
+  const handleAddElement = (order: Order) => {
+    setSelectedOrderForElement(order);
+    setElementForm({
+      name: "",
+      type: "",
+      quantity: 1,
+      unit: "",
+      unitPrice: 0,
+      notes: "",
+    });
+    setShowAddElementModal(true);
+  };
+
+  const handleSaveElement = async () => {
+    if (!selectedOrderForElement) return;
+
+    try {
+      const total = elementForm.quantity * elementForm.unitPrice;
+      const newElement = {
+        ...elementForm,
+        orderId: selectedOrderForElement.id,
+        total,
+        createdAt: new Date().toISOString(),
+      };
+
+      await addDoc(collection(db, "orderItems"), newElement);
+
+      alert("تم إضافة العنصر بنجاح!");
+      setShowAddElementModal(false);
+      setSelectedOrderForElement(null);
+      setElementForm({
+        name: "",
+        type: "",
+        quantity: 1,
+        unit: "",
+        unitPrice: 0,
+        notes: "",
+      });
+      setShowElementNameSuggestions(false);
+      fetchData(); // Refresh orders to update totals and element names
+    } catch (error) {
+      console.error("Error adding element:", error);
+      alert("حدث خطأ أثناء إضافة العنصر");
+    }
   };
 
   const getSortIcon = (field: string) => {
@@ -648,6 +739,13 @@ export function Orders() {
                   <td>
                     <div className="action-buttons">
                       <button
+                        className="action-btn add-element"
+                        title="إضافة عنصر"
+                        onClick={() => handleAddElement(order)}
+                      >
+                        <Plus />
+                      </button>
+                      <button
                         className="action-btn view"
                         title="عرض التفاصيل"
                         onClick={() => navigate(`/orders/${order.id}`)}
@@ -959,6 +1057,185 @@ export function Orders() {
                 disabled={!orderForm.customerId || !orderForm.title}
               >
                 حفظ التعديلات
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Element Modal */}
+      {showAddElementModal && selectedOrderForElement && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>إضافة عنصر جديد - {selectedOrderForElement.title}</h3>
+              <button
+                className="close-btn"
+                onClick={() => setShowAddElementModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>اسم العنصر *</label>
+                <div className="autocomplete-container">
+                  <input
+                    type="text"
+                    value={elementForm.name}
+                    onChange={(e) =>
+                      handleElementNameInputChange(e.target.value)
+                    }
+                    onFocus={() => {
+                      if (elementForm.name.length > 0) {
+                        const filtered = existingElementNames.filter((name) =>
+                          name
+                            .toLowerCase()
+                            .includes(elementForm.name.toLowerCase())
+                        );
+                        setFilteredElementNames(filtered);
+                        setShowElementNameSuggestions(filtered.length > 0);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay hiding to allow clicking on suggestions
+                      setTimeout(
+                        () => setShowElementNameSuggestions(false),
+                        200
+                      );
+                    }}
+                    placeholder="أدخل اسم العنصر أو اختر من القائمة"
+                    className="form-input"
+                    autoComplete="off"
+                  />
+                  {showElementNameSuggestions &&
+                    filteredElementNames.length > 0 && (
+                      <div className="suggestions-dropdown">
+                        {filteredElementNames.map((name, index) => (
+                          <div
+                            key={index}
+                            className="suggestion-item"
+                            onClick={() => selectElementName(name)}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+                {existingElementNames.length > 0 && (
+                  <small className="form-hint">
+                    💡 ابدأ بالكتابة لرؤية أسماء العناصر السابقة (
+                    {existingElementNames.length} اسم متاح)
+                  </small>
+                )}
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>النوع *</label>
+                  <input
+                    type="text"
+                    value={elementForm.type}
+                    onChange={(e) =>
+                      setElementForm({ ...elementForm, type: e.target.value })
+                    }
+                    placeholder="مثل: جبس، دهان، بلاط"
+                    className="form-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>الوحدة *</label>
+                  <input
+                    type="text"
+                    value={elementForm.unit}
+                    onChange={(e) =>
+                      setElementForm({ ...elementForm, unit: e.target.value })
+                    }
+                    placeholder="مثل: متر، قطعة، كيلو"
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>الكمية *</label>
+                  <input
+                    type="number"
+                    value={elementForm.quantity}
+                    onChange={(e) =>
+                      setElementForm({
+                        ...elementForm,
+                        quantity: parseFloat(e.target.value),
+                      })
+                    }
+                    min="0.01"
+                    step="0.01"
+                    className="form-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>سعر الوحدة *</label>
+                  <input
+                    type="number"
+                    value={elementForm.unitPrice}
+                    onChange={(e) =>
+                      setElementForm({
+                        ...elementForm,
+                        unitPrice: parseFloat(e.target.value),
+                      })
+                    }
+                    min="0"
+                    step="0.01"
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>ملاحظات</label>
+                <textarea
+                  value={elementForm.notes}
+                  onChange={(e) =>
+                    setElementForm({ ...elementForm, notes: e.target.value })
+                  }
+                  placeholder="أدخل ملاحظات (اختياري)"
+                  className="form-textarea"
+                  rows={3}
+                />
+              </div>
+
+              {elementForm.quantity > 0 && elementForm.unitPrice > 0 && (
+                <div className="total-preview">
+                  <span>الإجمالي:</span>
+                  <span className="total-amount">
+                    {formatCurrency(
+                      elementForm.quantity * elementForm.unitPrice
+                    )}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowAddElementModal(false)}
+              >
+                إلغاء
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSaveElement}
+                disabled={
+                  !elementForm.name ||
+                  !elementForm.type ||
+                  !elementForm.unit ||
+                  elementForm.quantity <= 0 ||
+                  elementForm.unitPrice <= 0
+                }
+              >
+                إضافة العنصر
               </button>
             </div>
           </div>
