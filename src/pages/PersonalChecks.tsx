@@ -17,6 +17,7 @@ import {
   Edit,
   Trash2,
   Printer,
+  Upload,
 } from "lucide-react";
 import {
   collection,
@@ -38,8 +39,9 @@ interface PersonalCheck {
   checkNumber: string;
   bank: string;
   amount: number;
+  currency: "شيقل جديد" | "دولار";
   dueDate: string;
-  status: "pending" | "paid" | "returned" | "overdue";
+  status: "pending" | "paid" | "returned" | "overdue" | "undefined";
   notes?: string;
   createdAt: string;
 }
@@ -62,14 +64,23 @@ export function PersonalChecks() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importing, setImporting] = useState(false);
   const [selectedCheck, setSelectedCheck] = useState<PersonalCheck | null>(
     null
   );
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [checksPerPage, setChecksPerPage] = useState(20);
   const [checkForm, setCheckForm] = useState({
     payee: "",
     checkNumber: "",
     bank: "",
     amount: 0,
+    currency: "شيقل جديد" as "شيقل جديد" | "دولار",
     dueDate: new Date().toISOString().split("T")[0],
     notes: "",
   });
@@ -99,6 +110,7 @@ export function PersonalChecks() {
           checkNumber: checkData.checkNumber,
           bank: checkData.bank,
           amount: checkData.amount,
+          currency: checkData.currency || "شيقل جديد", // Default to shekel if not set
           dueDate: checkData.dueDate,
           status: checkData.status,
           notes: checkData.notes,
@@ -214,6 +226,9 @@ export function PersonalChecks() {
     });
 
     setFilteredChecks(filtered);
+
+    // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const handleAddCheck = async () => {
@@ -231,6 +246,7 @@ export function PersonalChecks() {
         checkNumber: "",
         bank: "",
         amount: 0,
+        currency: "شيقل جديد",
         dueDate: new Date().toISOString().split("T")[0],
         notes: "",
       });
@@ -259,6 +275,7 @@ export function PersonalChecks() {
         checkNumber: "",
         bank: "",
         amount: 0,
+        currency: "شيقل جديد",
         dueDate: new Date().toISOString().split("T")[0],
         notes: "",
       });
@@ -302,6 +319,7 @@ export function PersonalChecks() {
       checkNumber: check.checkNumber,
       bank: check.bank,
       amount: check.amount,
+      currency: check.currency,
       dueDate: check.dueDate,
       notes: check.notes || "",
     });
@@ -354,8 +372,10 @@ export function PersonalChecks() {
         return "مرتجع";
       case "overdue":
         return "متأخر";
+      case "undefined":
+        return "غير محدد";
       default:
-        return "في الانتظار";
+        return "غير محدد";
     }
   };
 
@@ -369,8 +389,10 @@ export function PersonalChecks() {
         return "returned";
       case "overdue":
         return "overdue";
+      case "undefined":
+        return "undefined";
       default:
-        return "pending";
+        return "undefined";
     }
   };
 
@@ -394,6 +416,7 @@ export function PersonalChecks() {
               .status-paid { color: #10b981; }
               .status-returned { color: #ef4444; }
               .status-overdue { color: #dc2626; }
+              .status-undefined { color: #6b7280; }
               .summary { margin-top: 20px; font-weight: bold; }
               @media print { body { margin: 0; } }
             </style>
@@ -410,6 +433,7 @@ export function PersonalChecks() {
                   <th>رقم الشيك</th>
                   <th>البنك</th>
                   <th>المبلغ</th>
+                  <th>العملة</th>
                   <th>تاريخ الاستحقاق</th>
                   <th>الحالة</th>
                   <th>ملاحظات</th>
@@ -423,10 +447,8 @@ export function PersonalChecks() {
                     <td>${check.payee}</td>
                     <td>${check.checkNumber}</td>
                     <td>${check.bank}</td>
-                    <td>${check.amount.toLocaleString("en-IL", {
-                      style: "currency",
-                      currency: "ILS",
-                    })}</td>
+                    <td>${check.amount.toLocaleString("en-IL")}</td>
+                    <td>${check.currency === "شيقل جديد" ? "₪" : "$"}</td>
                     <td>${new Date(check.dueDate).toLocaleDateString(
                       "en-US"
                     )}</td>
@@ -442,11 +464,19 @@ export function PersonalChecks() {
             </table>
             <div class="summary">
               <p><strong>إجمالي الشيكات:</strong> ${filteredChecks.length}</p>
-              <p><strong>إجمالي المبالغ:</strong> ${filteredChecks
+              <p><strong>إجمالي المبالغ (شيقل جديد):</strong> ${filteredChecks
+                .filter((check) => check.currency === "شيقل جديد")
                 .reduce((sum, check) => sum + check.amount, 0)
                 .toLocaleString("en-IL", {
                   style: "currency",
                   currency: "ILS",
+                })}</p>
+              <p><strong>إجمالي المبالغ (دولار):</strong> ${filteredChecks
+                .filter((check) => check.currency === "دولار")
+                .reduce((sum, check) => sum + check.amount, 0)
+                .toLocaleString("en-US", {
+                  style: "currency",
+                  currency: "USD",
                 })}</p>
             </div>
           </body>
@@ -461,11 +491,21 @@ export function PersonalChecks() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-IL", {
-      style: "currency",
-      currency: "ILS",
-    }).format(amount);
+  const formatCurrency = (
+    amount: number,
+    currency: "شيقل جديد" | "دولار" = "شيقل جديد"
+  ) => {
+    if (currency === "دولار") {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(amount);
+    } else {
+      return new Intl.NumberFormat("en-IL", {
+        style: "currency",
+        currency: "ILS",
+      }).format(amount);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -478,6 +518,206 @@ export function PersonalChecks() {
 
   const isOverdue = (dueDate: string) => {
     return new Date(dueDate) < new Date();
+  };
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredChecks.length / checksPerPage);
+  const startIndex = (currentPage - 1) * checksPerPage;
+  const endIndex = startIndex + checksPerPage;
+  const currentChecks = filteredChecks.slice(startIndex, endIndex);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToFirstPage = () => {
+    setCurrentPage(1);
+  };
+
+  const goToLastPage = () => {
+    setCurrentPage(totalPages);
+  };
+
+  // Import functions
+  const parseCheckData = (text: string): PersonalCheck[] => {
+    const checks: PersonalCheck[] = [];
+    const lines = text.split("\n");
+
+    for (const line of lines) {
+      // Skip empty lines
+      if (!line.trim()) {
+        continue;
+      }
+
+      // Parse check data line - handle tab-separated values
+      const parts = line.split("\t");
+
+      // Handle both formats:
+      // Format 1 (9 columns): status | notes | payee | bank | date | currency | amountInWords | amount | checkNumber
+      // Format 2 (7 columns): checkNumber | payee | bank | date | currency | amount | checkNumber (duplicate)
+
+      if (parts.length >= 7) {
+        let payee, bank, date, currency, amount, checkNumber, status, notes;
+
+        if (parts.length >= 9) {
+          // Format 1: status | notes | payee | bank | date | currency | amountInWords | amount | checkNumber
+          [status, notes, payee, bank, date, currency, , amount, checkNumber] =
+            parts;
+        } else {
+          // Format 2: checkNumber | payee | bank | date | currency | amount | checkNumber (duplicate)
+          [checkNumber, payee, bank, date, currency, amount] = parts;
+          status = ""; // No status in this format
+          notes = ""; // No notes in this format
+        }
+
+        // Only process if we have the essential fields
+        if (
+          payee &&
+          bank &&
+          date &&
+          amount &&
+          checkNumber &&
+          payee.trim() &&
+          bank.trim() &&
+          date.trim() &&
+          amount.trim() &&
+          checkNumber.trim()
+        ) {
+          // Handle date format variations (DD/M/YYYY or DD/MM/YYYY)
+          let formattedDate = "";
+          try {
+            const dateParts = date.trim().split("/");
+            if (dateParts.length === 3) {
+              const [day, month, year] = dateParts;
+              // Ensure month and day are padded with zeros
+              const paddedMonth = month.padStart(2, "0");
+              const paddedDay = day.padStart(2, "0");
+              formattedDate = `${year}-${paddedMonth}-${paddedDay}`;
+            }
+          } catch (error) {
+            console.warn(`Invalid date format: ${date}`);
+            continue; // Skip this line if date parsing fails
+          }
+
+          if (!formattedDate) continue; // Skip if date parsing failed
+
+          // Determine status
+          let checkStatus: PersonalCheck["status"] = "pending";
+          if (status && status.trim().includes("تم الصرف")) {
+            checkStatus = "paid";
+          } else if (!status || !status.trim()) {
+            checkStatus = "undefined";
+          }
+
+          // Parse amount safely
+          const parsedAmount = parseFloat(amount.trim());
+          if (isNaN(parsedAmount) || parsedAmount <= 0) {
+            console.warn(`Invalid amount: ${amount}`);
+            continue; // Skip if amount is invalid
+          }
+
+          const check: PersonalCheck = {
+            id: "", // Will be set when adding to database
+            payee: payee.trim(),
+            checkNumber: checkNumber.trim(),
+            bank: bank.trim(),
+            amount: parsedAmount,
+            currency:
+              currency && currency.trim().includes("دولار")
+                ? "دولار"
+                : "شيقل جديد",
+            dueDate: formattedDate,
+            status: checkStatus,
+            notes: notes && notes.trim() ? notes.trim() : "",
+            createdAt: formattedDate,
+          };
+
+          checks.push(check);
+        }
+      }
+    }
+
+    return checks;
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === "text/plain") {
+      setImportFile(file);
+    } else {
+      alert("يرجى اختيار ملف نصي (.txt)");
+    }
+  };
+
+  const handleImportChecks = async () => {
+    if (!importFile) return;
+
+    try {
+      setImporting(true);
+      setImportProgress(0);
+
+      const text = await importFile.text();
+      console.log("File content preview:", text.substring(0, 500));
+
+      const checksToImport = parseCheckData(text);
+      console.log("Parsed checks:", checksToImport);
+
+      if (checksToImport.length === 0) {
+        alert(
+          "لم يتم العثور على بيانات صحيحة في الملف. يرجى التأكد من تنسيق الملف."
+        );
+        return;
+      }
+
+      // Confirm import
+      const confirmed = window.confirm(
+        `هل أنت متأكد من استيراد ${
+          checksToImport.length
+        } شيك؟\n\nسيتم استيراد:\n- ${
+          checksToImport.filter((c) => c.currency === "شيقل جديد").length
+        } شيك بالشيقل\n- ${
+          checksToImport.filter((c) => c.currency === "دولار").length
+        } شيك بالدولار`
+      );
+
+      if (!confirmed) return;
+
+      // Import checks one by one
+      for (let i = 0; i < checksToImport.length; i++) {
+        const check = checksToImport[i];
+        await addDoc(collection(db, "personalChecks"), check);
+        setImportProgress(((i + 1) / checksToImport.length) * 100);
+      }
+
+      alert(
+        `تم استيراد ${checksToImport.length} شيك بنجاح!\n\n- ${
+          checksToImport.filter((c) => c.currency === "شيقل جديد").length
+        } شيك بالشيقل\n- ${
+          checksToImport.filter((c) => c.currency === "دولار").length
+        } شيك بالدولار`
+      );
+      setShowImportModal(false);
+      setImportFile(null);
+      setImportProgress(0);
+      fetchData(); // Refresh the data
+    } catch (error) {
+      console.error("Error importing checks:", error);
+      alert("حدث خطأ أثناء الاستيراد");
+    } finally {
+      setImporting(false);
+    }
   };
 
   if (loading) {
@@ -500,6 +740,13 @@ export function PersonalChecks() {
           <p>إدارة الشيكات المقدمة للموردين</p>
         </div>
         <div className="header-actions">
+          <button
+            className="import-btn"
+            onClick={() => setShowImportModal(true)}
+          >
+            <Upload className="btn-icon" />
+            استيراد
+          </button>
           <button className="print-btn" onClick={printPersonalChecks}>
             <Printer className="btn-icon" />
             طباعة
@@ -542,6 +789,7 @@ export function PersonalChecks() {
               <option value="paid">مدفوع</option>
               <option value="returned">مرتجع</option>
               <option value="overdue">متأخر</option>
+              <option value="undefined">غير محدد</option>
             </select>
           </div>
 
@@ -613,6 +861,7 @@ export function PersonalChecks() {
                   {getSortIcon("amount")}
                 </div>
               </th>
+              <th>العملة</th>
               <th onClick={() => handleSort("dueDate")} className="sortable">
                 <div className="th-content">
                   <Calendar className="th-icon" />
@@ -626,14 +875,14 @@ export function PersonalChecks() {
             </tr>
           </thead>
           <tbody>
-            {filteredChecks.length === 0 ? (
+            {currentChecks.length === 0 ? (
               <tr>
-                <td colSpan={8} className="no-data">
+                <td colSpan={9} className="no-data">
                   لا توجد شيكات شخصية
                 </td>
               </tr>
             ) : (
-              filteredChecks.map((check) => (
+              currentChecks.map((check) => (
                 <tr
                   key={check.id}
                   className={`check-row ${
@@ -658,7 +907,12 @@ export function PersonalChecks() {
                   </td>
                   <td>
                     <div className="check-amount">
-                      {formatCurrency(check.amount)}
+                      {formatCurrency(check.amount, check.currency)}
+                    </div>
+                  </td>
+                  <td>
+                    <div className="check-currency">
+                      {check.currency === "شيقل جديد" ? "₪" : "$"}
                     </div>
                   </td>
                   <td>
@@ -697,6 +951,7 @@ export function PersonalChecks() {
                           <option value="pending">في الانتظار</option>
                           <option value="paid">مدفوع</option>
                           <option value="returned">مرتجع</option>
+                          <option value="undefined">غير محدد</option>
                         </select>
                       </div>
                       <button
@@ -720,6 +975,101 @@ export function PersonalChecks() {
             )}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        {filteredChecks.length > 0 && (
+          <div className="pagination-container">
+            <div className="pagination-info">
+              <span>
+                عرض {startIndex + 1}-{Math.min(endIndex, filteredChecks.length)}{" "}
+                من {filteredChecks.length} شيك
+              </span>
+              <div className="page-size-selector">
+                <label>عرض:</label>
+                <select
+                  value={checksPerPage}
+                  onChange={(e) => {
+                    setChecksPerPage(Number(e.target.value));
+                    setCurrentPage(1); // Reset to first page when changing page size
+                  }}
+                  className="page-size-select"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span>شيك في الصفحة</span>
+              </div>
+            </div>
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                onClick={goToFirstPage}
+                disabled={currentPage === 1}
+                title="الصفحة الأولى"
+              >
+                <span>«</span>
+              </button>
+              <button
+                className="pagination-btn"
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                title="الصفحة السابقة"
+              >
+                <span>‹</span>
+              </button>
+
+              {/* Page numbers */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((page) => {
+                  // Show first page, last page, current page, and pages around current page
+                  if (page === 1 || page === totalPages) return true;
+                  if (page >= currentPage - 2 && page <= currentPage + 2)
+                    return true;
+                  return false;
+                })
+                .map((page, index, array) => {
+                  // Add ellipsis if there's a gap
+                  const prevPage = array[index - 1];
+                  const showEllipsis = prevPage && page - prevPage > 1;
+
+                  return (
+                    <React.Fragment key={page}>
+                      {showEllipsis && (
+                        <span className="pagination-ellipsis">...</span>
+                      )}
+                      <button
+                        className={`pagination-btn ${
+                          page === currentPage ? "active" : ""
+                        }`}
+                        onClick={() => goToPage(page)}
+                      >
+                        {page}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+
+              <button
+                className="pagination-btn"
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                title="الصفحة التالية"
+              >
+                <span>›</span>
+              </button>
+              <button
+                className="pagination-btn"
+                onClick={goToLastPage}
+                disabled={currentPage === totalPages}
+                title="الصفحة الأخيرة"
+              >
+                <span>»</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Check Modal */}
@@ -797,6 +1147,25 @@ export function PersonalChecks() {
                     className="form-input"
                   />
                 </div>
+                <div className="form-group">
+                  <label>العملة *</label>
+                  <select
+                    value={checkForm.currency}
+                    onChange={(e) =>
+                      setCheckForm({
+                        ...checkForm,
+                        currency: e.target.value as "شيقل جديد" | "دولار",
+                      })
+                    }
+                    className="form-input"
+                  >
+                    <option value="شيقل جديد">شيقل جديد (₪)</option>
+                    <option value="دولار">دولار ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
                 <div className="form-group">
                   <label>تاريخ الاستحقاق *</label>
                   <input
@@ -924,6 +1293,25 @@ export function PersonalChecks() {
                   />
                 </div>
                 <div className="form-group">
+                  <label>العملة *</label>
+                  <select
+                    value={checkForm.currency}
+                    onChange={(e) =>
+                      setCheckForm({
+                        ...checkForm,
+                        currency: e.target.value as "شيقل جديد" | "دولار",
+                      })
+                    }
+                    className="form-input"
+                  >
+                    <option value="شيقل جديد">شيقل جديد (₪)</option>
+                    <option value="دولار">دولار ($)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
                   <label>تاريخ الاستحقاق *</label>
                   <input
                     type="date"
@@ -1003,6 +1391,121 @@ export function PersonalChecks() {
               <button className="btn-danger" onClick={handleDeleteCheck}>
                 <Trash2 className="btn-icon" />
                 حذف الشيك
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Checks Modal */}
+      {showImportModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>استيراد الشيكات الشخصية</h3>
+              <button
+                className="close-btn"
+                onClick={() => setShowImportModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="import-instructions">
+                <h4>تعليمات الاستيراد:</h4>
+                <ul>
+                  <li>يجب أن يكون الملف بصيغة نصية (.txt)</li>
+                  <li>
+                    يدعم النظام تنسيقين للبيانات (مفصولة بعلامات التبويب):
+                  </li>
+                  <li>
+                    <strong>التنسيق الأول (9 أعمدة):</strong>
+                    <br />
+                    الحالة | ملاحظات | المستلم | المصرف | التاريخ | العملة |
+                    قيمة الشيك بالحروف | قيمة الشيك | رقم الشيك
+                  </li>
+                  <li>
+                    <strong>التنسيق الثاني (7 أعمدة):</strong>
+                    <br />
+                    رقم الشيك | المستلم | المصرف | التاريخ | العملة | قيمة الشيك
+                    | رقم الشيك
+                  </li>
+                  <li>التاريخ يمكن أن يكون بصيغة DD/M/YYYY أو DD/MM/YYYY</li>
+                  <li>العملة: "شيقل جديد" أو "دولار"</li>
+                  <li>الحالة: "تم الصرف" = مدفوع، فارغ = غير محدد</li>
+                </ul>
+                <div className="format-example">
+                  <p>
+                    <strong>أمثلة على التنسيقات:</strong>
+                  </p>
+                  <div style={{ marginBottom: "1rem" }}>
+                    <p>
+                      <strong>التنسيق الأول:</strong>
+                    </p>
+                    <code>
+                      تم الصرف النبالي للباطون الصفا 25/8/2022 شيقل جديد عشرة
+                      الاف شيقل 10000 30000021
+                    </code>
+                  </div>
+                  <div>
+                    <p>
+                      <strong>التنسيق الثاني:</strong>
+                    </p>
+                    <code>
+                      20300661 رضا علي محمد لدادوة الاسلامي الفلسطيني 5/7/2027
+                      دولار 1000 20300661
+                    </code>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>اختر ملف النص:</label>
+                <input
+                  type="file"
+                  accept=".txt"
+                  onChange={handleFileUpload}
+                  className="form-input"
+                />
+              </div>
+
+              {importFile && (
+                <div className="file-info">
+                  <p>
+                    <strong>الملف المختار:</strong> {importFile.name}
+                  </p>
+                  <p>
+                    <strong>الحجم:</strong>{" "}
+                    {(importFile.size / 1024).toFixed(2)} KB
+                  </p>
+                </div>
+              )}
+
+              {importing && (
+                <div className="import-progress">
+                  <div className="progress-bar">
+                    <div
+                      className="progress-fill"
+                      style={{ width: `${importProgress}%` }}
+                    ></div>
+                  </div>
+                  <p>جاري الاستيراد... {Math.round(importProgress)}%</p>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowImportModal(false)}
+              >
+                إلغاء
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleImportChecks}
+                disabled={!importFile || importing}
+              >
+                {importing ? "جاري الاستيراد..." : "بدء الاستيراد"}
               </button>
             </div>
           </div>

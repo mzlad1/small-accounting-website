@@ -3,6 +3,7 @@
   display: flex;
   flex-direction: row;
   direction: rtl; /* Arabic text direction */
+  background: ghostwhite;
 }
 
 /* Sidebar */
@@ -15,6 +16,48 @@
   box-shadow: -2px 0 4px -1px rgba(0, 0, 0, 0.1); /* Changed shadow direction */
   position: relative;
   z-index: 10;
+  transition: width 0.3s ease;
+}
+
+/* Collapsed Sidebar */
+.sidebar.collapsed {
+  width: 80px;
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Adjust toggle button position when sidebar is collapsed */
+.sidebar-collapsed .sidebar-toggle {
+  right: 80px;
+}
+
+.sidebar-toggle:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.sidebar-toggle svg {
+  color: #64748b;
+  transition: color 0.2s ease;
+}
+
+.sidebar-toggle:hover svg {
+  color: #475569;
 }
 
 /* Blue Top Section */
@@ -50,6 +93,35 @@
 
 .user-email {
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* Collapsed State Elements */
+.sidebar-title.collapsed {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.user-info.collapsed {
+  justify-content: center;
+}
+
+.nav-text {
+  transition: opacity 0.3s ease;
+}
+
+.sidebar.collapsed .nav-text {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
+}
+
+.logout-section.collapsed {
+  padding: 1rem 0.5rem;
+}
+
+.logout-section.collapsed .logout-btn {
+  justify-content: center;
+  padding: 0.75rem 0.5rem;
 }
 
 /* White Bottom Section */
@@ -145,6 +217,12 @@
   flex: 1;
   background: #f8fafc;
   overflow-y: clip;
+  transition: margin-right 0.3s ease; /* Changed from margin-left for RTL */
+}
+
+/* Expanded Main Content when Sidebar is Collapsed */
+.main-content.expanded {
+  margin-right: 0; /* Changed from margin-left for RTL */
 }
 
 .content-wrapper {
@@ -157,19 +235,31 @@
   .sidebar {
     width: 240px;
   }
-  
+
+  .sidebar.collapsed {
+    width: 70px;
+  }
+
+  .sidebar-toggle {
+    right: 240px;
+  }
+
+  .sidebar-collapsed .sidebar-toggle {
+    right: 70px;
+  }
+
   .sidebar-header {
     padding: 1.5rem 1rem;
   }
-  
+
   .sidebar-title {
     font-size: 1.25rem;
   }
-  
+
   .nav-link {
     padding: 0.875rem 1.25rem;
   }
-  
+
   .logout-section {
     padding: 1.25rem;
   }
@@ -179,56 +269,61 @@
   .layout-container {
     flex-direction: column;
   }
-  
+
   .sidebar {
     width: 100%;
     border-left: none; /* Changed from border-right for RTL */
     border-bottom: 1px solid #e2e8f0;
   }
-  
+
+  /* Hide toggle button on mobile since sidebar becomes horizontal */
+  .sidebar-toggle {
+    display: none;
+  }
+
   .sidebar-header {
     padding: 1rem;
   }
-  
+
   .sidebar-title {
     font-size: 1.125rem;
     margin-bottom: 0.75rem;
   }
-  
+
   .sidebar-nav {
     padding: 1rem 0;
   }
-  
+
   .nav-list {
     display: flex;
     overflow-x: auto;
     padding: 0 1rem;
   }
-  
+
   .nav-list li {
     flex-shrink: 0;
   }
-  
+
   .nav-link {
     padding: 0.75rem 1rem;
     border-right: none; /* Changed from border-left for RTL */
     border-bottom: 3px solid transparent;
     white-space: nowrap;
   }
-  
+
   .nav-link.active {
     border-right-color: transparent; /* Changed from border-left-color for RTL */
     border-bottom-color: #16a34a;
   }
-  
+
   .logout-section {
     padding: 1rem;
   }
-  
+
   .logout-btn {
     justify-content: center;
   }
-  
+
   .content-wrapper {
     padding: 1.5rem;
   }
@@ -238,15 +333,15 @@
   .sidebar-header {
     padding: 0.875rem;
   }
-  
+
   .sidebar-title {
     font-size: 1rem;
   }
-  
+
   .user-info {
     font-size: 0.75rem;
   }
-  
+
   .content-wrapper {
     padding: 1rem;
   }

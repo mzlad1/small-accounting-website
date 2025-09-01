@@ -3,6 +3,21 @@ import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
 
+// Type assertion for environment variables
+declare global {
+  interface ImportMeta {
+    readonly env: {
+      readonly VITE_FIREBASE_API_KEY: string;
+      readonly VITE_FIREBASE_AUTH_DOMAIN: string;
+      readonly VITE_FIREBASE_PROJECT_ID: string;
+      readonly VITE_FIREBASE_STORAGE_BUCKET: string;
+      readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
+      readonly VITE_FIREBASE_APP_ID: string;
+      readonly VITE_FIREBASE_MEASUREMENT_ID?: string;
+    };
+  }
+}
+
 // Check if environment variables are loaded
 if (!import.meta.env.VITE_FIREBASE_API_KEY) {
   throw new Error("Firebase API key not found. Please check your .env file.");

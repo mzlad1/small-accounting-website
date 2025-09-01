@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Home,
@@ -11,6 +11,8 @@ import {
   LogOut,
   User,
   Banknote,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -34,17 +36,32 @@ const navigation = [
 export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const { currentUser, logout } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
+  };
 
   return (
-    <div className="layout-container">
+    <div
+      className={`layout-container ${
+        sidebarCollapsed ? "sidebar-collapsed" : ""
+      }`}
+    >
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         {/* Blue Top Section */}
         <div className="sidebar-header">
-          <h1 className="sidebar-title">إدارة الإنشاءات</h1>
-          <div className="user-info">
+          <h1
+            className={`sidebar-title ${sidebarCollapsed ? "collapsed" : ""}`}
+          >
+            {sidebarCollapsed ? "إ.إ" : "إدارة الإنشاءات"}
+          </h1>
+          <div className={`user-info ${sidebarCollapsed ? "collapsed" : ""}`}>
             <User className="user-icon" />
-            <span className="user-email">{currentUser?.email}</span>
+            {!sidebarCollapsed && (
+              <span className="user-email">{currentUser?.email}</span>
+            )}
           </div>
         </div>
 
@@ -59,9 +76,12 @@ export function Layout({ children }: LayoutProps) {
                     <Link
                       to={item.href}
                       className={`nav-link ${isActive ? "active" : ""}`}
+                      title={sidebarCollapsed ? item.name : undefined}
                     >
                       <item.icon className="nav-icon" />
-                      {item.name}
+                      {!sidebarCollapsed && (
+                        <span className="nav-text">{item.name}</span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -70,17 +90,28 @@ export function Layout({ children }: LayoutProps) {
           </nav>
 
           {/* Logout Button */}
-          <div className="logout-section">
+          <div
+            className={`logout-section ${sidebarCollapsed ? "collapsed" : ""}`}
+          >
             <button onClick={logout} className="logout-btn">
               <LogOut className="logout-icon" />
-              تسجيل الخروج
+              {!sidebarCollapsed && <span>تسجيل الخروج</span>}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Toggle Button */}
+      <button className="sidebar-toggle" onClick={toggleSidebar}>
+        {sidebarCollapsed ? (
+          <ChevronRight size={20} />
+        ) : (
+          <ChevronLeft size={20} />
+        )}
+      </button>
+
       {/* Main content */}
-      <div className="main-content">
+      <div className={`main-content ${sidebarCollapsed ? "expanded" : ""}`}>
         <main className="content-wrapper">{children}</main>
       </div>
     </div>
