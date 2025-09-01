@@ -216,8 +216,12 @@
 .main-content {
   flex: 1;
   background: #f8fafc;
-  overflow-y: clip;
+  overflow-y: auto;
+  overflow-x: hidden;
   transition: margin-right 0.3s ease; /* Changed from margin-left for RTL */
+  min-width: 0; /* Allow flex item to shrink below content size */
+  display: flex;
+  flex-direction: column;
 }
 
 /* Expanded Main Content when Sidebar is Collapsed */
@@ -228,6 +232,12 @@
 .content-wrapper {
   padding: 2rem;
   min-height: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
 }
 
 /* Responsive Design */
@@ -268,12 +278,14 @@
 @media (max-width: 768px) {
   .layout-container {
     flex-direction: column;
+    min-height: 100vh;
   }
 
   .sidebar {
     width: 100%;
     border-left: none; /* Changed from border-right for RTL */
     border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
   }
 
   /* Hide toggle button on mobile since sidebar becomes horizontal */
@@ -298,6 +310,7 @@
     display: flex;
     overflow-x: auto;
     padding: 0 1rem;
+    -webkit-overflow-scrolling: touch;
   }
 
   .nav-list li {
@@ -326,6 +339,20 @@
 
   .content-wrapper {
     padding: 1.5rem;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+    flex: 1;
+  }
+
+  .main-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 }
 

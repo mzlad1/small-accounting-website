@@ -52,11 +52,6 @@ export function Layout({ children }: LayoutProps) {
       <div className={`sidebar ${sidebarCollapsed ? "collapsed" : ""}`}>
         {/* Blue Top Section */}
         <div className="sidebar-header">
-          <h1
-            className={`sidebar-title ${sidebarCollapsed ? "collapsed" : ""}`}
-          >
-            {sidebarCollapsed ? "إ.إ" : "إدارة الإنشاءات"}
-          </h1>
           <div className={`user-info ${sidebarCollapsed ? "collapsed" : ""}`}>
             <User className="user-icon" />
             {!sidebarCollapsed && (

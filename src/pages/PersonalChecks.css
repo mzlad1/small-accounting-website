@@ -3,6 +3,10 @@
   background: #f8fafc;
   min-height: 100vh;
   direction: rtl; /* Arabic text direction */
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 /* Header Styles */
@@ -13,6 +17,9 @@
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .header-content h1 {
@@ -107,6 +114,9 @@
   margin-bottom: 2rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .search-box {
@@ -184,6 +194,74 @@
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
   overflow: hidden;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Add horizontal scrolling for table overflow */
+.table-container {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-height: none;
+}
+
+/* Ensure table maintains minimum width for readability */
+.personal-checks-table {
+  min-width: 800px; /* Minimum width to prevent squishing */
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Custom scrollbar styling for better UX */
+.table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Firefox scrollbar styling */
+.table-container {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+/* Add subtle hint for horizontal scrolling */
+.table-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Show hint when table overflows */
+.table-container:has(.personal-checks-table[style*="min-width"])::after {
+  opacity: 1;
+}
+
+/* Alternative approach for browsers that don't support :has() */
+.table-container.overflowing::after {
+  opacity: 1;
 }
 
 .personal-checks-table {
@@ -800,11 +878,18 @@
 
   .personal-checks-table {
     font-size: 0.875rem;
+    min-width: 600px; /* Smaller minimum width for mobile */
   }
 
   .personal-checks-table th,
   .personal-checks-table td {
     padding: 0.5rem 0.75rem;
+  }
+
+  /* Ensure table container shows scrollbar on mobile */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
 
   .modal-footer {

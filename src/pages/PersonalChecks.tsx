@@ -93,6 +93,27 @@ export function PersonalChecks() {
     applyFiltersAndSort();
   }, [checks, searchTerm, filters, sortBy]);
 
+  // Detect table overflow and add visual hint
+  useEffect(() => {
+    const tableContainer = document.querySelector(".table-container");
+    if (tableContainer) {
+      const checkOverflow = () => {
+        const hasOverflow =
+          tableContainer.scrollWidth > tableContainer.clientWidth;
+        if (hasOverflow) {
+          tableContainer.classList.add("overflowing");
+        } else {
+          tableContainer.classList.remove("overflowing");
+        }
+      };
+
+      checkOverflow();
+      window.addEventListener("resize", checkOverflow);
+
+      return () => window.removeEventListener("resize", checkOverflow);
+    }
+  }, [filteredChecks]); // Re-check when filtered checks change
+
   const fetchData = async () => {
     try {
       setLoading(true);
