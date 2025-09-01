@@ -17,6 +17,7 @@ import {
   Edit,
   Trash2,
   Printer,
+  Upload,
 } from "lucide-react";
 import {
   collection,
@@ -46,14 +47,18 @@ interface CustomerCheck {
   bank: string;
   amount: number;
   dueDate: string;
-  status: "pending" | "collected" | "returned" | "overdue";
+  status: "pending" | "collected" | "returned" | "overdue" | "غير محدد";
   notes?: string;
+  nameOnCheck?: string;
+  autoCollected?: boolean;
+  autoCollectedAt?: string;
   createdAt: string;
 }
 
 export function Checks() {
   const [checks, setChecks] = useState<CustomerCheck[]>([]);
   const [filteredChecks, setFilteredChecks] = useState<CustomerCheck[]>([]);
+  const [paginatedChecks, setPaginatedChecks] = useState<CustomerCheck[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -81,7 +86,22 @@ export function Checks() {
     amount: 0,
     dueDate: new Date().toISOString().split("T")[0],
     notes: "",
+    nameOnCheck: "",
   });
+
+  // Import modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importForm, setImportForm] = useState({
+    customerId: "",
+    file: null as File | null,
+  });
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<any[]>([]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -89,7 +109,7 @@ export function Checks() {
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [checks, searchTerm, filters, sortBy]);
+  }, [checks, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
 
   const fetchData = async () => {
     try {
@@ -108,13 +128,13 @@ export function Checks() {
         query(collection(db, "customerChecks"), orderBy("dueDate", "asc"))
       );
       const checksData: CustomerCheck[] = [];
-      checksSnapshot.forEach((doc) => {
-        const checkData = doc.data();
+      checksSnapshot.forEach((checkDoc) => {
+        const checkData = checkDoc.data();
         const customer = customersData.find(
           (c) => c.id === checkData.customerId
         );
         const check: CustomerCheck = {
-          id: doc.id,
+          id: checkDoc.id,
           customerId: checkData.customerId,
           checkNumber: checkData.checkNumber,
           bank: checkData.bank,
@@ -122,16 +142,27 @@ export function Checks() {
           dueDate: checkData.dueDate,
           status: checkData.status,
           notes: checkData.notes,
+          nameOnCheck: checkData.nameOnCheck,
+          autoCollected: checkData.autoCollected,
+          autoCollectedAt: checkData.autoCollectedAt,
           createdAt: checkData.createdAt,
           customerName: customer?.name || "Unknown Customer",
         };
 
-        // Update status to overdue if due date has passed
+        // Auto-mark as collected if due date has passed
         if (
-          check.status === "pending" &&
+          (check.status === "pending" || check.status === "غير محدد") &&
           new Date(check.dueDate) < new Date()
         ) {
-          check.status = "overdue";
+          check.status = "collected";
+          // Update the status in the database
+          updateDoc(doc(db, "customerChecks", check.id), {
+            status: "collected",
+            autoCollected: true,
+            autoCollectedAt: new Date().toISOString(),
+          }).catch((error) => {
+            console.error("Error auto-updating check status:", error);
+          });
         }
 
         checksData.push(check);
@@ -242,6 +273,21 @@ export function Checks() {
     });
 
     setFilteredChecks(filtered);
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    setTotalPages(totalPages);
+
+    // Reset to first page if current page is beyond total pages
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+
+    // Get paginated data
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginated = filtered.slice(startIndex, endIndex);
+    setPaginatedChecks(paginated);
   };
 
   const handleAddCheck = async () => {
@@ -261,6 +307,7 @@ export function Checks() {
         amount: 0,
         dueDate: new Date().toISOString().split("T")[0],
         notes: "",
+        nameOnCheck: "",
       });
       fetchData();
     } catch (error) {
@@ -289,6 +336,7 @@ export function Checks() {
         amount: 0,
         dueDate: new Date().toISOString().split("T")[0],
         notes: "",
+        nameOnCheck: "",
       });
       fetchData();
     } catch (error) {
@@ -300,7 +348,25 @@ export function Checks() {
     if (!selectedCheck) return;
 
     try {
+      // Delete the check
       await deleteDoc(doc(db, "customerChecks", selectedCheck.id));
+
+      // Also delete the corresponding payment if it exists
+      const paymentsSnapshot = await getDocs(
+        query(
+          collection(db, "payments"),
+          where("checkNumber", "==", selectedCheck.checkNumber),
+          where("customerId", "==", selectedCheck.customerId),
+          where("type", "==", "check")
+        )
+      );
+
+      if (!paymentsSnapshot.empty) {
+        const paymentDoc = paymentsSnapshot.docs[0];
+        await deleteDoc(doc(db, "payments", paymentDoc.id));
+        console.log("Deleted corresponding payment:", paymentDoc.id);
+      }
+
       setShowDeleteModal(false);
       setSelectedCheck(null);
       fetchData();
@@ -332,6 +398,7 @@ export function Checks() {
       amount: check.amount,
       dueDate: check.dueDate,
       notes: check.notes || "",
+      nameOnCheck: check.nameOnCheck || "",
     });
     setShowEditModal(true);
   };
@@ -437,6 +504,7 @@ export function Checks() {
                   <th>العميل</th>
                   <th>رقم الشيك</th>
                   <th>البنك</th>
+                  <th>الاسم على الشيك</th>
                   <th>المبلغ</th>
                   <th>تاريخ الاستحقاق</th>
                   <th>الحالة</th>
@@ -451,6 +519,7 @@ export function Checks() {
                     <td>${check.customerName}</td>
                     <td>${check.checkNumber}</td>
                     <td>${check.bank}</td>
+                    <td>${check.nameOnCheck || "-"}</td>
                     <td>${check.amount.toLocaleString("en-IL", {
                       style: "currency",
                       currency: "ILS",
@@ -489,6 +558,141 @@ export function Checks() {
     }
   };
 
+  // Import functions
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImportForm({ ...importForm, file });
+      parseCSVFile(file);
+    }
+  };
+
+  const parseCSVFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const lines = text.split("\n");
+      const headers = lines[0].split(",");
+
+      const parsedData = lines
+        .slice(1)
+        .map((line, index) => {
+          if (line.trim()) {
+            const values = line.split(",");
+            // Skip rows where cumulative account (values[0]) is empty or invalid
+            // This helps avoid importing incorrect checks
+            if (
+              !values[0] ||
+              values[0].trim() === "" ||
+              values[8]?.trim() === ""
+            ) {
+              return null;
+            }
+            return {
+              row: index + 2,
+              checkNumber: values[8]?.trim() || "",
+              amount: parseFloat(values[7]) || 0,
+              dueDate: values[4]?.trim() || "",
+              bank: values[3]?.trim() || "",
+              notes: values[1]?.trim() || "",
+              nameOnCheck: values[2]?.trim() || "",
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      setImportPreview(parsedData);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportChecks = async () => {
+    if (
+      !importForm.customerId ||
+      !importForm.file ||
+      importPreview.length === 0
+    ) {
+      alert("يرجى اختيار العميل ورفع الملف");
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const customer = customers.find((c) => c.id === importForm.customerId);
+      if (!customer) {
+        alert("العميل المحدد غير موجود");
+        return;
+      }
+
+      // Get existing check numbers to avoid duplicates
+      const existingCheckNumbers = checks.map((check) => check.checkNumber);
+
+      let importedCount = 0;
+      let skippedCount = 0;
+      const skippedChecks: string[] = [];
+
+      for (const checkData of importPreview) {
+        // Check if check number already exists
+        if (existingCheckNumbers.includes(checkData.checkNumber)) {
+          skippedCount++;
+          skippedChecks.push(checkData.checkNumber);
+          continue;
+        }
+
+        // Convert date format from DD/MM/YYYY to YYYY-MM-DD
+        const dateParts = checkData.dueDate.split("/");
+        const formattedDate =
+          dateParts.length === 3
+            ? `${dateParts[2]}-${dateParts[1].padStart(
+                2,
+                "0"
+              )}-${dateParts[0].padStart(2, "0")}`
+            : new Date().toISOString().split("T")[0];
+
+        const newCheck = {
+          customerId: importForm.customerId,
+          customerName: customer.name,
+          checkNumber: checkData.checkNumber,
+          bank: checkData.bank,
+          amount: checkData.amount,
+          dueDate: formattedDate,
+          status: "غير محدد" as CustomerCheck["status"],
+          notes: checkData.notes,
+          nameOnCheck: checkData.nameOnCheck,
+          createdAt: new Date().toISOString(),
+        };
+
+        await addDoc(collection(db, "customerChecks"), newCheck);
+        importedCount++;
+      }
+
+      // Show detailed import results
+      let message = `تم استيراد ${importedCount} شيك بنجاح`;
+      if (skippedCount > 0) {
+        message += `\nتم تخطي ${skippedCount} شيك موجود مسبقاً`;
+        if (skippedChecks.length <= 5) {
+          message += `\nالأرقام المتكررة: ${skippedChecks.join(", ")}`;
+        } else {
+          message += `\nالأرقام المتكررة: ${skippedChecks
+            .slice(0, 5)
+            .join(", ")} و ${skippedChecks.length - 5} أخرى`;
+        }
+      }
+
+      alert(message);
+      setShowImportModal(false);
+      setImportForm({ customerId: "", file: null });
+      setImportPreview([]);
+      fetchData();
+    } catch (error) {
+      console.error("Error importing checks:", error);
+      alert("حدث خطأ أثناء استيراد الشيكات");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-IL", {
       style: "currency",
@@ -506,6 +710,32 @@ export function Checks() {
 
   const isOverdue = (dueDate: string) => {
     return new Date(dueDate) < new Date();
+  };
+
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   if (loading) {
@@ -531,6 +761,13 @@ export function Checks() {
           <button className="print-btn" onClick={printChecks}>
             <Printer className="btn-icon" />
             طباعة
+          </button>
+          <button
+            className="import-btn"
+            onClick={() => setShowImportModal(true)}
+          >
+            <Upload className="btn-icon" />
+            استيراد شيكات
           </button>
           <button
             className="add-check-btn"
@@ -655,6 +892,7 @@ export function Checks() {
               </th>
               <th>رقم الشيك</th>
               <th>البنك</th>
+              <th>الاسم على الشيك</th>
               <th onClick={() => handleSort("amount")} className="sortable">
                 <div className="th-content">
                   <DollarSign className="th-icon" />
@@ -675,14 +913,14 @@ export function Checks() {
             </tr>
           </thead>
           <tbody>
-            {filteredChecks.length === 0 ? (
+            {paginatedChecks.length === 0 ? (
               <tr>
-                <td colSpan={8} className="no-data">
+                <td colSpan={9} className="no-data">
                   لا توجد شيكات
                 </td>
               </tr>
             ) : (
-              filteredChecks.map((check) => (
+              paginatedChecks.map((check) => (
                 <tr
                   key={check.id}
                   className={`check-row ${
@@ -706,6 +944,11 @@ export function Checks() {
                   </td>
                   <td>
                     <div className="bank-name">{check.bank}</div>
+                  </td>
+                  <td>
+                    <div className="name-on-check">
+                      {check.nameOnCheck || "-"}
+                    </div>
                   </td>
                   <td>
                     <div className="check-amount">
@@ -773,6 +1016,78 @@ export function Checks() {
         </table>
       </div>
 
+      {/* Pagination Controls */}
+      {filteredChecks.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+              {Math.min(currentPage * itemsPerPage, filteredChecks.length)} من{" "}
+              {filteredChecks.length} شيك
+            </span>
+            <div className="items-per-page">
+              <label>عدد العناصر في الصفحة:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+                className="pagination-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              الأولى
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              السابقة
+            </button>
+
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                className={`pagination-btn ${
+                  currentPage === page ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              التالية
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              الأخيرة
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Add Check Modal */}
       {showAddModal && (
         <div className="modal-overlay">
@@ -833,6 +1148,19 @@ export function Checks() {
                     className="form-input"
                   />
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>الاسم على الشيك</label>
+                <input
+                  type="text"
+                  value={checkForm.nameOnCheck}
+                  onChange={(e) =>
+                    setCheckForm({ ...checkForm, nameOnCheck: e.target.value })
+                  }
+                  placeholder="أدخل الاسم على الشيك (اختياري)"
+                  className="form-input"
+                />
               </div>
 
               <div className="form-row">
@@ -966,6 +1294,19 @@ export function Checks() {
                 </div>
               </div>
 
+              <div className="form-group">
+                <label>الاسم على الشيك</label>
+                <input
+                  type="text"
+                  value={checkForm.nameOnCheck}
+                  onChange={(e) =>
+                    setCheckForm({ ...checkForm, nameOnCheck: e.target.value })
+                  }
+                  placeholder="أدخل الاسم على الشيك (اختياري)"
+                  className="form-input"
+                />
+              </div>
+
               <div className="form-row">
                 <div className="form-group">
                   <label>المبلغ *</label>
@@ -1064,6 +1405,186 @@ export function Checks() {
               <button className="btn-danger" onClick={handleDeleteCheck}>
                 <Trash2 className="btn-icon" />
                 حذف الشيك
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {showImportModal && (
+        <div className="modal-overlay">
+          <div className="modal import-modal">
+            <div className="modal-header">
+              <h3>استيراد الشيكات</h3>
+              <button
+                className="close-btn"
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportForm({ customerId: "", file: null });
+                  setImportPreview([]);
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>اختر العميل:</label>
+                <select
+                  value={importForm.customerId}
+                  onChange={(e) =>
+                    setImportForm({ ...importForm, customerId: e.target.value })
+                  }
+                  className="form-select"
+                  required
+                >
+                  <option value="">اختر العميل</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>رفع ملف CSV:</label>
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={handleFileUpload}
+                  className="form-input"
+                  required
+                />
+                <small className="form-hint">
+                  يجب أن يحتوي الملف على الأعمدة: رقم الشيك، المبلغ، التاريخ،
+                  المصرف، ملاحظات، صاحب الشيك
+                </small>
+              </div>
+
+              {importPreview.length > 0 && (
+                <div className="import-preview">
+                  <h4>معاينة البيانات ({importPreview.length} شيك):</h4>
+                  <div className="preview-table">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>رقم الشيك</th>
+                          <th>المبلغ</th>
+                          <th>التاريخ</th>
+                          <th>المصرف</th>
+                          <th>الملاحظات</th>
+                          <th>صاحب الشيك</th>
+                          <th>الحالة</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {importPreview.slice(0, 5).map((check, index) => {
+                          const isDuplicate = checks.some(
+                            (existingCheck) =>
+                              existingCheck.checkNumber === check.checkNumber
+                          );
+                          return (
+                            <tr
+                              key={index}
+                              className={isDuplicate ? "duplicate-row" : ""}
+                            >
+                              <td>{check.checkNumber}</td>
+                              <td>{check.amount}</td>
+                              <td>{check.dueDate}</td>
+                              <td>{check.bank}</td>
+                              <td>{check.notes}</td>
+                              <td>{check.nameOnCheck}</td>
+                              <td>
+                                {isDuplicate ? (
+                                  <span className="duplicate-badge">
+                                    موجود مسبقاً
+                                  </span>
+                                ) : (
+                                  <span className="new-badge">جديد</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {importPreview.length > 5 && (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              style={{
+                                textAlign: "center",
+                                fontStyle: "italic",
+                              }}
+                            >
+                              ... و {importPreview.length - 5} شيك إضافي
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="preview-summary">
+                    <p>
+                      <span className="new-count">
+                        جديد:{" "}
+                        {
+                          importPreview.filter(
+                            (check) =>
+                              !checks.some(
+                                (existingCheck) =>
+                                  existingCheck.checkNumber ===
+                                  check.checkNumber
+                              )
+                          ).length
+                        }
+                      </span>
+                      <span className="duplicate-count">
+                        موجود مسبقاً:{" "}
+                        {
+                          importPreview.filter((check) =>
+                            checks.some(
+                              (existingCheck) =>
+                                existingCheck.checkNumber === check.checkNumber
+                            )
+                          ).length
+                        }
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setShowImportModal(false);
+                  setImportForm({ customerId: "", file: null });
+                  setImportPreview([]);
+                }}
+                disabled={importing}
+              >
+                إلغاء
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleImportChecks}
+                disabled={
+                  !importForm.customerId || !importForm.file || importing
+                }
+              >
+                {importing ? (
+                  <>
+                    <div className="spinner-small"></div>
+                    جاري الاستيراد...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="btn-icon" />
+                    استيراد الشيكات
+                  </>
+                )}
               </button>
             </div>
           </div>

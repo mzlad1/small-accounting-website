@@ -43,6 +43,8 @@ interface PersonalCheck {
   dueDate: string;
   status: "pending" | "paid" | "returned" | "overdue" | "undefined";
   notes?: string;
+  autoPaid?: boolean;
+  autoPaidAt?: string;
   createdAt: string;
 }
 
@@ -123,10 +125,10 @@ export function PersonalChecks() {
         query(collection(db, "personalChecks"), orderBy("dueDate", "asc"))
       );
       const checksData: PersonalCheck[] = [];
-      checksSnapshot.forEach((doc) => {
-        const checkData = doc.data();
+      checksSnapshot.forEach((checkDoc) => {
+        const checkData = checkDoc.data();
         const check: PersonalCheck = {
-          id: doc.id,
+          id: checkDoc.id,
           payee: checkData.payee,
           checkNumber: checkData.checkNumber,
           bank: checkData.bank,
@@ -135,15 +137,25 @@ export function PersonalChecks() {
           dueDate: checkData.dueDate,
           status: checkData.status,
           notes: checkData.notes,
+          autoPaid: checkData.autoPaid,
+          autoPaidAt: checkData.autoPaidAt,
           createdAt: checkData.createdAt,
         };
 
-        // Update status to overdue if due date has passed
+        // Auto-mark as paid if due date has passed
         if (
-          check.status === "pending" &&
+          (check.status === "pending" || check.status === "undefined") &&
           new Date(check.dueDate) < new Date()
         ) {
-          check.status = "overdue";
+          check.status = "paid";
+          // Update the status in the database
+          updateDoc(doc(db, "personalChecks", checkDoc.id), {
+            status: "paid",
+            autoPaid: true,
+            autoPaidAt: new Date().toISOString(),
+          }).catch((error) => {
+            console.error("Error auto-updating personal check status:", error);
+          });
         }
 
         checksData.push(check);

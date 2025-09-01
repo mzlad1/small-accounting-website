@@ -44,6 +44,8 @@ interface Payment {
   notes?: string;
   checkNumber?: string;
   checkBank?: string;
+  checkDate?: string;
+  nameOnCheck?: string;
   createdAt: string;
 }
 
@@ -74,6 +76,8 @@ export function Payments() {
     notes: "",
     checkNumber: "",
     checkBank: "",
+    checkDate: "",
+    nameOnCheck: "",
   });
 
   useEffect(() => {
@@ -197,9 +201,10 @@ export function Payments() {
           checkNumber: paymentForm.checkNumber!,
           bank: paymentForm.checkBank!,
           amount: paymentForm.amount,
-          dueDate: paymentForm.date, // Use payment date as due date
+          dueDate: paymentForm.checkDate!, // Use check date as due date
           status: "pending" as "pending" | "collected" | "returned",
           notes: paymentForm.notes || `دفعة شيك - ${paymentForm.notes || ""}`,
+          nameOnCheck: paymentForm.nameOnCheck || customer?.name || "",
           createdAt: new Date().toISOString(),
         };
 
@@ -225,6 +230,8 @@ export function Payments() {
         notes: "",
         checkNumber: "",
         checkBank: "",
+        checkDate: "",
+        nameOnCheck: "",
       });
       fetchData();
     } catch (error) {
@@ -242,6 +249,8 @@ export function Payments() {
       notes: payment.notes || "",
       checkNumber: payment.checkNumber || "",
       checkBank: payment.checkBank || "",
+      checkDate: payment.checkDate || "",
+      nameOnCheck: payment.nameOnCheck || "",
     });
     setShowEditModal(true);
   };
@@ -267,8 +276,9 @@ export function Payments() {
           checkNumber: paymentForm.checkNumber!,
           bank: paymentForm.checkBank!,
           amount: paymentForm.amount,
-          dueDate: paymentForm.date,
+          dueDate: paymentForm.checkDate!, // Use check date as due date
           notes: paymentForm.notes || `دفعة شيك - ${paymentForm.notes || ""}`,
+          nameOnCheck: paymentForm.nameOnCheck || customer?.name || "",
           updatedAt: new Date().toISOString(),
         };
 
@@ -298,6 +308,8 @@ export function Payments() {
         notes: "",
         checkNumber: "",
         checkBank: "",
+        checkDate: "",
+        nameOnCheck: "",
       });
       fetchData();
     } catch (error) {
@@ -720,6 +732,40 @@ export function Payments() {
               )}
 
               {paymentForm.type === "check" && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>تاريخ الشيك *</label>
+                    <input
+                      type="date"
+                      value={paymentForm.checkDate}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          checkDate: e.target.value,
+                        })
+                      }
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>الاسم على الشيك</label>
+                    <input
+                      type="text"
+                      value={paymentForm.nameOnCheck}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          nameOnCheck: e.target.value,
+                        })
+                      }
+                      placeholder="أدخل الاسم على الشيك (اختياري)"
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {paymentForm.type === "check" && (
                 <div className="form-info">
                   <p>
                     سيتم إضافة هذا الشيك تلقائياً إلى قائمة الشيكات للمتابعة
@@ -742,7 +788,9 @@ export function Payments() {
                   !paymentForm.date ||
                   paymentForm.amount <= 0 ||
                   (paymentForm.type === "check" &&
-                    (!paymentForm.checkNumber || !paymentForm.checkBank))
+                    (!paymentForm.checkNumber ||
+                      !paymentForm.checkBank ||
+                      !paymentForm.checkDate))
                 }
               >
                 إضافة الدفعة
@@ -884,6 +932,40 @@ export function Payments() {
               )}
 
               {paymentForm.type === "check" && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>تاريخ الشيك *</label>
+                    <input
+                      type="date"
+                      value={paymentForm.checkDate}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          checkDate: e.target.value,
+                        })
+                      }
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>الاسم على الشيك</label>
+                    <input
+                      type="text"
+                      value={paymentForm.nameOnCheck}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          nameOnCheck: e.target.value,
+                        })
+                      }
+                      placeholder="أدخل الاسم على الشيك (اختياري)"
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {paymentForm.type === "check" && (
                 <div className="form-info">
                   <p>سيتم تحديث الشيك المقترن بهذه الدفعة تلقائياً</p>
                 </div>
@@ -904,7 +986,9 @@ export function Payments() {
                   !paymentForm.date ||
                   paymentForm.amount <= 0 ||
                   (paymentForm.type === "check" &&
-                    (!paymentForm.checkNumber || !paymentForm.checkBank))
+                    (!paymentForm.checkNumber ||
+                      !paymentForm.checkBank ||
+                      !paymentForm.checkDate))
                 }
               >
                 تحديث الدفعة
