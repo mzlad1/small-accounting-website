@@ -5,6 +5,7 @@ import {
   Search,
   Filter,
   Eye,
+  Edit,
   Package,
   User,
   Calendar,
@@ -20,6 +21,7 @@ import {
   collection,
   getDocs,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   query,
@@ -66,6 +68,8 @@ export function Orders() {
     order: "desc" as "asc" | "desc",
   });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [orderForm, setOrderForm] = useState({
     customerId: "",
     title: "",
@@ -74,6 +78,9 @@ export function Orders() {
     total: 0, // This will be calculated from order items later
     notes: "",
   });
+  const [existingTitles, setExistingTitles] = useState<string[]>([]);
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false);
+  const [filteredTitles, setFilteredTitles] = useState<string[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -135,6 +142,13 @@ export function Orders() {
         } as Order);
       });
       setOrders(ordersData);
+
+      // Extract unique order titles for autocomplete
+      const uniqueTitles = [
+        ...new Set(ordersData.map((order) => order.title)),
+      ].filter((title) => title.trim() !== "");
+      console.log("📝 Extracted order titles:", uniqueTitles);
+      setExistingTitles(uniqueTitles);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -238,11 +252,87 @@ export function Orders() {
     }
   };
 
+  const handleEditOrder = (order: Order) => {
+    setEditingOrder(order);
+    setOrderForm({
+      customerId: order.customerId,
+      title: order.title,
+      date: order.date,
+      status: order.status,
+      total: order.total,
+      notes: order.notes || "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!editingOrder) return;
+
+    try {
+      // Get customer name for the selected customer
+      const selectedCustomer = customers.find(
+        (c) => c.id === orderForm.customerId
+      );
+
+      if (!selectedCustomer) {
+        alert("يرجى اختيار عميل صحيح");
+        return;
+      }
+
+      const orderData = {
+        customerId: orderForm.customerId,
+        customerName: selectedCustomer.name,
+        title: orderForm.title,
+        date: orderForm.date,
+        status: orderForm.status,
+        total: orderForm.total,
+        notes: orderForm.notes,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await updateDoc(doc(db, "orders", editingOrder.id), orderData);
+
+      setShowEditModal(false);
+      setEditingOrder(null);
+      setOrderForm({
+        customerId: "",
+        title: "",
+        date: new Date().toISOString().split("T")[0],
+        status: "pending",
+        total: 0,
+        notes: "",
+      });
+
+      fetchData();
+    } catch (error) {
+      console.error("Error updating order:", error);
+    }
+  };
+
   const handleSort = (field: string) => {
     setSortBy((prev) => ({
       field,
       order: prev.field === field && prev.order === "desc" ? "asc" : "desc",
     }));
+  };
+
+  const handleTitleInputChange = (value: string) => {
+    setOrderForm({ ...orderForm, title: value });
+
+    if (value.length > 0) {
+      const filtered = existingTitles.filter((title) =>
+        title.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredTitles(filtered);
+      setShowTitleSuggestions(filtered.length > 0);
+    } else {
+      setShowTitleSuggestions(false);
+    }
+  };
+
+  const selectTitle = (title: string) => {
+    setOrderForm({ ...orderForm, title });
+    setShowTitleSuggestions(false);
   };
 
   const getSortIcon = (field: string) => {
@@ -565,6 +655,13 @@ export function Orders() {
                         <Eye />
                       </button>
                       <button
+                        className="action-btn edit"
+                        title="تعديل الطلب"
+                        onClick={() => handleEditOrder(order)}
+                      >
+                        <Edit />
+                      </button>
+                      <button
                         className="action-btn delete"
                         title="حذف الطلب"
                         onClick={() => handleDeleteOrder(order.id)}
@@ -614,15 +711,50 @@ export function Orders() {
 
               <div className="form-group">
                 <label>عنوان الطلب *</label>
-                <input
-                  type="text"
-                  value={orderForm.title}
-                  onChange={(e) =>
-                    setOrderForm({ ...orderForm, title: e.target.value })
-                  }
-                  placeholder="أدخل عنوان الطلب"
-                  className="form-input"
-                />
+                <div className="autocomplete-container">
+                  <input
+                    type="text"
+                    value={orderForm.title}
+                    onChange={(e) => handleTitleInputChange(e.target.value)}
+                    onFocus={() => {
+                      if (orderForm.title.length > 0) {
+                        const filtered = existingTitles.filter((title) =>
+                          title
+                            .toLowerCase()
+                            .includes(orderForm.title.toLowerCase())
+                        );
+                        setFilteredTitles(filtered);
+                        setShowTitleSuggestions(filtered.length > 0);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay hiding to allow clicking on suggestions
+                      setTimeout(() => setShowTitleSuggestions(false), 200);
+                    }}
+                    placeholder="أدخل عنوان الطلب أو اختر من القائمة"
+                    className="form-input"
+                    autoComplete="off"
+                  />
+                  {showTitleSuggestions && filteredTitles.length > 0 && (
+                    <div className="suggestions-dropdown">
+                      {filteredTitles.map((title, index) => (
+                        <div
+                          key={index}
+                          className="suggestion-item"
+                          onClick={() => selectTitle(title)}
+                        >
+                          {title}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {existingTitles.length > 0 && (
+                  <small className="form-hint">
+                    💡 ابدأ بالكتابة لرؤية العناوين السابقة (
+                    {existingTitles.length} عنوان متاح)
+                  </small>
+                )}
               </div>
 
               <div className="form-row">
@@ -683,6 +815,150 @@ export function Orders() {
                 disabled={!orderForm.customerId || !orderForm.title}
               >
                 إضافة الطلب
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Order Modal */}
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>تعديل الطلب</h3>
+              <button
+                className="close-btn"
+                onClick={() => setShowEditModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>العميل *</label>
+                <select
+                  className="form-select"
+                  value={orderForm.customerId}
+                  onChange={(e) =>
+                    setOrderForm({ ...orderForm, customerId: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">اختر العميل</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>عنوان الطلب *</label>
+                <div className="autocomplete-container">
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={orderForm.title}
+                    onChange={(e) => handleTitleInputChange(e.target.value)}
+                    onFocus={() => {
+                      if (orderForm.title.length > 0) {
+                        const filtered = existingTitles.filter((title) =>
+                          title
+                            .toLowerCase()
+                            .includes(orderForm.title.toLowerCase())
+                        );
+                        setFilteredTitles(filtered);
+                        setShowTitleSuggestions(filtered.length > 0);
+                      }
+                    }}
+                    onBlur={() => {
+                      setTimeout(() => setShowTitleSuggestions(false), 200);
+                    }}
+                    placeholder="أدخل عنوان الطلب أو اختر من القائمة"
+                    required
+                    autoComplete="off"
+                  />
+                  {showTitleSuggestions && filteredTitles.length > 0 && (
+                    <div className="suggestions-dropdown">
+                      {filteredTitles.map((title, index) => (
+                        <div
+                          key={index}
+                          className="suggestion-item"
+                          onClick={() => selectTitle(title)}
+                        >
+                          {title}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {existingTitles.length > 0 && (
+                  <small className="form-hint">
+                    💡 ابدأ بالكتابة لرؤية العناوين السابقة (
+                    {existingTitles.length} عنوان متاح)
+                  </small>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label>تاريخ الطلب</label>
+                <input
+                  type="date"
+                  className="form-input"
+                  value={orderForm.date}
+                  onChange={(e) =>
+                    setOrderForm({ ...orderForm, date: e.target.value })
+                  }
+                />
+              </div>
+
+              <div className="form-group">
+                <label>حالة الطلب</label>
+                <select
+                  className="form-select"
+                  value={orderForm.status}
+                  onChange={(e) =>
+                    setOrderForm({
+                      ...orderForm,
+                      status: e.target.value as Order["status"],
+                    })
+                  }
+                >
+                  <option value="pending">في الانتظار</option>
+                  <option value="in-progress">قيد التنفيذ</option>
+                  <option value="completed">مكتمل</option>
+                  <option value="cancelled">ملغي</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>ملاحظات</label>
+                <textarea
+                  className="form-textarea"
+                  value={orderForm.notes}
+                  onChange={(e) =>
+                    setOrderForm({ ...orderForm, notes: e.target.value })
+                  }
+                  placeholder="أدخل أي ملاحظات إضافية"
+                  rows={3}
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowEditModal(false)}
+              >
+                إلغاء
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleUpdateOrder}
+                disabled={!orderForm.customerId || !orderForm.title}
+              >
+                حفظ التعديلات
               </button>
             </div>
           </div>

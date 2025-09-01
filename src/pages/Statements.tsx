@@ -101,8 +101,8 @@ export function Statements() {
   >([]);
 
   const [filters, setFilters] = useState({
-    dateFrom: "2015-01-01", // Start from a very early date to include all data
-    dateTo: "2030-01-01", // Up to today
+    dateFrom: "2020-01-01", // Start from a very early date to include all data
+    dateTo: new Date().toISOString().split("T")[0], // Today's date
     status: "all",
     balanceType: "all",
     customerId: undefined as string | undefined,
@@ -128,7 +128,8 @@ export function Statements() {
   };
 
   useEffect(() => {
-    if (customers.length > 0 && orders.length > 0 && payments.length > 0) {
+    // Generate statements if we have customers (even if no orders/payments yet)
+    if (customers.length > 0) {
       generateCustomerStatements();
     }
   }, [customers, orders, orderItems, payments, customerChecks, filters]);
@@ -237,20 +238,18 @@ export function Statements() {
 
     const statements: CustomerStatement[] = customers.map((customer) => {
       // Get customer orders
-      const customerOrders = orders.filter(
-        (order) =>
-          order.customerId === customer.id &&
-          new Date(order.date) >= dateFrom &&
-          new Date(order.date) <= dateTo
-      );
+      const customerOrders = orders.filter((order) => {
+        const orderDate = new Date(order.date);
+        const isInDateRange = orderDate >= dateFrom && orderDate <= dateTo;
+        return order.customerId === customer.id && isInDateRange;
+      });
 
       // Get customer payments
-      const customerPayments = payments.filter(
-        (payment) =>
-          payment.customerId === customer.id &&
-          new Date(payment.date) >= dateFrom &&
-          new Date(payment.date) <= dateTo
-      );
+      const customerPayments = payments.filter((payment) => {
+        const paymentDate = new Date(payment.date);
+        const isInDateRange = paymentDate >= dateFrom && paymentDate <= dateTo;
+        return payment.customerId === customer.id && isInDateRange;
+      });
 
       // Get customer checks - include ALL checks for display, not just date-filtered ones
       const customerChecksList = customerChecks.filter(
