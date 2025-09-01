@@ -313,6 +313,55 @@
   font-weight: 500;
 }
 
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.action-btn.edit {
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+}
+
+.action-btn.edit:hover {
+  background: #fde68a;
+  color: #b45309;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(217, 119, 6, 0.2);
+}
+
+.action-btn.delete {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+}
+
+.action-btn.delete:hover {
+  background: #fecaca;
+  color: #b91c1c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.2);
+}
+
+.action-btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;

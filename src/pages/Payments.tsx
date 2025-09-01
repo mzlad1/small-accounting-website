@@ -11,11 +11,16 @@ import {
   Banknote,
   SortAsc,
   SortDesc,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import {
   collection,
   getDocs,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   query,
   where,
   orderBy,
@@ -59,6 +64,8 @@ export function Payments() {
     order: "desc" as "asc" | "desc",
   });
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [paymentForm, setPaymentForm] = useState({
     customerId: "",
     date: new Date().toISOString().split("T")[0],
@@ -222,6 +229,109 @@ export function Payments() {
       fetchData();
     } catch (error) {
       console.error("Error adding payment:", error);
+    }
+  };
+
+  const handleEditPayment = (payment: Payment) => {
+    setEditingPayment(payment);
+    setPaymentForm({
+      customerId: payment.customerId,
+      date: payment.date,
+      type: payment.type,
+      amount: payment.amount,
+      notes: payment.notes || "",
+      checkNumber: payment.checkNumber || "",
+      checkBank: payment.checkBank || "",
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdatePayment = async () => {
+    if (!editingPayment) return;
+
+    try {
+      const updatedPayment = {
+        ...paymentForm,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Update the payment
+      await updateDoc(doc(db, "payments", editingPayment.id), updatedPayment);
+
+      // If it's a check payment, also update the corresponding check
+      if (paymentForm.type === "check") {
+        const customer = customers.find((c) => c.id === paymentForm.customerId);
+        const updatedCheck = {
+          customerId: paymentForm.customerId,
+          customerName: customer?.name || "",
+          checkNumber: paymentForm.checkNumber!,
+          bank: paymentForm.checkBank!,
+          amount: paymentForm.amount,
+          dueDate: paymentForm.date,
+          notes: paymentForm.notes || `دفعة شيك - ${paymentForm.notes || ""}`,
+          updatedAt: new Date().toISOString(),
+        };
+
+        // Find and update the corresponding check
+        const checksSnapshot = await getDocs(
+          query(
+            collection(db, "customerChecks"),
+            where("checkNumber", "==", editingPayment.checkNumber),
+            where("customerId", "==", editingPayment.customerId)
+          )
+        );
+
+        if (!checksSnapshot.empty) {
+          const checkDoc = checksSnapshot.docs[0];
+          await updateDoc(doc(db, "customerChecks", checkDoc.id), updatedCheck);
+        }
+      }
+
+      alert("تم تحديث الدفعة بنجاح!");
+      setShowEditModal(false);
+      setEditingPayment(null);
+      setPaymentForm({
+        customerId: "",
+        date: new Date().toISOString().split("T")[0],
+        type: "cash",
+        amount: 0,
+        notes: "",
+        checkNumber: "",
+        checkBank: "",
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Error updating payment:", error);
+    }
+  };
+
+  const handleDeletePayment = async (payment: Payment) => {
+    if (!confirm("هل أنت متأكد من حذف هذه الدفعة؟")) return;
+
+    try {
+      // Delete the payment
+      await deleteDoc(doc(db, "payments", payment.id));
+
+      // If it's a check payment, also delete the corresponding check
+      if (payment.type === "check") {
+        const checksSnapshot = await getDocs(
+          query(
+            collection(db, "customerChecks"),
+            where("checkNumber", "==", payment.checkNumber),
+            where("customerId", "==", payment.customerId)
+          )
+        );
+
+        if (!checksSnapshot.empty) {
+          const checkDoc = checksSnapshot.docs[0];
+          await deleteDoc(doc(db, "customerChecks", checkDoc.id));
+        }
+      }
+
+      alert("تم حذف الدفعة بنجاح!");
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting payment:", error);
     }
   };
 
@@ -403,12 +513,13 @@ export function Payments() {
               </th>
               <th>ملاحظات</th>
               <th>تفاصيل الشيك</th>
+              <th>الإجراءات</th>
             </tr>
           </thead>
           <tbody>
             {filteredPayments.length === 0 ? (
               <tr>
-                <td colSpan={6} className="no-data">
+                <td colSpan={7} className="no-data">
                   لا توجد مدفوعات
                 </td>
               </tr>
@@ -451,6 +562,24 @@ export function Payments() {
                     ) : (
                       <span className="no-check">-</span>
                     )}
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="action-btn edit"
+                        onClick={() => handleEditPayment(payment)}
+                        title="تعديل"
+                      >
+                        <Edit />
+                      </button>
+                      <button
+                        className="action-btn delete"
+                        onClick={() => handleDeletePayment(payment)}
+                        title="حذف"
+                      >
+                        <Trash2 />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -617,6 +746,168 @@ export function Payments() {
                 }
               >
                 إضافة الدفعة
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Payment Modal */}
+      {showEditModal && (
+        <div className="modal-overlay">
+          <div className="modal">
+            <div className="modal-header">
+              <h3>تعديل الدفعة</h3>
+              <button
+                className="close-btn"
+                onClick={() => setShowEditModal(false)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>العميل *</label>
+                <select
+                  value={paymentForm.customerId}
+                  onChange={(e) =>
+                    setPaymentForm({
+                      ...paymentForm,
+                      customerId: e.target.value,
+                    })
+                  }
+                  className="form-select"
+                >
+                  <option value="">اختر العميل</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>التاريخ *</label>
+                  <input
+                    type="date"
+                    value={paymentForm.date}
+                    onChange={(e) =>
+                      setPaymentForm({ ...paymentForm, date: e.target.value })
+                    }
+                    className="form-input"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>النوع *</label>
+                  <select
+                    value={paymentForm.type}
+                    onChange={(e) =>
+                      setPaymentForm({
+                        ...paymentForm,
+                        type: e.target.value as Payment["type"],
+                      })
+                    }
+                    className="form-select"
+                  >
+                    <option value="cash">نقدي</option>
+                    <option value="check">شيك</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>المبلغ *</label>
+                <input
+                  type="number"
+                  value={paymentForm.amount}
+                  onChange={(e) =>
+                    setPaymentForm({
+                      ...paymentForm,
+                      amount: parseFloat(e.target.value),
+                    })
+                  }
+                  min="0"
+                  step="0.01"
+                  placeholder="أدخل المبلغ"
+                  className="form-input"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>ملاحظات</label>
+                <textarea
+                  value={paymentForm.notes}
+                  onChange={(e) =>
+                    setPaymentForm({ ...paymentForm, notes: e.target.value })
+                  }
+                  placeholder="أدخل ملاحظات (اختياري)"
+                  className="form-textarea"
+                  rows={3}
+                />
+              </div>
+
+              {paymentForm.type === "check" && (
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>رقم الشيك *</label>
+                    <input
+                      type="text"
+                      value={paymentForm.checkNumber}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          checkNumber: e.target.value,
+                        })
+                      }
+                      placeholder="أدخل رقم الشيك"
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>البنك *</label>
+                    <input
+                      type="text"
+                      value={paymentForm.checkBank}
+                      onChange={(e) =>
+                        setPaymentForm({
+                          ...paymentForm,
+                          checkBank: e.target.value,
+                        })
+                      }
+                      placeholder="أدخل اسم البنك"
+                      className="form-input"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {paymentForm.type === "check" && (
+                <div className="form-info">
+                  <p>سيتم تحديث الشيك المقترن بهذه الدفعة تلقائياً</p>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={() => setShowEditModal(false)}
+              >
+                إلغاء
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleUpdatePayment}
+                disabled={
+                  !paymentForm.customerId ||
+                  !paymentForm.date ||
+                  paymentForm.amount <= 0 ||
+                  (paymentForm.type === "check" &&
+                    (!paymentForm.checkNumber || !paymentForm.checkBank))
+                }
+              >
+                تحديث الدفعة
               </button>
             </div>
           </div>
