@@ -47,11 +47,15 @@ interface Payment {
   checkDate?: string;
   nameOnCheck?: string;
   createdAt: string;
+  isGrouped?: boolean;
+  groupedCount?: number;
+  originalPayments?: Payment[];
 }
 
 export function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
+  const [paginatedPayments, setPaginatedPayments] = useState<Payment[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -80,13 +84,18 @@ export function Payments() {
     nameOnCheck: "",
   });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+
   useEffect(() => {
     fetchData();
   }, []);
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [payments, searchTerm, filters, sortBy]);
+  }, [payments, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
 
   const fetchData = async () => {
     try {
@@ -162,8 +171,68 @@ export function Payments() {
       );
     }
 
+    // Group same-day check payments by customer
+    const groupedPayments: Payment[] = [];
+    const checkPaymentsByCustomerAndDate: { [key: string]: Payment[] } = {};
+
+    // Separate cash payments and check payments
+    const cashPayments = filtered.filter((payment) => payment.type === "cash");
+    const checkPayments = filtered.filter(
+      (payment) => payment.type === "check"
+    );
+
+    // Group check payments by customer and date
+    checkPayments.forEach((payment) => {
+      const key = `${payment.customerId}_${payment.date}`;
+      if (!checkPaymentsByCustomerAndDate[key]) {
+        checkPaymentsByCustomerAndDate[key] = [];
+      }
+      checkPaymentsByCustomerAndDate[key].push(payment);
+    });
+
+    // Create grouped check payments
+    Object.values(checkPaymentsByCustomerAndDate).forEach((paymentGroup) => {
+      if (paymentGroup.length === 1) {
+        // Single payment, add as is
+        groupedPayments.push(paymentGroup[0]);
+      } else {
+        // Multiple payments on same day for same customer, group them
+        const firstPayment = paymentGroup[0];
+        const totalAmount = paymentGroup.reduce(
+          (sum, payment) => sum + payment.amount,
+          0
+        );
+        const allCheckNumbers = paymentGroup
+          .map((p) => p.checkNumber)
+          .join(", ");
+        const allBanks = [
+          ...new Set(paymentGroup.map((p) => p.checkBank)),
+        ].join(", ");
+        const allNotes = paymentGroup
+          .map((p) => p.notes)
+          .filter((note) => note)
+          .join("; ");
+
+        const groupedPayment: Payment = {
+          ...firstPayment,
+          amount: totalAmount,
+          checkNumber: allCheckNumbers,
+          checkBank: allBanks,
+          notes: allNotes || `دفعة شيكات متعددة (${paymentGroup.length} شيك)`,
+          isGrouped: true,
+          groupedCount: paymentGroup.length,
+          originalPayments: paymentGroup,
+        };
+
+        groupedPayments.push(groupedPayment);
+      }
+    });
+
+    // Combine cash payments and grouped check payments
+    const finalPayments = [...cashPayments, ...groupedPayments];
+
     // Apply sorting
-    filtered.sort((a, b) => {
+    finalPayments.sort((a, b) => {
       let aValue: any = a[sortBy.field as keyof Payment];
       let bValue: any = b[sortBy.field as keyof Payment];
 
@@ -179,7 +248,22 @@ export function Payments() {
       }
     });
 
-    setFilteredPayments(filtered);
+    setFilteredPayments(finalPayments);
+
+    // Calculate pagination
+    const totalPages = Math.ceil(finalPayments.length / itemsPerPage);
+    setTotalPages(totalPages);
+
+    // Reset to first page if current page is beyond total pages
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+
+    // Get paginated data
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginated = finalPayments.slice(startIndex, endIndex);
+    setPaginatedPayments(paginated);
   };
 
   const handleAddPayment = async () => {
@@ -240,6 +324,14 @@ export function Payments() {
   };
 
   const handleEditPayment = (payment: Payment) => {
+    // Don't allow editing grouped payments directly
+    if (payment.isGrouped) {
+      alert(
+        "لا يمكن تعديل الدفعات المجمعة مباشرة. يرجى تعديل كل شيك على حدة من صفحة الشيكات."
+      );
+      return;
+    }
+
     setEditingPayment(payment);
     setPaymentForm({
       customerId: payment.customerId,
@@ -318,6 +410,13 @@ export function Payments() {
   };
 
   const handleDeletePayment = async (payment: Payment) => {
+    if (payment.isGrouped) {
+      alert(
+        "لا يمكن حذف الدفعات المجمعة مباشرة. يرجى حذف كل شيك على حدة من صفحة الشيكات."
+      );
+      return;
+    }
+
     if (!confirm("هل أنت متأكد من حذف هذه الدفعة؟")) return;
 
     try {
@@ -392,6 +491,32 @@ export function Payments() {
       day: "numeric",
       year: "numeric",
     });
+  };
+
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   if (loading) {
@@ -493,6 +618,67 @@ export function Payments() {
         </div>
       </div>
 
+      {/* Summary Section */}
+      <div className="summary-section">
+        <div className="summary-cards">
+          <div className="summary-card">
+            <div className="summary-icon">
+              <DollarSign />
+            </div>
+            <div className="summary-content">
+              <h3>إجمالي المدفوعات</h3>
+              <p className="summary-number">{filteredPayments.length}</p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <Banknote />
+            </div>
+            <div className="summary-content">
+              <h3>إجمالي المبالغ</h3>
+              <p className="summary-number">
+                {formatCurrency(
+                  filteredPayments.reduce(
+                    (sum, payment) => sum + payment.amount,
+                    0
+                  )
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <Banknote />
+            </div>
+            <div className="summary-content">
+              <h3>المدفوعات النقدية</h3>
+              <p className="summary-number">
+                {formatCurrency(
+                  filteredPayments
+                    .filter((payment) => payment.type === "cash")
+                    .reduce((sum, payment) => sum + payment.amount, 0)
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <CreditCard />
+            </div>
+            <div className="summary-content">
+              <h3>المدفوعات بالشيك</h3>
+              <p className="summary-number">
+                {formatCurrency(
+                  filteredPayments
+                    .filter((payment) => payment.type === "check")
+                    .reduce((sum, payment) => sum + payment.amount, 0)
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Payments Table */}
       <div className="table-container">
         <table className="payments-table">
@@ -529,14 +715,14 @@ export function Payments() {
             </tr>
           </thead>
           <tbody>
-            {filteredPayments.length === 0 ? (
+            {paginatedPayments.length === 0 ? (
               <tr>
                 <td colSpan={7} className="no-data">
                   لا توجد مدفوعات
                 </td>
               </tr>
             ) : (
-              filteredPayments.map((payment) => (
+              paginatedPayments.map((payment) => (
                 <tr key={payment.id} className="payment-row">
                   <td>{formatDate(payment.date)}</td>
                   <td>
@@ -570,6 +756,11 @@ export function Payments() {
                       <div className="check-details">
                         <span>رقم: {payment.checkNumber}</span>
                         <span>بنك: {payment.checkBank}</span>
+                        {payment.isGrouped && (
+                          <span className="grouped-indicator">
+                            ({payment.groupedCount} شيك)
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <span className="no-check">-</span>
@@ -578,16 +769,30 @@ export function Payments() {
                   <td>
                     <div className="action-buttons">
                       <button
-                        className="action-btn edit"
+                        className={`action-btn edit ${
+                          payment.isGrouped ? "disabled" : ""
+                        }`}
                         onClick={() => handleEditPayment(payment)}
-                        title="تعديل"
+                        title={
+                          payment.isGrouped
+                            ? "لا يمكن تعديل الدفعات المجمعة"
+                            : "تعديل"
+                        }
+                        disabled={payment.isGrouped}
                       >
                         <Edit />
                       </button>
                       <button
-                        className="action-btn delete"
+                        className={`action-btn delete ${
+                          payment.isGrouped ? "disabled" : ""
+                        }`}
                         onClick={() => handleDeletePayment(payment)}
-                        title="حذف"
+                        title={
+                          payment.isGrouped
+                            ? "لا يمكن حذف الدفعات المجمعة"
+                            : "حذف"
+                        }
+                        disabled={payment.isGrouped}
                       >
                         <Trash2 />
                       </button>
@@ -599,6 +804,78 @@ export function Payments() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {filteredPayments.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+              {Math.min(currentPage * itemsPerPage, filteredPayments.length)} من{" "}
+              {filteredPayments.length} دفعة
+            </span>
+            <div className="items-per-page">
+              <label>عدد العناصر في الصفحة:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+                className="pagination-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              الأولى
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              السابقة
+            </button>
+
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                className={`pagination-btn ${
+                  currentPage === page ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              التالية
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              الأخيرة
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Payment Modal */}
       {showAddModal && (

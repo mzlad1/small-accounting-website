@@ -14,6 +14,7 @@ import {
   Package,
   SortAsc,
   SortDesc,
+  RefreshCw,
 } from "lucide-react";
 import {
   collection,
@@ -287,19 +288,20 @@ export function Customers() {
         // Calculate numberOfOrders
         const numberOfOrders = customerOrders.length;
 
-        // Calculate currentBalance
-        const totalOrders = customerOrders.reduce(
-          (sum, order) => sum + calculateOrderTotal(order.id),
-          0
-        );
-        const totalPendingChecks = customerChecks
-          .filter((check) => check.status === "pending")
-          .reduce((sum, check) => sum + check.amount, 0);
+        // Calculate currentBalance using orderItemsData directly
+        const totalOrders = customerOrders.reduce((sum, order) => {
+          const items = orderItemsData[order.id] || [];
+          const orderTotal = items.reduce(
+            (itemSum, item) => itemSum + (item.total || 0),
+            0
+          );
+          return sum + orderTotal;
+        }, 0);
         const totalPayments = customerPayments.reduce(
           (sum, payment) => sum + payment.amount,
           0
         );
-        const currentBalance = totalOrders + totalPendingChecks - totalPayments;
+        const currentBalance = totalOrders - totalPayments;
 
         // Calculate lastActivity
         const allDates = [
@@ -421,8 +423,8 @@ export function Customers() {
   };
 
   const getBalanceText = (balance: number) => {
-    if (balance > 0) return "مدين لك";
-    if (balance < 0) return "تدين له";
+    if (balance > 0) return "مدين";
+    if (balance < 0) return "دائن";
     return "متساوي";
   };
 
@@ -461,13 +463,23 @@ export function Customers() {
             إدارة قائمة العملاء والوصول إلى حساباتهم
           </p>
         </div>
-        <button
-          className="add-customer-btn"
-          onClick={() => setShowAddModal(true)}
-        >
-          <Plus className="btn-icon" />
-          إضافة عميل
-        </button>
+        <div className="header-actions">
+          <button
+            className="refresh-btn"
+            onClick={fetchAllData}
+            title="تحديث البيانات"
+          >
+            <RefreshCw className="btn-icon" />
+            تحديث
+          </button>
+          <button
+            className="add-customer-btn"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus className="btn-icon" />
+            إضافة عميل
+          </button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -492,8 +504,8 @@ export function Customers() {
               className="filter-select"
             >
               <option value="all">جميع العملاء</option>
-              <option value="positive">مدين لك</option>
-              <option value="negative">تدين له</option>
+              <option value="positive">مدين</option>
+              <option value="negative">دائن</option>
               <option value="zero">متساوي</option>
             </select>
           </div>

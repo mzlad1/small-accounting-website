@@ -14,6 +14,7 @@ import {
   XCircle,
   Save,
   X,
+  Printer,
 } from "lucide-react";
 import {
   collection,
@@ -216,6 +217,104 @@ export function OrderDetails() {
     }
   };
 
+  const printOrder = () => {
+    try {
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        const orderTotal = calculateOrderTotal();
+
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html dir="rtl" lang="ar">
+          <head>
+            <meta charset="UTF-8">
+            <title>تفاصيل الطلب - ${order?.title}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              .order-info { margin-bottom: 20px; }
+              .order-info p { margin: 5px 0; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              .total { font-weight: bold; font-size: 1.2em; margin-top: 20px; }
+              .status { display: inline-block; padding: 4px 8px; border-radius: 4px; color: white; }
+              .status.pending { background-color: #f59e0b; }
+              .status.in-progress { background-color: #3b82f6; }
+              .status.completed { background-color: #10b981; }
+              .status.cancelled { background-color: #ef4444; }
+              @media print { body { margin: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>تفاصيل الطلب</h1>
+            </div>
+            <div class="order-info">
+              <p><strong>عنوان الطلب:</strong> ${order?.title}</p>
+              <p><strong>العميل:</strong> ${order?.customerName}</p>
+              <p><strong>التاريخ:</strong> ${formatDate(order?.date || "")}</p>
+              <p><strong>الحالة:</strong> <span class="status ${orderStatus}">${getStatusText(
+          orderStatus
+        )}</span></p>
+              ${
+                order?.notes
+                  ? `<p><strong>ملاحظات:</strong> ${order.notes}</p>`
+                  : ""
+              }
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>اسم العنصر</th>
+                  <th>النوع</th>
+                  <th>الكمية</th>
+                  <th>الوحدة</th>
+                  <th>سعر الوحدة</th>
+                  <th>المجموع</th>
+                  <th>ملاحظات</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items
+                  .map(
+                    (item) => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td>${item.type}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.unit}</td>
+                    <td>${formatCurrency(item.unitPrice)}</td>
+                    <td>${formatCurrency(item.total)}</td>
+                    <td>${item.notes || "-"}</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+            <div class="total">
+              <p><strong>إجمالي الطلب: ${formatCurrency(
+                orderTotal
+              )}</strong></p>
+            </div>
+            <div style="margin-top: 30px; text-align: center; color: #666;">
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
+                "ar-SA"
+              )}</p>
+            </div>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing order:", error);
+      alert("حدث خطأ أثناء الطباعة");
+    }
+  };
+
   const openEditItemModal = (item: OrderItem) => {
     setSelectedItem(item);
     setItemForm({
@@ -380,6 +479,10 @@ export function OrderDetails() {
           </div>
         </div>
         <div className="od-header-actions">
+          <button className="od-print-btn" onClick={printOrder}>
+            <Printer className="od-btn-icon" />
+            طباعة
+          </button>
           <div className="od-status-selector">
             <label>تغيير الحالة:</label>
             <select

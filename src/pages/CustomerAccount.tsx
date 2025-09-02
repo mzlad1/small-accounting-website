@@ -67,6 +67,9 @@ interface Payment {
   checkNumber?: string;
   checkBank?: string;
   createdAt: string;
+  isGrouped?: boolean;
+  groupedCount?: number;
+  originalPayments?: Payment[];
 }
 
 interface CustomerCheck {
@@ -123,6 +126,14 @@ export function CustomerAccount() {
     []
   );
 
+  // Paginated data states
+  const [paginatedOrders, setPaginatedOrders] = useState<Order[]>([]);
+  const [paginatedPayments, setPaginatedPayments] = useState<Payment[]>([]);
+  const [paginatedChecks, setPaginatedChecks] = useState<CustomerCheck[]>([]);
+  const [paginatedStatement, setPaginatedStatement] = useState<
+    StatementEntry[]
+  >([]);
+
   // Form data for different modals
   const [orderForm, setOrderForm] = useState({
     title: "",
@@ -176,6 +187,31 @@ export function CustomerAccount() {
     dateFrom: "",
     dateTo: "",
     entryType: "all",
+  });
+
+  // Pagination state for each section
+  const [ordersPagination, setOrdersPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalPages: 0,
+  });
+
+  const [paymentsPagination, setPaymentsPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalPages: 0,
+  });
+
+  const [checksPagination, setChecksPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalPages: 0,
+  });
+
+  const [statementPagination, setStatementPagination] = useState({
+    currentPage: 1,
+    itemsPerPage: 10,
+    totalPages: 0,
   });
 
   useEffect(() => {
@@ -253,7 +289,63 @@ export function CustomerAccount() {
       );
     }
 
-    setFilteredPayments(filtered);
+    // Group same-day check payments by customer and date
+    const groupedPayments: Payment[] = [];
+    const checkPaymentsByDate: { [key: string]: Payment[] } = {};
+
+    // Separate cash payments and check payments
+    const cashPayments = filtered.filter((payment) => payment.type === "cash");
+    const checkPayments = filtered.filter(
+      (payment) => payment.type === "check"
+    );
+
+    // Group check payments by date
+    checkPayments.forEach((payment) => {
+      const key = payment.date;
+      if (!checkPaymentsByDate[key]) {
+        checkPaymentsByDate[key] = [];
+      }
+      checkPaymentsByDate[key].push(payment);
+    });
+
+    // Create grouped check payments
+    Object.values(checkPaymentsByDate).forEach((paymentGroup) => {
+      if (paymentGroup.length === 1) {
+        // Single payment, add as is
+        groupedPayments.push(paymentGroup[0]);
+      } else {
+        // Multiple payments on same day, group them
+        const firstPayment = paymentGroup[0];
+        const totalAmount = paymentGroup.reduce(
+          (sum, payment) => sum + payment.amount,
+          0
+        );
+        const allCheckNumbers = paymentGroup
+          .map((p) => p.checkNumber)
+          .join(", ");
+        const allBanks = [
+          ...new Set(paymentGroup.map((p) => p.checkBank)),
+        ].join(", ");
+
+        const groupedPayment: Payment = {
+          ...firstPayment,
+          amount: totalAmount,
+          checkNumber: allCheckNumbers,
+          checkBank: allBanks,
+          notes: "دفعة شيكات",
+          isGrouped: true,
+          groupedCount: paymentGroup.length,
+          originalPayments: paymentGroup,
+        };
+
+        groupedPayments.push(groupedPayment);
+      }
+    });
+
+    // Combine cash payments and grouped check payments
+    const finalPayments = [...cashPayments, ...groupedPayments];
+
+    setFilteredPayments(finalPayments);
   }, [payments, paymentFilters]);
 
   // Apply filters to checks
@@ -326,6 +418,66 @@ export function CustomerAccount() {
     setFilteredStatement(filtered);
   }, [statement, statementFilters]);
 
+  // Apply pagination to orders
+  useEffect(() => {
+    const { paginatedData, totalPages } = applyPagination(
+      filteredOrders,
+      ordersPagination.currentPage,
+      ordersPagination.itemsPerPage
+    );
+    setPaginatedOrders(paginatedData);
+    setOrdersPagination((prev) => ({ ...prev, totalPages }));
+  }, [
+    filteredOrders,
+    ordersPagination.currentPage,
+    ordersPagination.itemsPerPage,
+  ]);
+
+  // Apply pagination to payments
+  useEffect(() => {
+    const { paginatedData, totalPages } = applyPagination(
+      filteredPayments,
+      paymentsPagination.currentPage,
+      paymentsPagination.itemsPerPage
+    );
+    setPaginatedPayments(paginatedData);
+    setPaymentsPagination((prev) => ({ ...prev, totalPages }));
+  }, [
+    filteredPayments,
+    paymentsPagination.currentPage,
+    paymentsPagination.itemsPerPage,
+  ]);
+
+  // Apply pagination to checks
+  useEffect(() => {
+    const { paginatedData, totalPages } = applyPagination(
+      filteredChecks,
+      checksPagination.currentPage,
+      checksPagination.itemsPerPage
+    );
+    setPaginatedChecks(paginatedData);
+    setChecksPagination((prev) => ({ ...prev, totalPages }));
+  }, [
+    filteredChecks,
+    checksPagination.currentPage,
+    checksPagination.itemsPerPage,
+  ]);
+
+  // Apply pagination to statement
+  useEffect(() => {
+    const { paginatedData, totalPages } = applyPagination(
+      filteredStatement,
+      statementPagination.currentPage,
+      statementPagination.itemsPerPage
+    );
+    setPaginatedStatement(paginatedData);
+    setStatementPagination((prev) => ({ ...prev, totalPages }));
+  }, [
+    filteredStatement,
+    statementPagination.currentPage,
+    statementPagination.itemsPerPage,
+  ]);
+
   const fetchCustomerData = async () => {
     try {
       setLoading(true);
@@ -389,23 +541,20 @@ export function CustomerAccount() {
         where("customerId", "==", customerId),
         orderBy("createdAt", "desc")
       );
-      console.log("Fetching checks for customerId:", customerId); // Debug log
+
       const checksSnapshot = await getDocs(checksQuery);
-      console.log("Checks snapshot size:", checksSnapshot.size); // Debug log
+
       const checksData: CustomerCheck[] = [];
       checksSnapshot.forEach((doc) => {
         const checkData = { id: doc.id, ...doc.data() } as CustomerCheck;
-        console.log("Processing check:", checkData); // Debug log
+
         checksData.push(checkData);
       });
-      console.log("Fetched checks:", checksData); // Debug log
+
       setCustomerChecks(checksData);
 
-      // Debug: Log the current state after setting
-      console.log("Setting customerChecks state to:", checksData);
-
       // Generate statement
-      generateStatement(ordersData, paymentsData, checksData);
+      generateStatement(ordersData, paymentsData, checksData, orderItemsData);
     } catch (error) {
       console.error("Error fetching customer data:", error);
     } finally {
@@ -416,15 +565,18 @@ export function CustomerAccount() {
   const generateStatement = (
     ordersData: Order[],
     paymentsData: Payment[],
-    checksData: CustomerCheck[]
+    checksData: CustomerCheck[],
+    orderItemsData: { [orderId: string]: any[] }
   ) => {
     const entries: StatementEntry[] = [];
-    let runningBalance = 0;
 
     // Add orders (debits)
     ordersData.forEach((order) => {
-      const orderTotal = calculateOrderTotal(order.id);
-      runningBalance += orderTotal;
+      const items = orderItemsData[order.id] || [];
+      const orderTotal = items.reduce(
+        (sum, item) => sum + (item.total || 0),
+        0
+      );
       entries.push({
         id: `order-${order.id}`,
         date: order.date,
@@ -432,13 +584,12 @@ export function CustomerAccount() {
         description: `طلبية: ${order.title}`,
         debit: orderTotal,
         credit: 0,
-        runningBalance,
+        runningBalance: 0, // Will be calculated after sorting
       });
     });
 
-    // Add payments (credits)
+    // Add payments (credits) - this includes both cash payments and check payments
     paymentsData.forEach((payment) => {
-      runningBalance -= payment.amount;
       entries.push({
         id: `payment-${payment.id}`,
         date: payment.date,
@@ -448,30 +599,43 @@ export function CustomerAccount() {
         }`,
         debit: 0,
         credit: payment.amount,
-        runningBalance,
+        runningBalance: 0, // Will be calculated after sorting
       });
     });
 
-    // Add customer checks (credits)
+    // Add only pending checks (not collected ones, as they're already included as payments)
     checksData.forEach((check) => {
-      if (check.status === "collected") {
-        runningBalance -= check.amount;
+      if (check.status === "pending") {
+        // Pending checks don't affect the running balance, they're just for reference
         entries.push({
           id: `check-${check.id}`,
           date: check.dueDate,
           type: "check",
-          description: `شيك: ${check.checkNumber} - ${check.bank}`,
+          description: `شيك معلق: ${check.checkNumber} - ${check.bank}`,
           debit: 0,
-          credit: check.amount,
-          runningBalance,
+          credit: 0,
+          runningBalance: 0, // Will be calculated after sorting
         });
       }
     });
 
-    // Sort by date
+    // Sort by date first
     entries.sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
     );
+
+    // Now calculate running balance in chronological order
+    let runningBalance = 0;
+    entries.forEach((entry) => {
+      if (entry.type === "order") {
+        runningBalance += entry.debit;
+      } else if (entry.type === "payment") {
+        runningBalance -= entry.credit;
+      }
+      // Pending checks don't affect the balance
+      entry.runningBalance = runningBalance;
+    });
+
     setStatement(entries);
   };
 
@@ -726,6 +890,128 @@ export function CustomerAccount() {
     printStatement();
   };
 
+  const printPayments = () => {
+    try {
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        // Use the same grouped payments as displayed in the table
+        const allPayments = [...filteredPayments];
+
+        // Apply the same filters as the display
+        let filteredPaymentsForPrint = allPayments;
+
+        if (paymentFilters.type !== "all") {
+          filteredPaymentsForPrint = filteredPaymentsForPrint.filter(
+            (payment) => payment.type === paymentFilters.type
+          );
+        }
+
+        if (paymentFilters.dateFrom) {
+          filteredPaymentsForPrint = filteredPaymentsForPrint.filter(
+            (payment) =>
+              new Date(payment.date) >= new Date(paymentFilters.dateFrom)
+          );
+        }
+
+        if (paymentFilters.dateTo) {
+          filteredPaymentsForPrint = filteredPaymentsForPrint.filter(
+            (payment) =>
+              new Date(payment.date) <= new Date(paymentFilters.dateTo)
+          );
+        }
+
+        // Sort by date
+        filteredPaymentsForPrint.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html dir="rtl" lang="ar">
+          <head>
+            <meta charset="UTF-8">
+            <title>المدفوعات - ${customer?.name}</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+              .header { text-align: center; margin-bottom: 30px; }
+              .customer-info { margin-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              .summary { margin-top: 20px; font-weight: bold; }
+              @media print { body { margin: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>المدفوعات</h1>
+            </div>
+            <div class="customer-info">
+              <p><strong>العميل:</strong> ${customer?.name}</p>
+              <p><strong>الهاتف:</strong> ${customer?.phone}</p>
+              <p><strong>التاريخ:</strong> ${new Date().toLocaleDateString(
+                "en-US"
+              )}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>النوع</th>
+                  <th>المبلغ</th>
+                  <th>ملاحظات</th>
+                  <th>تفاصيل الشيك</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredPaymentsForPrint
+                  .map(
+                    (payment) => `
+                  <tr>
+                    <td>${formatDate(payment.date)}</td>
+                    <td>${payment.type === "cash" ? "نقداً" : "شيك"}</td>
+                    <td>${formatCurrency(payment.amount)}</td>
+                    <td>${payment.notes || "-"}</td>
+                    <td>${
+                      payment.type === "check"
+                        ? `رقم: ${payment.checkNumber}, بنك: ${
+                            payment.checkBank
+                          }${
+                            payment.isGrouped
+                              ? ` (${payment.groupedCount} شيك)`
+                              : ""
+                          }`
+                        : "-"
+                    }</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+            <div class="summary">
+              <p><strong>إجمالي المدفوعات:</strong> ${formatCurrency(
+                filteredPaymentsForPrint.reduce(
+                  (sum, payment) => sum + payment.amount,
+                  0
+                )
+              )}</p>
+              <p><strong>عدد المدفوعات:</strong> ${
+                filteredPaymentsForPrint.length
+              }</p>
+            </div>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing payments:", error);
+      alert("حدث خطأ أثناء الطباعة");
+    }
+  };
+
   const printStatement = () => {
     try {
       const printWindow = window.open("", "_blank");
@@ -822,6 +1108,8 @@ export function CustomerAccount() {
   };
 
   // Calculate current balance based on real data
+  // Formula: Total Orders - Total Payments
+  // Positive = Customer owes us, Negative = We owe customer
   const calculateCurrentBalance = () => {
     const totalOrders = orders.reduce(
       (sum, order) => sum + calculateOrderTotal(order.id),
@@ -831,11 +1119,188 @@ export function CustomerAccount() {
       (sum, payment) => sum + payment.amount,
       0
     );
-    const totalPendingChecks = customerChecks
-      .filter((check) => check.status === "pending")
-      .reduce((sum, check) => sum + check.amount, 0);
 
-    return totalOrders + totalPendingChecks - totalPayments;
+    return totalOrders - totalPayments;
+  };
+
+  // Pagination helper functions
+  const applyPagination = (
+    data: any[],
+    currentPage: number,
+    itemsPerPage: number
+  ) => {
+    const totalPages = Math.ceil(data.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedData = data.slice(startIndex, endIndex);
+
+    return { paginatedData, totalPages };
+  };
+
+  const handlePageChange = (
+    page: number,
+    section: "orders" | "payments" | "checks" | "statement"
+  ) => {
+    switch (section) {
+      case "orders":
+        setOrdersPagination((prev) => ({ ...prev, currentPage: page }));
+        break;
+      case "payments":
+        setPaymentsPagination((prev) => ({ ...prev, currentPage: page }));
+        break;
+      case "checks":
+        setChecksPagination((prev) => ({ ...prev, currentPage: page }));
+        break;
+      case "statement":
+        setStatementPagination((prev) => ({ ...prev, currentPage: page }));
+        break;
+    }
+  };
+
+  const handleItemsPerPageChange = (
+    newItemsPerPage: number,
+    section: "orders" | "payments" | "checks" | "statement"
+  ) => {
+    switch (section) {
+      case "orders":
+        setOrdersPagination((prev) => ({
+          ...prev,
+          itemsPerPage: newItemsPerPage,
+          currentPage: 1,
+        }));
+        break;
+      case "payments":
+        setPaymentsPagination((prev) => ({
+          ...prev,
+          itemsPerPage: newItemsPerPage,
+          currentPage: 1,
+        }));
+        break;
+      case "checks":
+        setChecksPagination((prev) => ({
+          ...prev,
+          itemsPerPage: newItemsPerPage,
+          currentPage: 1,
+        }));
+        break;
+      case "statement":
+        setStatementPagination((prev) => ({
+          ...prev,
+          itemsPerPage: newItemsPerPage,
+          currentPage: 1,
+        }));
+        break;
+    }
+  };
+
+  const getPageNumbers = (currentPage: number, totalPages: number) => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  // Reusable pagination component
+  const PaginationControls = ({
+    section,
+    currentPage,
+    totalPages,
+    itemsPerPage,
+    totalItems,
+  }: {
+    section: "orders" | "payments" | "checks" | "statement";
+    currentPage: number;
+    totalPages: number;
+    itemsPerPage: number;
+    totalItems: number;
+  }) => {
+    if (totalItems === 0) return null;
+
+    return (
+      <div className="ca-pagination-container">
+        <div className="ca-pagination-info">
+          <span>
+            عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+            {Math.min(currentPage * itemsPerPage, totalItems)} من {totalItems}{" "}
+            {section === "orders"
+              ? "طلب"
+              : section === "payments"
+              ? "دفعة"
+              : section === "checks"
+              ? "شيك"
+              : "قيد"}
+          </span>
+          <div className="ca-items-per-page">
+            <label>عدد العناصر في الصفحة:</label>
+            <select
+              value={itemsPerPage}
+              onChange={(e) =>
+                handleItemsPerPageChange(Number(e.target.value), section)
+              }
+              className="ca-pagination-select"
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+              <option value={50}>50</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="ca-pagination-controls">
+          <button
+            className="ca-pagination-btn"
+            onClick={() => handlePageChange(1, section)}
+            disabled={currentPage === 1}
+          >
+            الأولى
+          </button>
+          <button
+            className="ca-pagination-btn"
+            onClick={() => handlePageChange(currentPage - 1, section)}
+            disabled={currentPage === 1}
+          >
+            السابقة
+          </button>
+
+          {getPageNumbers(currentPage, totalPages).map((page) => (
+            <button
+              key={page}
+              className={`ca-pagination-btn ${
+                currentPage === page ? "active" : ""
+              }`}
+              onClick={() => handlePageChange(page, section)}
+            >
+              {page}
+            </button>
+          ))}
+
+          <button
+            className="ca-pagination-btn"
+            onClick={() => handlePageChange(currentPage + 1, section)}
+            disabled={currentPage === totalPages}
+          >
+            التالية
+          </button>
+          <button
+            className="ca-pagination-btn"
+            onClick={() => handlePageChange(totalPages, section)}
+            disabled={currentPage === totalPages}
+          >
+            الأخيرة
+          </button>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -1078,14 +1543,14 @@ export function CustomerAccount() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.length === 0 ? (
+                    {paginatedOrders.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="ca-no-data">
                           لا توجد طلبات
                         </td>
                       </tr>
                     ) : (
-                      filteredOrders.map((order) => (
+                      paginatedOrders.map((order) => (
                         <tr key={order.id} className="ca-data-row">
                           <td>{order.title}</td>
                           <td>{formatDate(order.date)}</td>
@@ -1134,6 +1599,15 @@ export function CustomerAccount() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Orders Pagination */}
+              <PaginationControls
+                section="orders"
+                currentPage={ordersPagination.currentPage}
+                totalPages={ordersPagination.totalPages}
+                itemsPerPage={ordersPagination.itemsPerPage}
+                totalItems={filteredOrders.length}
+              />
             </div>
           )}
 
@@ -1142,13 +1616,19 @@ export function CustomerAccount() {
             <div className="payments-tab">
               <div className="ca-tab-header">
                 <h2>المدفوعات</h2>
-                <button
-                  className="ca-add-btn"
-                  onClick={() => openAddModal("payment")}
-                >
-                  <Plus className="ca-btn-icon" />
-                  إضافة دفعة
-                </button>
+                <div className="ca-tab-actions">
+                  <button className="ca-export-btn" onClick={printPayments}>
+                    <Printer className="ca-btn-icon" />
+                    طباعة
+                  </button>
+                  <button
+                    className="ca-add-btn"
+                    onClick={() => openAddModal("payment")}
+                  >
+                    <Plus className="ca-btn-icon" />
+                    إضافة دفعة
+                  </button>
+                </div>
               </div>
 
               {/* Filters */}
@@ -1213,14 +1693,14 @@ export function CustomerAccount() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPayments.length === 0 ? (
+                    {paginatedPayments.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="ca-no-data">
                           لا توجد مدفوعات
                         </td>
                       </tr>
                     ) : (
-                      filteredPayments.map((payment) => (
+                      paginatedPayments.map((payment) => (
                         <tr key={payment.id} className="ca-data-row">
                           <td>{formatDate(payment.date)}</td>
                           <td>
@@ -1235,6 +1715,11 @@ export function CustomerAccount() {
                               <div className="ca-check-details">
                                 <span>رقم: {payment.checkNumber}</span>
                                 <span>بنك: {payment.checkBank}</span>
+                                {payment.isGrouped && (
+                                  <span className="ca-grouped-indicator">
+                                    ({payment.groupedCount} شيك)
+                                  </span>
+                                )}
                               </div>
                             ) : (
                               "-"
@@ -1246,6 +1731,15 @@ export function CustomerAccount() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Payments Pagination */}
+              <PaginationControls
+                section="payments"
+                currentPage={paymentsPagination.currentPage}
+                totalPages={paymentsPagination.totalPages}
+                itemsPerPage={paymentsPagination.itemsPerPage}
+                totalItems={filteredPayments.length}
+              />
             </div>
           )}
 
@@ -1365,14 +1859,14 @@ export function CustomerAccount() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredChecks.length === 0 ? (
+                    {paginatedChecks.length === 0 ? (
                       <tr>
                         <td colSpan={7} className="ca-no-data">
                           لا توجد شيكات
                         </td>
                       </tr>
                     ) : (
-                      filteredChecks.map((check) => (
+                      paginatedChecks.map((check) => (
                         <tr key={check.id} className="ca-data-row">
                           <td>{check.checkNumber}</td>
                           <td>{check.bank}</td>
@@ -1421,6 +1915,15 @@ export function CustomerAccount() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Checks Pagination */}
+              <PaginationControls
+                section="checks"
+                currentPage={checksPagination.currentPage}
+                totalPages={checksPagination.totalPages}
+                itemsPerPage={checksPagination.itemsPerPage}
+                totalItems={filteredChecks.length}
+              />
             </div>
           )}
 
@@ -1500,14 +2003,14 @@ export function CustomerAccount() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredStatement.length === 0 ? (
+                    {paginatedStatement.length === 0 ? (
                       <tr>
                         <td colSpan={5} className="ca-no-data">
                           لا توجد معاملات
                         </td>
                       </tr>
                     ) : (
-                      filteredStatement.map((entry) => (
+                      paginatedStatement.map((entry) => (
                         <tr key={entry.id} className="ca-data-row">
                           <td>{formatDate(entry.date)}</td>
                           <td>{entry.description}</td>
@@ -1538,6 +2041,15 @@ export function CustomerAccount() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Statement Pagination */}
+              <PaginationControls
+                section="statement"
+                currentPage={statementPagination.currentPage}
+                totalPages={statementPagination.totalPages}
+                itemsPerPage={statementPagination.itemsPerPage}
+                totalItems={filteredStatement.length}
+              />
             </div>
           )}
         </div>

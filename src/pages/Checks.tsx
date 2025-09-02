@@ -298,7 +298,32 @@ export function Checks() {
         createdAt: new Date().toISOString(),
       };
 
+      // Add the check
       await addDoc(collection(db, "customerChecks"), newCheck);
+
+      // Also add it as a payment
+      const customer = customers.find((c) => c.id === checkForm.customerId);
+      const newPayment = {
+        customerId: checkForm.customerId,
+        customerName: customer?.name || "",
+        date: new Date().toISOString().split("T")[0], // Use current date for payment
+        type: "check" as "cash" | "check",
+        amount: checkForm.amount,
+        notes: checkForm.notes || `دفعة شيك - ${checkForm.notes || ""}`,
+        checkNumber: checkForm.checkNumber,
+        checkBank: checkForm.bank,
+        checkDate: checkForm.dueDate, // Use due date as check date
+        nameOnCheck: checkForm.nameOnCheck || customer?.name || "",
+        createdAt: new Date().toISOString(),
+      };
+
+      console.log("Creating new payment from check:", newPayment);
+      const paymentRef = await addDoc(collection(db, "payments"), newPayment);
+      console.log("Payment created with ID:", paymentRef.id);
+
+      // Show success message
+      alert("تم إضافة الشيك والدفعة بنجاح!");
+
       setShowAddModal(false);
       setCheckForm({
         customerId: "",
@@ -323,10 +348,45 @@ export function Checks() {
         ...checkForm,
       };
 
+      // Update the check
       await updateDoc(
         doc(db, "customerChecks", selectedCheck.id),
         updatedCheck
       );
+
+      // Also update the corresponding payment
+      const customer = customers.find((c) => c.id === checkForm.customerId);
+      const updatedPayment = {
+        customerId: checkForm.customerId,
+        customerName: customer?.name || "",
+        date: new Date().toISOString().split("T")[0], // Use current date for payment
+        type: "check" as "cash" | "check",
+        amount: checkForm.amount,
+        notes: checkForm.notes || `دفعة شيك - ${checkForm.notes || ""}`,
+        checkNumber: checkForm.checkNumber,
+        checkBank: checkForm.bank,
+        checkDate: checkForm.dueDate, // Use due date as check date
+        nameOnCheck: checkForm.nameOnCheck || customer?.name || "",
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Find and update the corresponding payment
+      const paymentsSnapshot = await getDocs(
+        query(
+          collection(db, "payments"),
+          where("checkNumber", "==", selectedCheck.checkNumber),
+          where("customerId", "==", selectedCheck.customerId),
+          where("type", "==", "check")
+        )
+      );
+
+      if (!paymentsSnapshot.empty) {
+        const paymentDoc = paymentsSnapshot.docs[0];
+        await updateDoc(doc(db, "payments", paymentDoc.id), updatedPayment);
+        console.log("Updated corresponding payment:", paymentDoc.id);
+      }
+
+      alert("تم تحديث الشيك والدفعة بنجاح!");
       setShowEditModal(false);
       setSelectedCheck(null);
       setCheckForm({
@@ -664,11 +724,28 @@ export function Checks() {
         };
 
         await addDoc(collection(db, "customerChecks"), newCheck);
+
+        // Also add it as a payment
+        const newPayment = {
+          customerId: importForm.customerId,
+          customerName: customer.name,
+          date: new Date().toISOString().split("T")[0], // Use current date for payment
+          type: "check" as "cash" | "check",
+          amount: checkData.amount,
+          notes: checkData.notes || `دفعة شيك - ${checkData.notes || ""}`,
+          checkNumber: checkData.checkNumber,
+          checkBank: checkData.bank,
+          checkDate: formattedDate, // Use due date as check date
+          nameOnCheck: checkData.nameOnCheck || customer.name,
+          createdAt: new Date().toISOString(),
+        };
+
+        await addDoc(collection(db, "payments"), newPayment);
         importedCount++;
       }
 
       // Show detailed import results
-      let message = `تم استيراد ${importedCount} شيك بنجاح`;
+      let message = `تم استيراد ${importedCount} شيك ودفعة بنجاح`;
       if (skippedCount > 0) {
         message += `\nتم تخطي ${skippedCount} شيك موجود مسبقاً`;
         if (skippedChecks.length <= 5) {
@@ -872,6 +949,64 @@ export function Checks() {
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      {/* Summary Section */}
+      <div className="summary-section">
+        <div className="summary-cards">
+          <div className="summary-card">
+            <div className="summary-icon">
+              <CreditCard />
+            </div>
+            <div className="summary-content">
+              <h3>إجمالي الشيكات</h3>
+              <p className="summary-number">{filteredChecks.length}</p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <DollarSign />
+            </div>
+            <div className="summary-content">
+              <h3>إجمالي المبالغ</h3>
+              <p className="summary-number">
+                {formatCurrency(
+                  filteredChecks.reduce((sum, check) => sum + check.amount, 0)
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <Clock />
+            </div>
+            <div className="summary-content">
+              <h3>في الانتظار</h3>
+              <p className="summary-number">
+                {
+                  filteredChecks.filter(
+                    (check) =>
+                      check.status === "pending" || check.status === "غير محدد"
+                  ).length
+                }
+              </p>
+            </div>
+          </div>
+          <div className="summary-card">
+            <div className="summary-icon">
+              <CheckCircle />
+            </div>
+            <div className="summary-content">
+              <h3>محصّلة</h3>
+              <p className="summary-number">
+                {
+                  filteredChecks.filter((check) => check.status === "collected")
+                    .length
+                }
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -230,8 +230,6 @@
 }
 
 .content-wrapper {
-  padding: 2rem;
-  min-height: 100%;
   max-width: 100%;
   box-sizing: border-box;
   flex: 1;
