@@ -61,6 +61,11 @@ interface Payment {
   amount: number;
   notes?: string;
   checkId?: string;
+  checkNumber?: string;
+  checkBank?: string;
+  isGrouped?: boolean;
+  groupedCount?: number;
+  originalPayments?: Payment[];
 }
 
 interface CustomerCheck {
@@ -245,11 +250,70 @@ export function Statements() {
       });
 
       // Get customer payments
-      const customerPayments = payments.filter((payment) => {
+      const rawCustomerPayments = payments.filter((payment) => {
         const paymentDate = new Date(payment.date);
         const isInDateRange = paymentDate >= dateFrom && paymentDate <= dateTo;
         return payment.customerId === customer.id && isInDateRange;
       });
+
+      // Group same-day check payments
+      const groupedPayments: Payment[] = [];
+      const checkPaymentsByDate: { [key: string]: Payment[] } = {};
+
+      // Separate cash payments and check payments
+      const cashPayments = rawCustomerPayments.filter(
+        (payment) => payment.type === "cash"
+      );
+      const checkPayments = rawCustomerPayments.filter(
+        (payment) => payment.type === "check"
+      );
+
+      // Group check payments by date
+      checkPayments.forEach((payment) => {
+        const key = payment.date;
+        if (!checkPaymentsByDate[key]) {
+          checkPaymentsByDate[key] = [];
+        }
+        checkPaymentsByDate[key].push(payment);
+      });
+
+      // Create grouped check payments
+      Object.values(checkPaymentsByDate).forEach((paymentGroup) => {
+        if (paymentGroup.length === 1) {
+          // Single payment, add as is
+          groupedPayments.push(paymentGroup[0]);
+        } else {
+          // Multiple payments on same day, group them
+          const firstPayment = paymentGroup[0];
+          const totalAmount = paymentGroup.reduce(
+            (sum, payment) => sum + payment.amount,
+            0
+          );
+          const allCheckNumbers = paymentGroup
+            .map((p) => p.checkNumber || p.checkId || "")
+            .join(", ");
+          const allBanks = [
+            ...new Set(paymentGroup.map((p) => p.checkBank).filter(Boolean)),
+          ].join(", ");
+
+          const groupedPayment: Payment = {
+            ...firstPayment,
+            amount: totalAmount,
+            notes: `دفعة شيكات (${paymentGroup.length} شيك)`,
+            checkId: allCheckNumbers,
+            checkNumber: allCheckNumbers,
+            checkBank: allBanks,
+            isGrouped: true,
+            groupedCount: paymentGroup.length,
+            originalPayments: paymentGroup,
+          };
+
+          groupedPayments.push(groupedPayment);
+        }
+      });
+
+      // Combine cash payments and grouped check payments
+      const customerPayments = [...cashPayments, ...groupedPayments];
 
       // Get customer checks - include ALL checks for display, not just date-filtered ones
       const customerChecksList = customerChecks.filter(

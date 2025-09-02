@@ -15,6 +15,7 @@ import {
   SortAsc,
   SortDesc,
   RefreshCw,
+  Printer,
 } from "lucide-react";
 import {
   collection,
@@ -428,6 +429,121 @@ export function Customers() {
     return "متساوي";
   };
 
+  const printCustomers = () => {
+    try {
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        const filteredCustomers = customers.filter((customer) => {
+          const matchesSearch =
+            !searchTerm ||
+            customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            customer.phone.includes(searchTerm);
+
+          const matchesBalance =
+            balanceFilter === "all" ||
+            (balanceFilter === "debtor" && customer.currentBalance > 0) ||
+            (balanceFilter === "creditor" && customer.currentBalance < 0) ||
+            (balanceFilter === "zero" && customer.currentBalance === 0);
+
+          return matchesSearch && matchesBalance;
+        });
+
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html dir="rtl" lang="ar">
+          <head>
+            <meta charset="UTF-8">
+            <title>قائمة العملاء</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              .balance-positive { color: #dc2626; }
+              .balance-negative { color: #16a34a; }
+              .balance-zero { color: #6b7280; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              @media print { body { margin: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>قائمة العملاء</h1>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
+                "en-US"
+              )}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>اسم العميل</th>
+                  <th>رقم الهاتف</th>
+                  <th>عدد الطلبات</th>
+                  <th>الرصيد الحالي</th>
+                  <th>آخر نشاط</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredCustomers
+                  .map(
+                    (customer) => `
+                  <tr>
+                    <td>${customer.name}</td>
+                    <td>${customer.phone}</td>
+                    <td>${customer.numberOfOrders}</td>
+                    <td class="balance-${
+                      customer.currentBalance > 0
+                        ? "positive"
+                        : customer.currentBalance < 0
+                        ? "negative"
+                        : "zero"
+                    }">
+                      ${formatCurrency(
+                        Math.abs(customer.currentBalance)
+                      )} ${getBalanceText(customer.currentBalance)}
+                    </td>
+                    <td>${formatDate(customer.lastActivity)}</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+            <div class="summary">
+              <h3>ملخص</h3>
+              <p><strong>إجمالي العملاء:</strong> ${
+                filteredCustomers.length
+              }</p>
+              <p><strong>إجمالي الطلبات:</strong> ${filteredCustomers.reduce(
+                (sum, c) => sum + c.numberOfOrders,
+                0
+              )}</p>
+              <p><strong>إجمالي المديونية:</strong> ${formatCurrency(
+                filteredCustomers
+                  .filter((c) => c.currentBalance > 0)
+                  .reduce((sum, c) => sum + c.currentBalance, 0)
+              )}</p>
+              <p><strong>إجمالي الدائنية:</strong> ${formatCurrency(
+                Math.abs(
+                  filteredCustomers
+                    .filter((c) => c.currentBalance < 0)
+                    .reduce((sum, c) => sum + c.currentBalance, 0)
+                )
+              )}</p>
+            </div>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing customers:", error);
+      alert("حدث خطأ أثناء الطباعة");
+    }
+  };
+
   const getSortIcon = (field: string) => {
     if (sortBy !== field) return null;
     return sortOrder === "asc" ? <SortAsc size={16} /> : <SortDesc size={16} />;
@@ -464,6 +580,14 @@ export function Customers() {
           </p>
         </div>
         <div className="header-actions">
+          <button
+            className="print-btn"
+            onClick={printCustomers}
+            title="طباعة قائمة العملاء"
+          >
+            <Printer className="btn-icon" />
+            طباعة
+          </button>
           <button
             className="refresh-btn"
             onClick={fetchAllData}

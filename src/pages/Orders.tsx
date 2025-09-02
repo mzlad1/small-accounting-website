@@ -16,6 +16,7 @@ import {
   Clock,
   XCircle,
   Trash2,
+  Printer,
 } from "lucide-react";
 import {
   collection,
@@ -407,9 +408,8 @@ export function Orders() {
 
       await addDoc(collection(db, "orderItems"), newElement);
 
-      alert("تم إضافة العنصر بنجاح!");
-      setShowAddElementModal(false);
-      setSelectedOrderForElement(null);
+      // Show success message and clear form without closing modal
+      alert("تم إضافة العنصر بنجاح! يمكنك إضافة عنصر آخر.");
       setElementForm({
         name: "",
         type: "",
@@ -447,6 +447,113 @@ export function Orders() {
         return "cancelled";
       default:
         return "pending";
+    }
+  };
+
+  const printOrders = () => {
+    try {
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        const filteredOrders = orders.filter((order) => {
+          const matchesSearch =
+            !searchTerm ||
+            order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+
+          const matchesStatus =
+            filters.status === "all" || order.status === filters.status;
+          const matchesCustomer =
+            filters.customer === "all" || order.customerId === filters.customer;
+
+          return matchesSearch && matchesStatus && matchesCustomer;
+        });
+
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html dir="rtl" lang="ar">
+          <head>
+            <meta charset="UTF-8">
+            <title>قائمة الطلبات</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              .status { display: inline-block; padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
+              .status.pending { background-color: #f59e0b; }
+              .status.in-progress { background-color: #3b82f6; }
+              .status.completed { background-color: #10b981; }
+              .status.cancelled { background-color: #ef4444; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              @media print { body { margin: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>قائمة الطلبات</h1>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
+                "en-US"
+              )}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>عنوان الطلب</th>
+                  <th>العميل</th>
+                  <th>التاريخ</th>
+                  <th>الحالة</th>
+                  <th>إجمالي الطلب</th>
+                  <th>ملاحظات</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredOrders
+                  .map(
+                    (order) => `
+                  <tr>
+                    <td>${order.title}</td>
+                    <td>${order.customerName}</td>
+                    <td>${formatDate(order.date)}</td>
+                    <td><span class="status ${getStatusClass(
+                      order.status
+                    )}">${getStatusText(order.status)}</span></td>
+                    <td>${formatCurrency(order.total)}</td>
+                    <td>${order.notes || "-"}</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+            <div class="summary">
+              <h3>ملخص</h3>
+              <p><strong>إجمالي الطلبات:</strong> ${filteredOrders.length}</p>
+              <p><strong>إجمالي المبالغ:</strong> ${formatCurrency(
+                filteredOrders.reduce((sum, o) => sum + o.total, 0)
+              )}</p>
+              <p><strong>طلبات معلقة:</strong> ${
+                filteredOrders.filter((o) => o.status === "pending").length
+              }</p>
+              <p><strong>طلبات قيد التنفيذ:</strong> ${
+                filteredOrders.filter((o) => o.status === "in-progress").length
+              }</p>
+              <p><strong>طلبات مكتملة:</strong> ${
+                filteredOrders.filter((o) => o.status === "completed").length
+              }</p>
+              <p><strong>طلبات ملغية:</strong> ${
+                filteredOrders.filter((o) => o.status === "cancelled").length
+              }</p>
+            </div>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing orders:", error);
+      alert("حدث خطأ أثناء الطباعة");
     }
   };
 
@@ -514,10 +621,23 @@ export function Orders() {
           <h1>الطلبات</h1>
           <p>إدارة جميع الطلبات من جميع العملاء</p>
         </div>
-        <button className="add-order-btn" onClick={() => setShowAddModal(true)}>
-          <Plus className="btn-icon" />
-          إضافة طلب جديد
-        </button>
+        <div className="header-actions">
+          <button
+            className="print-btn"
+            onClick={printOrders}
+            title="طباعة قائمة الطلبات"
+          >
+            <Printer className="btn-icon" />
+            طباعة
+          </button>
+          <button
+            className="add-order-btn"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus className="btn-icon" />
+            إضافة طلب جديد
+          </button>
+        </div>
       </div>
 
       {/* Summary Statistics */}

@@ -150,7 +150,9 @@ export function OrderDetails() {
       };
 
       await addDoc(collection(db, "orderItems"), newItem);
-      setShowAddItemModal(false);
+
+      // Show success message and clear form without closing modal
+      alert("تم إضافة العنصر بنجاح! يمكنك إضافة عنصر آخر.");
       setItemForm({
         name: "",
         type: "",
@@ -162,6 +164,7 @@ export function OrderDetails() {
       fetchOrderData();
     } catch (error) {
       console.error("Error adding item:", error);
+      alert("حدث خطأ أثناء إضافة العنصر");
     }
   };
 

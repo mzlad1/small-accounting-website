@@ -13,6 +13,7 @@ import {
   SortDesc,
   Edit,
   Trash2,
+  Printer,
 } from "lucide-react";
 import {
   collection,
@@ -218,7 +219,7 @@ export function Payments() {
           amount: totalAmount,
           checkNumber: allCheckNumbers,
           checkBank: allBanks,
-          notes: allNotes || `دفعة شيكات متعددة (${paymentGroup.length} شيك)`,
+          notes: `دفعة شيكات متعددة (${paymentGroup.length} شيك)`,
           isGrouped: true,
           groupedCount: paymentGroup.length,
           originalPayments: paymentGroup,
@@ -493,6 +494,108 @@ export function Payments() {
     });
   };
 
+  const printPayments = () => {
+    try {
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(`
+          <!DOCTYPE html>
+          <html dir="rtl" lang="ar">
+          <head>
+            <meta charset="UTF-8">
+            <title>قائمة المدفوعات</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+              th { background-color: #f2f2f2; font-weight: bold; }
+              .type-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
+              .type-badge.cash { background-color: #10b981; }
+              .type-badge.check { background-color: #3b82f6; }
+              .grouped-indicator { color: #6b7280; font-size: 11px; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              @media print { body { margin: 0; } }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <h1>قائمة المدفوعات</h1>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
+                "en-US"
+              )}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>العميل</th>
+                  <th>النوع</th>
+                  <th>المبلغ</th>
+                  <th>ملاحظات</th>
+                  <th>تفاصيل الشيك</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredPayments
+                  .map(
+                    (payment) => `
+                  <tr>
+                    <td>${formatDate(payment.date)}</td>
+                    <td>${payment.customerName}</td>
+                    <td><span class="type-badge ${getTypeClass(
+                      payment.type
+                    )}">${getTypeText(payment.type)}</span></td>
+                    <td>${formatCurrency(payment.amount)}</td>
+                    <td>${payment.notes || "-"}</td>
+                    <td>${
+                      payment.type === "check"
+                        ? `رقم: ${payment.checkNumber}, بنك: ${
+                            payment.checkBank
+                          }${
+                            payment.isGrouped
+                              ? ` <span class="grouped-indicator">(${payment.groupedCount} شيك)</span>`
+                              : ""
+                          }`
+                        : "-"
+                    }</td>
+                  </tr>
+                `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+            <div class="summary">
+              <h3>ملخص</h3>
+              <p><strong>إجمالي المدفوعات:</strong> ${
+                filteredPayments.length
+              }</p>
+              <p><strong>إجمالي المبالغ:</strong> ${formatCurrency(
+                filteredPayments.reduce((sum, p) => sum + p.amount, 0)
+              )}</p>
+              <p><strong>المدفوعات النقدية:</strong> ${formatCurrency(
+                filteredPayments
+                  .filter((p) => p.type === "cash")
+                  .reduce((sum, p) => sum + p.amount, 0)
+              )}</p>
+              <p><strong>المدفوعات بالشيك:</strong> ${formatCurrency(
+                filteredPayments
+                  .filter((p) => p.type === "check")
+                  .reduce((sum, p) => sum + p.amount, 0)
+              )}</p>
+            </div>
+          </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    } catch (error) {
+      console.error("Error printing payments:", error);
+      alert("حدث خطأ أثناء الطباعة");
+    }
+  };
+
   // Pagination functions
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -504,7 +607,7 @@ export function Payments() {
   };
 
   const getPageNumbers = () => {
-    const pages = [];
+    const pages: number[] = [];
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
@@ -538,13 +641,23 @@ export function Payments() {
           <h1>المدفوعات</h1>
           <p>إدارة جميع المدفوعات من جميع العملاء</p>
         </div>
-        <button
-          className="add-payment-btn"
-          onClick={() => setShowAddModal(true)}
-        >
-          <Plus className="btn-icon" />
-          إضافة دفعة جديدة
-        </button>
+        <div className="header-actions">
+          <button
+            className="print-btn"
+            onClick={printPayments}
+            title="طباعة قائمة المدفوعات"
+          >
+            <Printer className="btn-icon" />
+            طباعة
+          </button>
+          <button
+            className="add-payment-btn"
+            onClick={() => setShowAddModal(true)}
+          >
+            <Plus className="btn-icon" />
+            إضافة دفعة جديدة
+          </button>
+        </div>
       </div>
 
       {/* Search and Filters */}
