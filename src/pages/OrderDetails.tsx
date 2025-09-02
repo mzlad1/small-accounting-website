@@ -57,6 +57,8 @@ interface OrderItem {
   unitPrice: number;
   total: number;
   notes?: string;
+  supplierId?: string;
+  supplierName?: string;
   createdAt: string;
 }
 
@@ -65,6 +67,9 @@ export function OrderDetails() {
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [showEditItemModal, setShowEditItemModal] = useState(false);
@@ -86,6 +91,8 @@ export function OrderDetails() {
     unit: "",
     unitPrice: 0,
     notes: "",
+    supplierId: "",
+    supplierName: "",
   });
 
   const [orderStatus, setOrderStatus] = useState<Order["status"]>("pending");
@@ -118,6 +125,15 @@ export function OrderDetails() {
         setOrder(orderData);
         setOrderStatus(orderData.status);
       }
+
+      // Fetch suppliers
+      const suppliersSnapshot = await getDocs(collection(db, "suppliers"));
+      const suppliersData: { id: string; name: string }[] = [];
+      suppliersSnapshot.forEach((doc) => {
+        const data = doc.data();
+        suppliersData.push({ id: doc.id, name: data.name });
+      });
+      setSuppliers(suppliersData);
 
       // Fetch order items
       const itemsSnapshot = await getDocs(
@@ -160,6 +176,8 @@ export function OrderDetails() {
         unit: "",
         unitPrice: 0,
         notes: "",
+        supplierId: "",
+        supplierName: "",
       });
       fetchOrderData();
     } catch (error) {
@@ -776,6 +794,31 @@ export function OrderDetails() {
                   className="od-form-textarea"
                   rows={3}
                 />
+              </div>
+
+              <div className="od-form-group">
+                <label>المورد</label>
+                <select
+                  value={itemForm.supplierId}
+                  onChange={(e) => {
+                    const selectedSupplier = suppliers.find(
+                      (s) => s.id === e.target.value
+                    );
+                    setItemForm({
+                      ...itemForm,
+                      supplierId: e.target.value,
+                      supplierName: selectedSupplier?.name || "",
+                    });
+                  }}
+                  className="od-form-select"
+                >
+                  <option value="">اختر المورد (اختياري)</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {itemForm.quantity > 0 && itemForm.unitPrice > 0 && (

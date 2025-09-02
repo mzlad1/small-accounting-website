@@ -13,6 +13,7 @@ import {
   Banknote,
   ChevronLeft,
   ChevronRight,
+  Truck,
 } from "lucide-react";
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -26,6 +27,7 @@ const navigation = [
   { name: "لوحة التحكم", href: "/", icon: Home },
   { name: "العملاء", href: "/customers", icon: Users },
   { name: "الطلبات", href: "/orders", icon: Package },
+  { name: "الموردين", href: "/suppliers", icon: Truck },
   { name: "المدفوعات", href: "/payments", icon: CreditCard },
   { name: "شيكات العملاء", href: "/checks", icon: FileText },
   { name: "الشيكات الشخصية", href: "/personal-checks", icon: Banknote },

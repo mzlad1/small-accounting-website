@@ -56,6 +56,9 @@ export function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
@@ -92,6 +95,8 @@ export function Orders() {
     unit: "",
     unitPrice: 0,
     notes: "",
+    supplierId: "",
+    supplierName: "",
   });
   const [existingElementNames, setExistingElementNames] = useState<string[]>(
     []
@@ -121,6 +126,15 @@ export function Orders() {
         customersData.push({ id: doc.id, ...doc.data() } as Customer);
       });
       setCustomers(customersData);
+
+      // Fetch suppliers
+      const suppliersSnapshot = await getDocs(collection(db, "suppliers"));
+      const suppliersData: { id: string; name: string }[] = [];
+      suppliersSnapshot.forEach((doc) => {
+        const data = doc.data();
+        suppliersData.push({ id: doc.id, name: data.name });
+      });
+      setSuppliers(suppliersData);
 
       // Fetch orders with customer names
       const ordersSnapshot = await getDocs(
@@ -390,6 +404,8 @@ export function Orders() {
       unit: "",
       unitPrice: 0,
       notes: "",
+      supplierId: "",
+      supplierName: "",
     });
     setShowAddElementModal(true);
   };
@@ -417,6 +433,8 @@ export function Orders() {
         unit: "",
         unitPrice: 0,
         notes: "",
+        supplierId: "",
+        supplierName: "",
       });
       setShowElementNameSuggestions(false);
       fetchData(); // Refresh orders to update totals and element names
@@ -1324,6 +1342,31 @@ export function Orders() {
                   className="form-textarea"
                   rows={3}
                 />
+              </div>
+
+              <div className="form-group">
+                <label>المورد</label>
+                <select
+                  value={elementForm.supplierId}
+                  onChange={(e) => {
+                    const selectedSupplier = suppliers.find(
+                      (s) => s.id === e.target.value
+                    );
+                    setElementForm({
+                      ...elementForm,
+                      supplierId: e.target.value,
+                      supplierName: selectedSupplier?.name || "",
+                    });
+                  }}
+                  className="form-select"
+                >
+                  <option value="">اختر المورد (اختياري)</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {elementForm.quantity > 0 && elementForm.unitPrice > 0 && (

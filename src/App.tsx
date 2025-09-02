@@ -13,6 +13,8 @@ import { Payments } from "./pages/Payments";
 import { Checks } from "./pages/Checks";
 import { PersonalChecks } from "./pages/PersonalChecks";
 import { Statements } from "./pages/Statements";
+import { Suppliers } from "./pages/Suppliers";
+import { SupplierDetails } from "./pages/SupplierDetails";
 import { Reports } from "./pages/Reports";
 
 function App() {
@@ -107,6 +109,26 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Statements />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suppliers"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Suppliers />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suppliers/:supplierId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <SupplierDetails />
                 </Layout>
               </ProtectedRoute>
             }
