@@ -13,6 +13,7 @@ import {
   SortDesc,
   Printer,
   Eye,
+  RefreshCw,
 } from "lucide-react";
 import {
   collection,
@@ -26,6 +27,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { CacheManager, createCacheKey } from "../utils/cache";
 import { useNavigate } from "react-router-dom";
 import "./Suppliers.css";
 
@@ -93,9 +95,26 @@ export function Suppliers() {
     applyFiltersAndSort();
   }, [suppliers, searchTerm, sortBy]);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     try {
       setLoading(true);
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedSuppliers = CacheManager.get<Supplier[]>(
+          CacheManager.KEYS.SUPPLIERS
+        );
+        const cachedSupplierElements = CacheManager.get<SupplierElement[]>(
+          CacheManager.KEYS.SUPPLIER_ELEMENTS
+        );
+
+        if (cachedSuppliers && cachedSupplierElements) {
+          setSuppliers(cachedSuppliers);
+          setSupplierElements(cachedSupplierElements);
+          setLoading(false);
+          return;
+        }
+      }
 
       // Fetch suppliers
       const suppliersSnapshot = await getDocs(
@@ -162,7 +181,7 @@ export function Suppliers() {
 
         const totalElements = supplierElementsList.length;
         const totalValue = supplierElementsList.reduce(
-          (sum, element) => sum + element.totalPrice,
+          (sum, element) => sum + (element.totalPrice || 0),
           0
         );
 
@@ -182,6 +201,10 @@ export function Suppliers() {
           lastOrderDate,
         };
       });
+
+      // Cache the data
+      CacheManager.set(CacheManager.KEYS.SUPPLIERS, suppliersWithStats);
+      CacheManager.set(CacheManager.KEYS.SUPPLIER_ELEMENTS, elementsData);
 
       setSuppliers(suppliersWithStats);
     } catch (error) {
@@ -233,7 +256,14 @@ export function Suppliers() {
         createdAt: new Date().toISOString(),
       };
 
-      await addDoc(collection(db, "suppliers"), newSupplier);
+      const docRef = await addDoc(collection(db, "suppliers"), newSupplier);
+      const newSupplierWithId = {
+        id: docRef.id,
+        ...newSupplier,
+      };
+
+      // Update cache
+      CacheManager.addArrayItem(CacheManager.KEYS.SUPPLIERS, newSupplierWithId);
 
       alert("تم إضافة المورد بنجاح!");
       setShowAddModal(false);
@@ -244,7 +274,6 @@ export function Suppliers() {
         address: "",
         notes: "",
       });
-      fetchData();
     } catch (error) {
       console.error("Error adding supplier:", error);
     }
@@ -276,6 +305,17 @@ export function Suppliers() {
         updatedSupplier
       );
 
+      // Update cache
+      const updatedSupplierWithId = {
+        ...editingSupplier,
+        ...updatedSupplier,
+      };
+      CacheManager.updateArrayItem(
+        CacheManager.KEYS.SUPPLIERS,
+        editingSupplier.id,
+        updatedSupplierWithId
+      );
+
       alert("تم تحديث المورد بنجاح!");
       setShowEditModal(false);
       setEditingSupplier(null);
@@ -286,7 +326,6 @@ export function Suppliers() {
         address: "",
         notes: "",
       });
-      fetchData();
     } catch (error) {
       console.error("Error updating supplier:", error);
     }
@@ -297,8 +336,11 @@ export function Suppliers() {
 
     try {
       await deleteDoc(doc(db, "suppliers", supplier.id));
+
+      // Update cache
+      CacheManager.removeArrayItem(CacheManager.KEYS.SUPPLIERS, supplier.id);
+
       alert("تم حذف المورد بنجاح!");
-      fetchData();
     } catch (error) {
       console.error("Error deleting supplier:", error);
     }
@@ -385,8 +427,8 @@ export function Suppliers() {
                     <td>${supplier.name}</td>
                     <td>${supplier.phone || "-"}</td>
                     <td>${supplier.email || "-"}</td>
-                    <td>${supplier.totalElements}</td>
-                    <td>${formatCurrency(supplier.totalValue)}</td>
+                    <td>${supplier.totalElements || 0}</td>
+                    <td>${formatCurrency(supplier.totalValue || 0)}</td>
                     <td>${
                       supplier.lastOrderDate
                         ? formatDate(supplier.lastOrderDate)
@@ -404,11 +446,14 @@ export function Suppliers() {
                 filteredSuppliers.length
               }</p>
               <p><strong>إجمالي العناصر:</strong> ${filteredSuppliers.reduce(
-                (sum, s) => sum + s.totalElements,
+                (sum, s) => sum + (s.totalElements || 0),
                 0
               )}</p>
               <p><strong>إجمالي القيمة:</strong> ${formatCurrency(
-                filteredSuppliers.reduce((sum, s) => sum + s.totalValue, 0)
+                filteredSuppliers.reduce(
+                  (sum, s) => sum + (s.totalValue || 0),
+                  0
+                )
               )}</p>
             </div>
           </body>
@@ -450,6 +495,14 @@ export function Suppliers() {
           >
             <Printer className="suppliers-btn-icon" />
             طباعة
+          </button>
+          <button
+            className="suppliers-refresh-btn"
+            onClick={() => fetchData(true)}
+            title="تحديث البيانات"
+          >
+            <RefreshCw className="suppliers-btn-icon" />
+            تحديث
           </button>
           <button
             className="suppliers-add-supplier-btn"
@@ -496,7 +549,10 @@ export function Suppliers() {
             <div className="suppliers-summary-content">
               <h3>إجمالي العناصر</h3>
               <p className="suppliers-summary-number">
-                {filteredSuppliers.reduce((sum, s) => sum + s.totalElements, 0)}
+                {filteredSuppliers.reduce(
+                  (sum, s) => sum + (s.totalElements || 0),
+                  0
+                )}
               </p>
             </div>
           </div>
@@ -508,7 +564,10 @@ export function Suppliers() {
               <h3>إجمالي القيمة</h3>
               <p className="suppliers-summary-number">
                 {formatCurrency(
-                  filteredSuppliers.reduce((sum, s) => sum + s.totalValue, 0)
+                  filteredSuppliers.reduce(
+                    (sum, s) => sum + (s.totalValue || 0),
+                    0
+                  )
                 )}
               </p>
             </div>
@@ -623,14 +682,14 @@ export function Suppliers() {
                   <td>
                     <div className="suppliers-elements-count">
                       <span className="suppliers-count-number">
-                        {supplier.totalElements}
+                        {supplier.totalElements || 0}
                       </span>
                       <span className="suppliers-count-label">عنصر</span>
                     </div>
                   </td>
                   <td>
                     <div className="suppliers-value-amount">
-                      {formatCurrency(supplier.totalValue)}
+                      {formatCurrency(supplier.totalValue || 0)}
                     </div>
                   </td>
                   <td>

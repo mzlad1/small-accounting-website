@@ -28,6 +28,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { CacheManager, createCacheKey } from "../utils/cache";
 import "./OrderDetails.css";
 
 interface Customer {
@@ -109,9 +110,31 @@ export function OrderDetails() {
     }
   }, [order]);
 
-  const fetchOrderData = async () => {
+  const fetchOrderData = async (forceRefresh = false) => {
     try {
       setLoading(true);
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh && orderId) {
+        const cacheKey = createCacheKey(
+          CacheManager.KEYS.ORDER_DETAILS,
+          orderId
+        );
+        const cachedData = CacheManager.get<{
+          order: Order;
+          items: OrderItem[];
+          suppliers: { id: string; name: string }[];
+        }>(cacheKey);
+
+        if (cachedData) {
+          setOrder(cachedData.order);
+          setOrderStatus(cachedData.order.status);
+          setItems(cachedData.items);
+          setSuppliers(cachedData.suppliers);
+          setLoading(false);
+          return;
+        }
+      }
 
       // Fetch order details
       const orderDoc = await getDocs(
@@ -148,6 +171,20 @@ export function OrderDetails() {
         itemsData.push({ id: doc.id, ...doc.data() } as OrderItem);
       });
       setItems(itemsData);
+
+      // Cache the data
+      if (orderId && orderData) {
+        const cacheKey = createCacheKey(
+          CacheManager.KEYS.ORDER_DETAILS,
+          orderId
+        );
+        const dataToCache = {
+          order: orderData,
+          items: itemsData,
+          suppliers: suppliersData,
+        };
+        CacheManager.set(cacheKey, dataToCache);
+      }
     } catch (error) {
       console.error("Error fetching order data:", error);
     } finally {
@@ -167,6 +204,11 @@ export function OrderDetails() {
 
       await addDoc(collection(db, "orderItems"), newItem);
 
+      // Clear supplier elements cache if the item has a supplier
+      if (itemForm.supplierId) {
+        CacheManager.remove(CacheManager.KEYS.SUPPLIER_ELEMENTS);
+      }
+
       // Show success message and clear form without closing modal
       alert("تم إضافة العنصر بنجاح! يمكنك إضافة عنصر آخر.");
       setItemForm({
@@ -179,7 +221,7 @@ export function OrderDetails() {
         supplierId: "",
         supplierName: "",
       });
-      fetchOrderData();
+      fetchOrderData(true); // Force refresh to update cache
     } catch (error) {
       console.error("Error adding item:", error);
       alert("حدث خطأ أثناء إضافة العنصر");
@@ -197,6 +239,12 @@ export function OrderDetails() {
       };
 
       await updateDoc(doc(db, "orderItems", selectedItem.id), updatedItem);
+
+      // Clear supplier elements cache if the item has a supplier
+      if (itemForm.supplierId) {
+        CacheManager.remove(CacheManager.KEYS.SUPPLIER_ELEMENTS);
+      }
+
       setShowEditItemModal(false);
       setSelectedItem(null);
       setItemForm({
@@ -207,7 +255,7 @@ export function OrderDetails() {
         unitPrice: 0,
         notes: "",
       });
-      fetchOrderData();
+      fetchOrderData(true); // Force refresh to update cache
     } catch (error) {
       console.error("Error updating item:", error);
     }
@@ -218,9 +266,15 @@ export function OrderDetails() {
 
     try {
       await deleteDoc(doc(db, "orderItems", selectedItem.id));
+
+      // Clear supplier elements cache if the item has a supplier
+      if (selectedItem.supplierId) {
+        CacheManager.remove(CacheManager.KEYS.SUPPLIER_ELEMENTS);
+      }
+
       setShowDeleteItemModal(false);
       setSelectedItem(null);
-      fetchOrderData();
+      fetchOrderData(true); // Force refresh to update cache
     } catch (error) {
       console.error("Error deleting item:", error);
     }
@@ -232,7 +286,7 @@ export function OrderDetails() {
     try {
       await updateDoc(doc(db, "orders", order.id), { status: newStatus });
       setOrderStatus(newStatus);
-      fetchOrderData();
+      fetchOrderData(true); // Force refresh to update cache
     } catch (error) {
       console.error("Error updating order status:", error);
     }

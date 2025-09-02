@@ -27,6 +27,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { CacheManager, createCacheKey } from "../utils/cache";
 import "./Payments.css";
 
 interface Customer {
@@ -98,9 +99,26 @@ export function Payments() {
     applyFiltersAndSort();
   }, [payments, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     try {
       setLoading(true);
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedPayments = CacheManager.get<Payment[]>(
+          CacheManager.KEYS.PAYMENTS
+        );
+        const cachedCustomers = CacheManager.get<Customer[]>(
+          CacheManager.KEYS.CUSTOMERS
+        );
+
+        if (cachedPayments && cachedCustomers) {
+          setPayments(cachedPayments);
+          setCustomers(cachedCustomers);
+          setLoading(false);
+          return;
+        }
+      }
 
       // Fetch customers
       const customersSnapshot = await getDocs(collection(db, "customers"));
@@ -126,6 +144,11 @@ export function Payments() {
           customerName: customer?.name || "Unknown Customer",
         } as Payment);
       });
+
+      // Cache the data
+      CacheManager.set(CacheManager.KEYS.PAYMENTS, paymentsData);
+      CacheManager.set(CacheManager.KEYS.CUSTOMERS, customersData);
+
       setPayments(paymentsData);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -275,7 +298,17 @@ export function Payments() {
       };
 
       // Add the payment
-      await addDoc(collection(db, "payments"), newPayment);
+      const paymentRef = await addDoc(collection(db, "payments"), newPayment);
+      const newPaymentWithId = {
+        id: paymentRef.id,
+        ...newPayment,
+        customerName:
+          customers.find((c) => c.id === paymentForm.customerId)?.name ||
+          "Unknown Customer",
+      };
+
+      // Update cache
+      CacheManager.addArrayItem(CacheManager.KEYS.PAYMENTS, newPaymentWithId);
 
       // If it's a check payment, also add it to the checks collection
       if (paymentForm.type === "check") {
@@ -318,7 +351,6 @@ export function Payments() {
         checkDate: "",
         nameOnCheck: "",
       });
-      fetchData();
     } catch (error) {
       console.error("Error adding payment:", error);
     }
@@ -359,6 +391,20 @@ export function Payments() {
 
       // Update the payment
       await updateDoc(doc(db, "payments", editingPayment.id), updatedPayment);
+
+      // Update cache
+      const updatedPaymentWithId = {
+        ...editingPayment,
+        ...updatedPayment,
+        customerName:
+          customers.find((c) => c.id === paymentForm.customerId)?.name ||
+          "Unknown Customer",
+      };
+      CacheManager.updateArrayItem(
+        CacheManager.KEYS.PAYMENTS,
+        editingPayment.id,
+        updatedPaymentWithId
+      );
 
       // If it's a check payment, also update the corresponding check
       if (paymentForm.type === "check") {
@@ -404,7 +450,6 @@ export function Payments() {
         checkDate: "",
         nameOnCheck: "",
       });
-      fetchData();
     } catch (error) {
       console.error("Error updating payment:", error);
     }
@@ -424,6 +469,9 @@ export function Payments() {
       // Delete the payment
       await deleteDoc(doc(db, "payments", payment.id));
 
+      // Update cache
+      CacheManager.removeArrayItem(CacheManager.KEYS.PAYMENTS, payment.id);
+
       // If it's a check payment, also delete the corresponding check
       if (payment.type === "check") {
         const checksSnapshot = await getDocs(
@@ -441,7 +489,6 @@ export function Payments() {
       }
 
       alert("تم حذف الدفعة بنجاح!");
-      fetchData();
     } catch (error) {
       console.error("Error deleting payment:", error);
     }

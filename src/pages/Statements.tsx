@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { CacheManager, createCacheKey } from "../utils/cache";
 import "./Statements.css";
 
 interface Customer {
@@ -139,9 +140,44 @@ export function Statements() {
     }
   }, [customers, orders, orderItems, payments, customerChecks, filters]);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     try {
       setLoading(true);
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedCustomers = CacheManager.get<Customer[]>(
+          CacheManager.KEYS.CUSTOMERS
+        );
+        const cachedOrders = CacheManager.get<Order[]>(
+          CacheManager.KEYS.ORDERS
+        );
+        const cachedPayments = CacheManager.get<Payment[]>(
+          CacheManager.KEYS.PAYMENTS
+        );
+        const cachedChecks = CacheManager.get<CustomerCheck[]>(
+          CacheManager.KEYS.CHECKS
+        );
+        const cachedOrderItems = CacheManager.get<{ [orderId: string]: any[] }>(
+          CacheManager.KEYS.ORDER_ITEMS
+        );
+
+        if (
+          cachedCustomers &&
+          cachedOrders &&
+          cachedPayments &&
+          cachedChecks &&
+          cachedOrderItems
+        ) {
+          setCustomers(cachedCustomers);
+          setOrders(cachedOrders);
+          setPayments(cachedPayments);
+          setCustomerChecks(cachedChecks);
+          setOrderItems(cachedOrderItems);
+          setLoading(false);
+          return;
+        }
+      }
 
       // Fetch customers
       const customersSnapshot = await getDocs(collection(db, "customers"));
@@ -230,6 +266,13 @@ export function Statements() {
         });
       });
       setCustomerChecks(customerChecksData);
+
+      // Cache the data
+      CacheManager.set(CacheManager.KEYS.CUSTOMERS, customersData);
+      CacheManager.set(CacheManager.KEYS.ORDERS, ordersData);
+      CacheManager.set(CacheManager.KEYS.PAYMENTS, paymentsData);
+      CacheManager.set(CacheManager.KEYS.CHECKS, customerChecksData);
+      CacheManager.set(CacheManager.KEYS.ORDER_ITEMS, orderItemsData);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {

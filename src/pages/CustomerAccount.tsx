@@ -32,6 +32,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { CacheManager, createCacheKey } from "../utils/cache";
 import "./CustomerAccount.css";
 
 interface Customer {
@@ -478,9 +479,40 @@ export function CustomerAccount() {
     statementPagination.itemsPerPage,
   ]);
 
-  const fetchCustomerData = async () => {
+  const fetchCustomerData = async (forceRefresh = false) => {
     try {
       setLoading(true);
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh && customerId) {
+        const cacheKey = createCacheKey(
+          CacheManager.KEYS.CUSTOMER_ACCOUNT,
+          customerId
+        );
+        const cachedData = CacheManager.get<{
+          customer: Customer;
+          orders: Order[];
+          payments: Payment[];
+          checks: CustomerCheck[];
+          orderItems: { [orderId: string]: any[] };
+        }>(cacheKey);
+
+        if (cachedData) {
+          setCustomer(cachedData.customer);
+          setOrders(cachedData.orders);
+          setPayments(cachedData.payments);
+          setCustomerChecks(cachedData.checks);
+          setOrderItems(cachedData.orderItems);
+          generateStatement(
+            cachedData.orders,
+            cachedData.payments,
+            cachedData.checks,
+            cachedData.orderItems
+          );
+          setLoading(false);
+          return;
+        }
+      }
 
       // Fetch customer details
       const customerRef = doc(db, "customers", customerId!);
@@ -552,6 +584,22 @@ export function CustomerAccount() {
       });
 
       setCustomerChecks(checksData);
+
+      // Cache the data
+      if (customerId) {
+        const cacheKey = createCacheKey(
+          CacheManager.KEYS.CUSTOMER_ACCOUNT,
+          customerId
+        );
+        const dataToCache = {
+          customer: customerData,
+          orders: ordersData,
+          payments: paymentsData,
+          checks: checksData,
+          orderItems: orderItemsData,
+        };
+        CacheManager.set(cacheKey, dataToCache);
+      }
 
       // Generate statement
       generateStatement(ordersData, paymentsData, checksData, orderItemsData);
@@ -1463,7 +1511,7 @@ export function CustomerAccount() {
                   </button>
                   <button
                     className="ca-refresh-btn"
-                    onClick={() => fetchCustomerData()}
+                    onClick={() => fetchCustomerData(true)}
                     title="تحديث البيانات"
                   >
                     <RefreshCw className="ca-btn-icon" />

@@ -30,6 +30,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { CacheManager, createCacheKey } from "../utils/cache";
 import "./Orders.css";
 
 interface Customer {
@@ -115,9 +116,30 @@ export function Orders() {
     applyFiltersAndSort();
   }, [orders, searchTerm, filters, sortBy]);
 
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh = false) => {
     try {
       setLoading(true);
+
+      // Check cache first (unless force refresh)
+      if (!forceRefresh) {
+        const cachedOrders = CacheManager.get<Order[]>(
+          CacheManager.KEYS.ORDERS
+        );
+        const cachedCustomers = CacheManager.get<Customer[]>(
+          CacheManager.KEYS.CUSTOMERS
+        );
+        const cachedSuppliers = CacheManager.get<
+          { id: string; name: string }[]
+        >(CacheManager.KEYS.SUPPLIERS);
+
+        if (cachedOrders && cachedCustomers && cachedSuppliers) {
+          setOrders(cachedOrders);
+          setCustomers(cachedCustomers);
+          setSuppliers(cachedSuppliers);
+          setLoading(false);
+          return;
+        }
+      }
 
       // Fetch customers first
       const customersSnapshot = await getDocs(collection(db, "customers"));
@@ -190,6 +212,11 @@ export function Orders() {
       ].filter((name) => name.trim() !== "");
       console.log("📦 Extracted element names:", uniqueElementNames);
       setExistingElementNames(uniqueElementNames);
+
+      // Cache the data
+      CacheManager.set(CacheManager.KEYS.ORDERS, ordersData);
+      CacheManager.set(CacheManager.KEYS.CUSTOMERS, customersData);
+      CacheManager.set(CacheManager.KEYS.SUPPLIERS, suppliersData);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -266,7 +293,17 @@ export function Orders() {
         createdAt: new Date().toISOString(),
       };
 
-      await addDoc(collection(db, "orders"), newOrder);
+      const docRef = await addDoc(collection(db, "orders"), newOrder);
+      const newOrderWithId = {
+        id: docRef.id,
+        ...newOrder,
+        numberOfItems: 0,
+        total: 0,
+      };
+
+      // Update cache
+      CacheManager.addArrayItem(CacheManager.KEYS.ORDERS, newOrderWithId);
+
       setShowAddModal(false);
       setOrderForm({
         customerId: "",
@@ -276,7 +313,6 @@ export function Orders() {
         total: 0, // This will be calculated from order items later
         notes: "",
       });
-      fetchData();
     } catch (error) {
       console.error("Error adding order:", error);
     }
@@ -286,7 +322,9 @@ export function Orders() {
     if (window.confirm("هل أنت متأكد من حذف هذا الطلب؟")) {
       try {
         await deleteDoc(doc(db, "orders", orderId));
-        fetchData();
+
+        // Update cache
+        CacheManager.removeArrayItem(CacheManager.KEYS.ORDERS, orderId);
       } catch (error) {
         console.error("Error deleting order:", error);
       }
@@ -333,6 +371,17 @@ export function Orders() {
 
       await updateDoc(doc(db, "orders", editingOrder.id), orderData);
 
+      // Update cache
+      const updatedOrder = {
+        ...editingOrder,
+        ...orderData,
+      };
+      CacheManager.updateArrayItem(
+        CacheManager.KEYS.ORDERS,
+        editingOrder.id,
+        updatedOrder
+      );
+
       setShowEditModal(false);
       setEditingOrder(null);
       setOrderForm({
@@ -343,8 +392,6 @@ export function Orders() {
         total: 0,
         notes: "",
       });
-
-      fetchData();
     } catch (error) {
       console.error("Error updating order:", error);
     }
@@ -424,6 +471,11 @@ export function Orders() {
 
       await addDoc(collection(db, "orderItems"), newElement);
 
+      // Clear supplier elements cache if the element has a supplier
+      if (elementForm.supplierId) {
+        CacheManager.remove(CacheManager.KEYS.SUPPLIER_ELEMENTS);
+      }
+
       // Show success message and clear form without closing modal
       alert("تم إضافة العنصر بنجاح! يمكنك إضافة عنصر آخر.");
       setElementForm({
@@ -437,7 +489,7 @@ export function Orders() {
         supplierName: "",
       });
       setShowElementNameSuggestions(false);
-      fetchData(); // Refresh orders to update totals and element names
+      fetchData(true); // Force refresh to update totals and element names
     } catch (error) {
       console.error("Error adding element:", error);
       alert("حدث خطأ أثناء إضافة العنصر");
