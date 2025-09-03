@@ -222,6 +222,26 @@
   min-width: 0; /* Allow flex item to shrink below content size */
   display: flex;
   flex-direction: column;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #f1f5f9;
+}
+
+.main-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
 }
 
 /* Expanded Main Content when Sidebar is Collapsed */

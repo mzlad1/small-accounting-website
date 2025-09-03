@@ -23,7 +23,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { CacheManager, createCacheKey } from "../utils/cache";
+
 import "./SupplierDetails.css";
 
 interface Supplier {
@@ -84,28 +84,9 @@ export function SupplierDetails() {
     applyFiltersAndSort();
   }, [elements, searchTerm, filters, sortBy]);
 
-  const fetchSupplierData = async (forceRefresh = false) => {
+  const fetchSupplierData = async () => {
     try {
       setLoading(true);
-
-      // Check cache first (unless force refresh)
-      if (!forceRefresh && supplierId) {
-        const cacheKey = createCacheKey(
-          CacheManager.KEYS.SUPPLIER_DETAILS,
-          supplierId
-        );
-        const cachedData = CacheManager.get<{
-          supplier: Supplier;
-          elements: SupplierElement[];
-        }>(cacheKey);
-
-        if (cachedData) {
-          setSupplier(cachedData.supplier);
-          setElements(cachedData.elements);
-          setLoading(false);
-          return;
-        }
-      }
 
       // Fetch supplier details
       const supplierDoc = await getDoc(doc(db, "suppliers", supplierId!));
@@ -168,19 +149,6 @@ export function SupplierDetails() {
       });
 
       setElements(elementsData);
-
-      // Cache the data
-      if (supplierId && supplierData) {
-        const cacheKey = createCacheKey(
-          CacheManager.KEYS.SUPPLIER_DETAILS,
-          supplierId
-        );
-        const dataToCache = {
-          supplier: supplierData,
-          elements: elementsData,
-        };
-        CacheManager.set(cacheKey, dataToCache);
-      }
     } catch (error) {
       console.error("Error fetching supplier data:", error);
     } finally {

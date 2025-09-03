@@ -27,7 +27,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { CacheManager, createCacheKey } from "../utils/cache";
+
 import { useNavigate } from "react-router-dom";
 import "./Suppliers.css";
 
@@ -95,26 +95,9 @@ export function Suppliers() {
     applyFiltersAndSort();
   }, [suppliers, searchTerm, sortBy]);
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-
-      // Check cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cachedSuppliers = CacheManager.get<Supplier[]>(
-          CacheManager.KEYS.SUPPLIERS
-        );
-        const cachedSupplierElements = CacheManager.get<SupplierElement[]>(
-          CacheManager.KEYS.SUPPLIER_ELEMENTS
-        );
-
-        if (cachedSuppliers && cachedSupplierElements) {
-          setSuppliers(cachedSuppliers);
-          setSupplierElements(cachedSupplierElements);
-          setLoading(false);
-          return;
-        }
-      }
 
       // Fetch suppliers
       const suppliersSnapshot = await getDocs(
@@ -202,10 +185,6 @@ export function Suppliers() {
         };
       });
 
-      // Cache the data
-      CacheManager.set(CacheManager.KEYS.SUPPLIERS, suppliersWithStats);
-      CacheManager.set(CacheManager.KEYS.SUPPLIER_ELEMENTS, elementsData);
-
       setSuppliers(suppliersWithStats);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -262,9 +241,6 @@ export function Suppliers() {
         ...newSupplier,
       };
 
-      // Update cache
-      CacheManager.addArrayItem(CacheManager.KEYS.SUPPLIERS, newSupplierWithId);
-
       alert("تم إضافة المورد بنجاح!");
       setShowAddModal(false);
       setSupplierForm({
@@ -310,11 +286,6 @@ export function Suppliers() {
         ...editingSupplier,
         ...updatedSupplier,
       };
-      CacheManager.updateArrayItem(
-        CacheManager.KEYS.SUPPLIERS,
-        editingSupplier.id,
-        updatedSupplierWithId
-      );
 
       alert("تم تحديث المورد بنجاح!");
       setShowEditModal(false);
@@ -336,9 +307,6 @@ export function Suppliers() {
 
     try {
       await deleteDoc(doc(db, "suppliers", supplier.id));
-
-      // Update cache
-      CacheManager.removeArrayItem(CacheManager.KEYS.SUPPLIERS, supplier.id);
 
       alert("تم حذف المورد بنجاح!");
     } catch (error) {
@@ -498,7 +466,7 @@ export function Suppliers() {
           </button>
           <button
             className="suppliers-refresh-btn"
-            onClick={() => fetchData(true)}
+            onClick={() => fetchData()}
             title="تحديث البيانات"
           >
             <RefreshCw className="suppliers-btn-icon" />

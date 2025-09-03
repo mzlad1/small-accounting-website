@@ -31,7 +31,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { CacheManager, createCacheKey } from "../utils/cache";
+
 import "./Checks.css";
 
 interface Customer {
@@ -112,26 +112,9 @@ export function Checks() {
     applyFiltersAndSort();
   }, [checks, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-
-      // Check cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cachedChecks = CacheManager.get<CustomerCheck[]>(
-          CacheManager.KEYS.CHECKS
-        );
-        const cachedCustomers = CacheManager.get<Customer[]>(
-          CacheManager.KEYS.CUSTOMERS
-        );
-
-        if (cachedChecks && cachedCustomers) {
-          setChecks(cachedChecks);
-          setCustomers(cachedCustomers);
-          setLoading(false);
-          return;
-        }
-      }
 
       // Fetch customers
       const customersSnapshot = await getDocs(collection(db, "customers"));
@@ -185,10 +168,6 @@ export function Checks() {
 
         checksData.push(check);
       });
-
-      // Cache the data
-      CacheManager.set(CacheManager.KEYS.CHECKS, checksData);
-      CacheManager.set(CacheManager.KEYS.CUSTOMERS, customersData);
 
       setChecks(checksData);
     } catch (error) {
@@ -331,9 +310,6 @@ export function Checks() {
           "Unknown Customer",
       };
 
-      // Update cache
-      CacheManager.addArrayItem(CacheManager.KEYS.CHECKS, newCheckWithId);
-
       // Also add it as a payment
       const customer = customers.find((c) => c.id === checkForm.customerId);
       const newPayment = {
@@ -394,11 +370,6 @@ export function Checks() {
           customers.find((c) => c.id === checkForm.customerId)?.name ||
           "Unknown Customer",
       };
-      CacheManager.updateArrayItem(
-        CacheManager.KEYS.CHECKS,
-        selectedCheck.id,
-        updatedCheckWithId
-      );
 
       // Also update the corresponding payment
       const customer = customers.find((c) => c.id === checkForm.customerId);
@@ -455,9 +426,6 @@ export function Checks() {
     try {
       // Delete the check
       await deleteDoc(doc(db, "customerChecks", selectedCheck.id));
-
-      // Update cache
-      CacheManager.removeArrayItem(CacheManager.KEYS.CHECKS, selectedCheck.id);
 
       // Also delete the corresponding payment if it exists
       const paymentsSnapshot = await getDocs(

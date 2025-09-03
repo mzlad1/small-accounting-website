@@ -27,7 +27,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { CacheManager, createCacheKey } from "../utils/cache";
+
 import "./Payments.css";
 
 interface Customer {
@@ -99,26 +99,9 @@ export function Payments() {
     applyFiltersAndSort();
   }, [payments, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-
-      // Check cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cachedPayments = CacheManager.get<Payment[]>(
-          CacheManager.KEYS.PAYMENTS
-        );
-        const cachedCustomers = CacheManager.get<Customer[]>(
-          CacheManager.KEYS.CUSTOMERS
-        );
-
-        if (cachedPayments && cachedCustomers) {
-          setPayments(cachedPayments);
-          setCustomers(cachedCustomers);
-          setLoading(false);
-          return;
-        }
-      }
 
       // Fetch customers
       const customersSnapshot = await getDocs(collection(db, "customers"));
@@ -144,10 +127,6 @@ export function Payments() {
           customerName: customer?.name || "Unknown Customer",
         } as Payment);
       });
-
-      // Cache the data
-      CacheManager.set(CacheManager.KEYS.PAYMENTS, paymentsData);
-      CacheManager.set(CacheManager.KEYS.CUSTOMERS, customersData);
 
       setPayments(paymentsData);
     } catch (error) {
@@ -307,9 +286,6 @@ export function Payments() {
           "Unknown Customer",
       };
 
-      // Update cache
-      CacheManager.addArrayItem(CacheManager.KEYS.PAYMENTS, newPaymentWithId);
-
       // If it's a check payment, also add it to the checks collection
       if (paymentForm.type === "check") {
         const customer = customers.find((c) => c.id === paymentForm.customerId);
@@ -400,11 +376,6 @@ export function Payments() {
           customers.find((c) => c.id === paymentForm.customerId)?.name ||
           "Unknown Customer",
       };
-      CacheManager.updateArrayItem(
-        CacheManager.KEYS.PAYMENTS,
-        editingPayment.id,
-        updatedPaymentWithId
-      );
 
       // If it's a check payment, also update the corresponding check
       if (paymentForm.type === "check") {
@@ -468,9 +439,6 @@ export function Payments() {
     try {
       // Delete the payment
       await deleteDoc(doc(db, "payments", payment.id));
-
-      // Update cache
-      CacheManager.removeArrayItem(CacheManager.KEYS.PAYMENTS, payment.id);
 
       // If it's a check payment, also delete the corresponding check
       if (payment.type === "check") {

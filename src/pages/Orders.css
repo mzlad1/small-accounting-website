@@ -522,8 +522,28 @@
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #3b82f6 #f1f5f9;
   animation: slideIn 0.3s ease-out;
   border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: #3b82f6;
+  border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: #2563eb;
 }
 
 @keyframes slideIn {
@@ -966,6 +986,30 @@ datalist {
   max-height: 200px;
   overflow-y: auto;
   z-index: 1000;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f9fafb;
+}
+
+.element-name-suggestions::-webkit-scrollbar,
+.customer-suggestions::-webkit-scrollbar {
+  width: 4px;
+}
+
+.element-name-suggestions::-webkit-scrollbar-track,
+.customer-suggestions::-webkit-scrollbar-track {
+  background: #f9fafb;
+  border-radius: 2px;
+}
+
+.element-name-suggestions::-webkit-scrollbar-thumb,
+.customer-suggestions::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 2px;
+}
+
+.element-name-suggestions::-webkit-scrollbar-thumb:hover,
+.customer-suggestions::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 datalist option {
@@ -1021,6 +1065,8 @@ input[list]:focus {
   max-height: 200px;
   overflow-y: auto;
   z-index: 1000;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f9fafb;
   animation: slideDown 0.2s ease-out;
 }
 

@@ -29,7 +29,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { CacheManager, createCacheKey } from "../utils/cache";
+
 import "./Customers.css";
 
 interface Customer {
@@ -178,26 +178,9 @@ export function Customers() {
     setFilteredCustomers(filtered);
   }, [customers, searchTerm, balanceFilter, sortBy, sortOrder]);
 
-  const fetchAllData = async (forceRefresh = false) => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-
-      // Check cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cachedCustomers = CacheManager.get<Customer[]>(
-          CacheManager.KEYS.CUSTOMERS
-        );
-        const cachedOrderItems = CacheManager.get<{ [orderId: string]: any[] }>(
-          CacheManager.KEYS.ORDER_ITEMS
-        );
-
-        if (cachedCustomers && cachedOrderItems) {
-          setCustomers(cachedCustomers);
-          setOrderItems(cachedOrderItems);
-          setLoading(false);
-          return;
-        }
-      }
 
       // Fetch customers
       const customersRef = collection(db, "customers");
@@ -345,10 +328,6 @@ export function Customers() {
         });
       });
 
-      // Cache the data
-      CacheManager.set(CacheManager.KEYS.CUSTOMERS, customersData);
-      CacheManager.set(CacheManager.KEYS.ORDER_ITEMS, orderItemsData);
-
       setCustomers(customersData);
     } catch (error) {
       console.error("Error fetching customers data:", error);
@@ -373,12 +352,9 @@ export function Customers() {
         lastActivity: newCustomer.createdAt,
       };
 
-      // Update cache
-      CacheManager.addArrayItem(CacheManager.KEYS.CUSTOMERS, newCustomerWithId);
-
       setShowAddModal(false);
       setFormData({ name: "", phone: "", notes: "" });
-      fetchAllData(true); // Force refresh to recalculate balances
+      fetchAllData(); // Refresh to recalculate balances
     } catch (error) {
       console.error("Error adding customer:", error);
     }
@@ -402,11 +378,6 @@ export function Customers() {
         phone: formData.phone,
         notes: formData.notes,
       };
-      CacheManager.updateArrayItem(
-        CacheManager.KEYS.CUSTOMERS,
-        selectedCustomer.id,
-        updatedCustomer
-      );
 
       setShowEditModal(false);
       setSelectedCustomer(null);
@@ -421,12 +392,6 @@ export function Customers() {
 
     try {
       await deleteDoc(doc(db, "customers", selectedCustomer.id));
-
-      // Update cache
-      CacheManager.removeArrayItem(
-        CacheManager.KEYS.CUSTOMERS,
-        selectedCustomer.id
-      );
 
       setShowDeleteModal(false);
       setSelectedCustomer(null);
@@ -642,7 +607,7 @@ export function Customers() {
           </button>
           <button
             className="refresh-btn"
-            onClick={() => fetchAllData(true)}
+            onClick={() => fetchAllData()}
             title="تحديث البيانات"
           >
             <RefreshCw className="btn-icon" />

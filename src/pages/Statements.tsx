@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { CacheManager, createCacheKey } from "../utils/cache";
 import "./Statements.css";
 
 interface Customer {
@@ -140,44 +139,9 @@ export function Statements() {
     }
   }, [customers, orders, orderItems, payments, customerChecks, filters]);
 
-  const fetchData = async (forceRefresh = false) => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-
-      // Check cache first (unless force refresh)
-      if (!forceRefresh) {
-        const cachedCustomers = CacheManager.get<Customer[]>(
-          CacheManager.KEYS.CUSTOMERS
-        );
-        const cachedOrders = CacheManager.get<Order[]>(
-          CacheManager.KEYS.ORDERS
-        );
-        const cachedPayments = CacheManager.get<Payment[]>(
-          CacheManager.KEYS.PAYMENTS
-        );
-        const cachedChecks = CacheManager.get<CustomerCheck[]>(
-          CacheManager.KEYS.CHECKS
-        );
-        const cachedOrderItems = CacheManager.get<{ [orderId: string]: any[] }>(
-          CacheManager.KEYS.ORDER_ITEMS
-        );
-
-        if (
-          cachedCustomers &&
-          cachedOrders &&
-          cachedPayments &&
-          cachedChecks &&
-          cachedOrderItems
-        ) {
-          setCustomers(cachedCustomers);
-          setOrders(cachedOrders);
-          setPayments(cachedPayments);
-          setCustomerChecks(cachedChecks);
-          setOrderItems(cachedOrderItems);
-          setLoading(false);
-          return;
-        }
-      }
 
       // Fetch customers
       const customersSnapshot = await getDocs(collection(db, "customers"));
@@ -266,13 +230,6 @@ export function Statements() {
         });
       });
       setCustomerChecks(customerChecksData);
-
-      // Cache the data
-      CacheManager.set(CacheManager.KEYS.CUSTOMERS, customersData);
-      CacheManager.set(CacheManager.KEYS.ORDERS, ordersData);
-      CacheManager.set(CacheManager.KEYS.PAYMENTS, paymentsData);
-      CacheManager.set(CacheManager.KEYS.CHECKS, customerChecksData);
-      CacheManager.set(CacheManager.KEYS.ORDER_ITEMS, orderItemsData);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -528,7 +485,7 @@ export function Statements() {
                 font-family: Arial, sans-serif; 
                 margin: 20px; 
                 direction: rtl; 
-                font-size: 12px;
+                font-size: 14px;
               }
               .header { 
                 text-align: center; 
@@ -570,7 +527,7 @@ export function Statements() {
                 width: 100%; 
                 border-collapse: collapse; 
                 margin-bottom: 20px; 
-                font-size: 11px;
+                font-size: 18px;
               }
               th, td { 
                 border: 1px solid #ddd; 
@@ -580,7 +537,7 @@ export function Statements() {
               th { 
                 background-color: #f2f2f2; 
                 font-weight: bold; 
-                font-size: 11px;
+                font-size: 18px;
               }
               .section-header {
                 background: #e9ecef;
@@ -650,34 +607,16 @@ export function Statements() {
                 
                 <div class="summary-grid">
                   <div class="summary-item">
-                    <span class="summary-value">${
-                      statement.orders.length
-                    }</span>
-                    <span class="summary-label">عدد الطلبات</span>
-                  </div>
-                  <div class="summary-item">
                     <span class="summary-value">${formatCurrency(
                       statement.totalOrders
                     )}</span>
                     <span class="summary-label">إجمالي الطلبات</span>
                   </div>
                   <div class="summary-item">
-                    <span class="summary-value">${
-                      statement.payments.length
-                    }</span>
-                    <span class="summary-label">عدد المدفوعات</span>
-                  </div>
-                  <div class="summary-item">
                     <span class="summary-value">${formatCurrency(
                       statement.totalPayments
                     )}</span>
                     <span class="summary-label">إجمالي المدفوعات</span>
-                  </div>
-                  <div class="summary-item">
-                    <span class="summary-value">${
-                      statement.checks.length
-                    }</span>
-                    <span class="summary-label">عدد الشيكات</span>
                   </div>
                   <div class="summary-item">
                     <span class="summary-value">${formatCurrency(
@@ -737,10 +676,8 @@ export function Statements() {
                               <th>الصنف</th>
                               <th>النوع</th>
                               <th>الكمية</th>
-                              <th>الوحدة</th>
                               <th>سعر الوحدة</th>
                               <th>الإجمالي</th>
-                              <th>ملاحظات</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -751,10 +688,8 @@ export function Statements() {
                                 <td>${item.name}</td>
                                 <td>${item.type}</td>
                                 <td>${item.quantity}</td>
-                                <td>${item.unit}</td>
                                 <td>${formatCurrency(item.unitPrice)}</td>
                                 <td>${formatCurrency(item.total)}</td>
-                                <td>${item.notes || "-"}</td>
                               </tr>
                             `
                               )
