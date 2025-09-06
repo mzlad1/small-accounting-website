@@ -1095,6 +1095,11 @@ input[list]:focus {
   color: #1e293b;
 }
 
+.suggestion-item.selected {
+  background-color: #3b82f6;
+  color: white;
+}
+
 .suggestion-item:last-child {
   border-bottom: none;
   border-radius: 0 0 0.75rem 0.75rem;

@@ -347,11 +347,32 @@ export function Statements() {
           ? new Date(Math.max(...allDates.map((date) => date.getTime())))
           : new Date();
 
+      // Sort orders by date and time (older to newer)
+      const sortedOrders = customerOrders.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return dateA - dateB; // Ascending order (older first)
+      });
+
+      // Sort payments by date and time (older to newer)
+      const sortedPayments = customerPayments.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return dateA - dateB; // Ascending order (older first)
+      });
+
+      // Sort checks by due date and time (older to newer)
+      const sortedChecks = customerChecksList.sort((a, b) => {
+        const dateA = new Date(a.dueDate).getTime();
+        const dateB = new Date(b.dueDate).getTime();
+        return dateA - dateB; // Ascending order (older first)
+      });
+
       return {
         customer,
-        orders: customerOrders,
-        payments: customerPayments,
-        checks: customerChecksList,
+        orders: sortedOrders,
+        payments: sortedPayments,
+        checks: sortedChecks,
         totalOrders,
         totalPayments,
         totalChecks,

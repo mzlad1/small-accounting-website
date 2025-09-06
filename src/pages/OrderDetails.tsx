@@ -98,6 +98,17 @@ export function OrderDetails() {
 
   const [orderStatus, setOrderStatus] = useState<Order["status"]>("pending");
 
+  // Element name suggestions state
+  const [existingElementNames, setExistingElementNames] = useState<string[]>(
+    []
+  );
+  const [showElementNameSuggestions, setShowElementNameSuggestions] =
+    useState(false);
+  const [filteredElementNames, setFilteredElementNames] = useState<string[]>(
+    []
+  );
+  const [selectedElementNameIndex, setSelectedElementNameIndex] = useState(-1);
+
   useEffect(() => {
     if (orderId) {
       fetchOrderData();
@@ -149,6 +160,19 @@ export function OrderDetails() {
         itemsData.push({ id: doc.id, ...doc.data() } as OrderItem);
       });
       setItems(itemsData);
+
+      // Fetch all order items to get existing element names for suggestions
+      const allItemsSnapshot = await getDocs(collection(db, "orderItems"));
+      const allItemsData: any[] = [];
+      allItemsSnapshot.forEach((doc) => {
+        allItemsData.push({ id: doc.id, ...doc.data() });
+      });
+
+      // Extract unique element names from all order items
+      const uniqueElementNames = [
+        ...new Set(allItemsData.map((item) => item.name)),
+      ].filter((name) => name && name.trim() !== "");
+      setExistingElementNames(uniqueElementNames);
     } catch (error) {
       console.error("Error fetching order data:", error);
     } finally {
@@ -449,6 +473,93 @@ export function OrderDetails() {
     return ["all", ...Array.from(new Set(types))];
   };
 
+  // Element name suggestions functions
+  const handleElementNameInputChange = (value: string) => {
+    setItemForm({ ...itemForm, name: value });
+    setSelectedElementNameIndex(-1); // Reset selection when typing
+
+    if (value.length > 0) {
+      const filtered = existingElementNames.filter((name) =>
+        name.toLowerCase().includes(value.toLowerCase())
+      );
+      setFilteredElementNames(filtered);
+      setShowElementNameSuggestions(filtered.length > 0);
+    } else {
+      setShowElementNameSuggestions(false);
+    }
+  };
+
+  const handleElementNameKeyDown = (e: React.KeyboardEvent) => {
+    if (!showElementNameSuggestions || filteredElementNames.length === 0)
+      return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedElementNameIndex((prev) => {
+          const newIndex =
+            prev < filteredElementNames.length - 1 ? prev + 1 : 0;
+          // Scroll to selected item
+          setTimeout(() => {
+            const selectedElement = document.querySelector(
+              `.suggestions-dropdown .suggestion-item:nth-child(${
+                newIndex + 1
+              })`
+            );
+            if (selectedElement) {
+              selectedElement.scrollIntoView({
+                block: "nearest",
+                behavior: "smooth",
+              });
+            }
+          }, 0);
+          return newIndex;
+        });
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedElementNameIndex((prev) => {
+          const newIndex =
+            prev > 0 ? prev - 1 : filteredElementNames.length - 1;
+          // Scroll to selected item
+          setTimeout(() => {
+            const selectedElement = document.querySelector(
+              `.suggestions-dropdown .suggestion-item:nth-child(${
+                newIndex + 1
+              })`
+            );
+            if (selectedElement) {
+              selectedElement.scrollIntoView({
+                block: "nearest",
+                behavior: "smooth",
+              });
+            }
+          }, 0);
+          return newIndex;
+        });
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (
+          selectedElementNameIndex >= 0 &&
+          selectedElementNameIndex < filteredElementNames.length
+        ) {
+          selectElementName(filteredElementNames[selectedElementNameIndex]);
+        }
+        break;
+      case "Escape":
+        setShowElementNameSuggestions(false);
+        setSelectedElementNameIndex(-1);
+        break;
+    }
+  };
+
+  const selectElementName = (name: string) => {
+    setItemForm({ ...itemForm, name });
+    setShowElementNameSuggestions(false);
+    setSelectedElementNameIndex(-1);
+  };
+
   if (loading) {
     return (
       <div className="od-order-details-container">
@@ -713,15 +824,61 @@ export function OrderDetails() {
             <div className="od-modal-body">
               <div className="od-form-group">
                 <label>اسم العنصر *</label>
-                <input
-                  type="text"
-                  value={itemForm.name}
-                  onChange={(e) =>
-                    setItemForm({ ...itemForm, name: e.target.value })
-                  }
-                  placeholder="أدخل اسم العنصر"
-                  className="od-form-input"
-                />
+                <div className="autocomplete-container">
+                  <input
+                    type="text"
+                    value={itemForm.name}
+                    onChange={(e) =>
+                      handleElementNameInputChange(e.target.value)
+                    }
+                    onKeyDown={handleElementNameKeyDown}
+                    onFocus={() => {
+                      if (itemForm.name.length > 0) {
+                        const filtered = existingElementNames.filter((name) =>
+                          name
+                            .toLowerCase()
+                            .includes(itemForm.name.toLowerCase())
+                        );
+                        setFilteredElementNames(filtered);
+                        setShowElementNameSuggestions(filtered.length > 0);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay hiding to allow clicking on suggestions
+                      setTimeout(
+                        () => setShowElementNameSuggestions(false),
+                        200
+                      );
+                    }}
+                    placeholder="أدخل اسم العنصر أو اختر من القائمة"
+                    className="od-form-input"
+                    autoComplete="off"
+                  />
+                  {showElementNameSuggestions &&
+                    filteredElementNames.length > 0 && (
+                      <div className="suggestions-dropdown">
+                        {filteredElementNames.map((name, index) => (
+                          <div
+                            key={index}
+                            className={`suggestion-item ${
+                              index === selectedElementNameIndex
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() => selectElementName(name)}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+                {existingElementNames.length > 0 && (
+                  <small className="form-hint">
+                    💡 ابدأ بالكتابة لرؤية أسماء العناصر السابقة (
+                    {existingElementNames.length} اسم متاح)
+                  </small>
+                )}
               </div>
 
               <div className="od-form-row">
@@ -874,15 +1031,61 @@ export function OrderDetails() {
             <div className="od-modal-body">
               <div className="od-form-group">
                 <label>اسم العنصر *</label>
-                <input
-                  type="text"
-                  value={itemForm.name}
-                  onChange={(e) =>
-                    setItemForm({ ...itemForm, name: e.target.value })
-                  }
-                  placeholder="أدخل اسم العنصر"
-                  className="od-form-input"
-                />
+                <div className="autocomplete-container">
+                  <input
+                    type="text"
+                    value={itemForm.name}
+                    onChange={(e) =>
+                      handleElementNameInputChange(e.target.value)
+                    }
+                    onKeyDown={handleElementNameKeyDown}
+                    onFocus={() => {
+                      if (itemForm.name.length > 0) {
+                        const filtered = existingElementNames.filter((name) =>
+                          name
+                            .toLowerCase()
+                            .includes(itemForm.name.toLowerCase())
+                        );
+                        setFilteredElementNames(filtered);
+                        setShowElementNameSuggestions(filtered.length > 0);
+                      }
+                    }}
+                    onBlur={() => {
+                      // Delay hiding to allow clicking on suggestions
+                      setTimeout(
+                        () => setShowElementNameSuggestions(false),
+                        200
+                      );
+                    }}
+                    placeholder="أدخل اسم العنصر أو اختر من القائمة"
+                    className="od-form-input"
+                    autoComplete="off"
+                  />
+                  {showElementNameSuggestions &&
+                    filteredElementNames.length > 0 && (
+                      <div className="suggestions-dropdown">
+                        {filteredElementNames.map((name, index) => (
+                          <div
+                            key={index}
+                            className={`suggestion-item ${
+                              index === selectedElementNameIndex
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() => selectElementName(name)}
+                          >
+                            {name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                </div>
+                {existingElementNames.length > 0 && (
+                  <small className="form-hint">
+                    💡 ابدأ بالكتابة لرؤية أسماء العناصر السابقة (
+                    {existingElementNames.length} اسم متاح)
+                  </small>
+                )}
               </div>
 
               <div className="od-form-row">

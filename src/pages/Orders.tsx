@@ -107,6 +107,8 @@ export function Orders() {
   const [filteredElementNames, setFilteredElementNames] = useState<string[]>(
     []
   );
+  const [selectedTitleIndex, setSelectedTitleIndex] = useState(-1);
+  const [selectedElementNameIndex, setSelectedElementNameIndex] = useState(-1);
 
   useEffect(() => {
     fetchData();
@@ -369,6 +371,7 @@ export function Orders() {
 
   const handleTitleInputChange = (value: string) => {
     setOrderForm({ ...orderForm, title: value });
+    setSelectedTitleIndex(-1); // Reset selection when typing
 
     if (value.length > 0) {
       const filtered = existingTitles.filter((title) =>
@@ -381,13 +384,77 @@ export function Orders() {
     }
   };
 
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showTitleSuggestions || filteredTitles.length === 0) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedTitleIndex((prev) => {
+          const newIndex = prev < filteredTitles.length - 1 ? prev + 1 : 0;
+          // Scroll to selected item
+          setTimeout(() => {
+            const selectedElement = document.querySelector(
+              `.suggestions-dropdown .suggestion-item:nth-child(${
+                newIndex + 1
+              })`
+            );
+            if (selectedElement) {
+              selectedElement.scrollIntoView({
+                block: "nearest",
+                behavior: "smooth",
+              });
+            }
+          }, 0);
+          return newIndex;
+        });
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedTitleIndex((prev) => {
+          const newIndex = prev > 0 ? prev - 1 : filteredTitles.length - 1;
+          // Scroll to selected item
+          setTimeout(() => {
+            const selectedElement = document.querySelector(
+              `.suggestions-dropdown .suggestion-item:nth-child(${
+                newIndex + 1
+              })`
+            );
+            if (selectedElement) {
+              selectedElement.scrollIntoView({
+                block: "nearest",
+                behavior: "smooth",
+              });
+            }
+          }, 0);
+          return newIndex;
+        });
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (
+          selectedTitleIndex >= 0 &&
+          selectedTitleIndex < filteredTitles.length
+        ) {
+          selectTitle(filteredTitles[selectedTitleIndex]);
+        }
+        break;
+      case "Escape":
+        setShowTitleSuggestions(false);
+        setSelectedTitleIndex(-1);
+        break;
+    }
+  };
+
   const selectTitle = (title: string) => {
     setOrderForm({ ...orderForm, title });
     setShowTitleSuggestions(false);
+    setSelectedTitleIndex(-1);
   };
 
   const handleElementNameInputChange = (value: string) => {
     setElementForm({ ...elementForm, name: value });
+    setSelectedElementNameIndex(-1); // Reset selection when typing
 
     if (value.length > 0) {
       const filtered = existingElementNames.filter((name) =>
@@ -400,9 +467,75 @@ export function Orders() {
     }
   };
 
+  const handleElementNameKeyDown = (e: React.KeyboardEvent) => {
+    if (!showElementNameSuggestions || filteredElementNames.length === 0)
+      return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedElementNameIndex((prev) => {
+          const newIndex =
+            prev < filteredElementNames.length - 1 ? prev + 1 : 0;
+          // Scroll to selected item
+          setTimeout(() => {
+            const selectedElement = document.querySelector(
+              `.suggestions-dropdown .suggestion-item:nth-child(${
+                newIndex + 1
+              })`
+            );
+            if (selectedElement) {
+              selectedElement.scrollIntoView({
+                block: "nearest",
+                behavior: "smooth",
+              });
+            }
+          }, 0);
+          return newIndex;
+        });
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedElementNameIndex((prev) => {
+          const newIndex =
+            prev > 0 ? prev - 1 : filteredElementNames.length - 1;
+          // Scroll to selected item
+          setTimeout(() => {
+            const selectedElement = document.querySelector(
+              `.suggestions-dropdown .suggestion-item:nth-child(${
+                newIndex + 1
+              })`
+            );
+            if (selectedElement) {
+              selectedElement.scrollIntoView({
+                block: "nearest",
+                behavior: "smooth",
+              });
+            }
+          }, 0);
+          return newIndex;
+        });
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (
+          selectedElementNameIndex >= 0 &&
+          selectedElementNameIndex < filteredElementNames.length
+        ) {
+          selectElementName(filteredElementNames[selectedElementNameIndex]);
+        }
+        break;
+      case "Escape":
+        setShowElementNameSuggestions(false);
+        setSelectedElementNameIndex(-1);
+        break;
+    }
+  };
+
   const selectElementName = (name: string) => {
     setElementForm({ ...elementForm, name });
     setShowElementNameSuggestions(false);
+    setSelectedElementNameIndex(-1);
   };
 
   const handleAddElement = (order: Order) => {
@@ -962,6 +1095,7 @@ export function Orders() {
                     type="text"
                     value={orderForm.title}
                     onChange={(e) => handleTitleInputChange(e.target.value)}
+                    onKeyDown={handleTitleKeyDown}
                     onFocus={() => {
                       if (orderForm.title.length > 0) {
                         const filtered = existingTitles.filter((title) =>
@@ -986,7 +1120,9 @@ export function Orders() {
                       {filteredTitles.map((title, index) => (
                         <div
                           key={index}
-                          className="suggestion-item"
+                          className={`suggestion-item ${
+                            index === selectedTitleIndex ? "selected" : ""
+                          }`}
                           onClick={() => selectTitle(title)}
                         >
                           {title}
@@ -1108,6 +1244,7 @@ export function Orders() {
                     className="form-input"
                     value={orderForm.title}
                     onChange={(e) => handleTitleInputChange(e.target.value)}
+                    onKeyDown={handleTitleKeyDown}
                     onFocus={() => {
                       if (orderForm.title.length > 0) {
                         const filtered = existingTitles.filter((title) =>
@@ -1131,7 +1268,9 @@ export function Orders() {
                       {filteredTitles.map((title, index) => (
                         <div
                           key={index}
-                          className="suggestion-item"
+                          className={`suggestion-item ${
+                            index === selectedTitleIndex ? "selected" : ""
+                          }`}
                           onClick={() => selectTitle(title)}
                         >
                           {title}
@@ -1234,6 +1373,7 @@ export function Orders() {
                     onChange={(e) =>
                       handleElementNameInputChange(e.target.value)
                     }
+                    onKeyDown={handleElementNameKeyDown}
                     onFocus={() => {
                       if (elementForm.name.length > 0) {
                         const filtered = existingElementNames.filter((name) =>
@@ -1262,7 +1402,11 @@ export function Orders() {
                         {filteredElementNames.map((name, index) => (
                           <div
                             key={index}
-                            className="suggestion-item"
+                            className={`suggestion-item ${
+                              index === selectedElementNameIndex
+                                ? "selected"
+                                : ""
+                            }`}
                             onClick={() => selectElementName(name)}
                           >
                             {name}
