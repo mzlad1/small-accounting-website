@@ -457,6 +457,14 @@ export function Suppliers() {
         </div>
         <div className="suppliers-header-actions">
           <button
+            className="suppliers-payments-btn"
+            onClick={() => navigate("/supplier-payments")}
+            title="إدارة دفعات الموردين"
+          >
+            <DollarSign className="suppliers-btn-icon" />
+            دفعات الموردين
+          </button>
+          <button
             className="suppliers-print-btn"
             onClick={printSuppliers}
             title="طباعة قائمة الموردين"

@@ -90,6 +90,21 @@ export function Checks() {
     nameOnCheck: "",
   });
 
+  // Custom dropdown states for Checks
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  const [selectedCustomerIndex, setSelectedCustomerIndex] = useState(-1);
+  const [isEditCustomerDropdownOpen, setIsEditCustomerDropdownOpen] =
+    useState(false);
+  const [editCustomerSearchTerm, setEditCustomerSearchTerm] = useState("");
+  const [selectedEditCustomerIndex, setSelectedEditCustomerIndex] =
+    useState(-1);
+  const [isImportCustomerDropdownOpen, setIsImportCustomerDropdownOpen] =
+    useState(false);
+  const [importCustomerSearchTerm, setImportCustomerSearchTerm] = useState("");
+  const [selectedImportCustomerIndex, setSelectedImportCustomerIndex] =
+    useState(-1);
+
   // Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
   const [importForm, setImportForm] = useState({
@@ -111,6 +126,23 @@ export function Checks() {
   useEffect(() => {
     applyFiltersAndSort();
   }, [checks, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".custom-dropdown")) {
+        setIsCustomerDropdownOpen(false);
+        setIsEditCustomerDropdownOpen(false);
+        setIsImportCustomerDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -292,6 +324,129 @@ export function Checks() {
     setPaginatedChecks(paginated);
   };
 
+  // Custom dropdown functions for customers in checks
+  const getFilteredCustomers = (searchTerm: string) => {
+    return customers.filter((customer) =>
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const handleCustomerSelect = (
+    customer: Customer,
+    modalType: "add" | "edit" | "import" = "add"
+  ) => {
+    if (modalType === "edit") {
+      setCheckForm({ ...checkForm, customerId: customer.id });
+      setEditCustomerSearchTerm(customer.name);
+      setIsEditCustomerDropdownOpen(false);
+      setSelectedEditCustomerIndex(-1);
+    } else if (modalType === "import") {
+      setImportForm({ ...importForm, customerId: customer.id });
+      setImportCustomerSearchTerm(customer.name);
+      setIsImportCustomerDropdownOpen(false);
+      setSelectedImportCustomerIndex(-1);
+    } else {
+      setCheckForm({ ...checkForm, customerId: customer.id });
+      setCustomerSearchTerm(customer.name);
+      setIsCustomerDropdownOpen(false);
+      setSelectedCustomerIndex(-1);
+    }
+  };
+
+  // Helper function to scroll highlighted option into view
+  const scrollToHighlighted = (
+    index: number,
+    modalType: "add" | "edit" | "import" = "add"
+  ) => {
+    const dropdownSelector =
+      modalType === "add"
+        ? ".modal .dropdown-options"
+        : modalType === "edit"
+        ? ".modal .dropdown-options"
+        : ".import-modal .dropdown-options";
+    const dropdown = document.querySelector(dropdownSelector);
+
+    if (dropdown && index >= 0) {
+      const option = dropdown.children[index] as HTMLElement;
+      if (option) {
+        const dropdownRect = dropdown.getBoundingClientRect();
+        const optionRect = option.getBoundingClientRect();
+
+        if (optionRect.bottom > dropdownRect.bottom) {
+          // Option is below visible area
+          dropdown.scrollTop += optionRect.bottom - dropdownRect.bottom;
+        } else if (optionRect.top < dropdownRect.top) {
+          // Option is above visible area
+          dropdown.scrollTop -= dropdownRect.top - optionRect.top;
+        }
+      }
+    }
+  };
+
+  const handleCustomerKeyDown = (
+    e: React.KeyboardEvent,
+    modalType: "add" | "edit" | "import" = "add"
+  ) => {
+    const searchTerm =
+      modalType === "edit"
+        ? editCustomerSearchTerm
+        : modalType === "import"
+        ? importCustomerSearchTerm
+        : customerSearchTerm;
+    const filteredCustomers = getFilteredCustomers(searchTerm);
+    const selectedIndex =
+      modalType === "edit"
+        ? selectedEditCustomerIndex
+        : modalType === "import"
+        ? selectedImportCustomerIndex
+        : selectedCustomerIndex;
+    const setSelectedIndex =
+      modalType === "edit"
+        ? setSelectedEditCustomerIndex
+        : modalType === "import"
+        ? setSelectedImportCustomerIndex
+        : setSelectedCustomerIndex;
+    const setDropdownOpen =
+      modalType === "edit"
+        ? setIsEditCustomerDropdownOpen
+        : modalType === "import"
+        ? setIsImportCustomerDropdownOpen
+        : setIsCustomerDropdownOpen;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        const newDownIndex = Math.min(
+          selectedIndex + 1,
+          filteredCustomers.length - 1
+        );
+        setSelectedIndex(newDownIndex);
+        setDropdownOpen(true);
+        // Scroll highlighted option into view
+        setTimeout(() => scrollToHighlighted(newDownIndex, modalType), 0);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        const newUpIndex = Math.max(selectedIndex - 1, -1);
+        setSelectedIndex(newUpIndex);
+        setDropdownOpen(true);
+        // Scroll highlighted option into view
+        setTimeout(() => scrollToHighlighted(newUpIndex, modalType), 0);
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < filteredCustomers.length) {
+          handleCustomerSelect(filteredCustomers[selectedIndex], modalType);
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
+        setDropdownOpen(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  };
+
   const handleAddCheck = async () => {
     try {
       const newCheck = {
@@ -343,6 +498,9 @@ export function Checks() {
         notes: "",
         nameOnCheck: "",
       });
+      setCustomerSearchTerm("");
+      setIsCustomerDropdownOpen(false);
+      setSelectedCustomerIndex(-1);
     } catch (error) {
       console.error("Error adding check:", error);
     }
@@ -415,6 +573,9 @@ export function Checks() {
         notes: "",
         nameOnCheck: "",
       });
+      setEditCustomerSearchTerm("");
+      setIsEditCustomerDropdownOpen(false);
+      setSelectedEditCustomerIndex(-1);
     } catch (error) {
       console.error("Error updating check:", error);
     }
@@ -466,6 +627,7 @@ export function Checks() {
 
   const openEditModal = (check: CustomerCheck) => {
     setSelectedCheck(check);
+    const customer = customers.find((c) => c.id === check.customerId);
     setCheckForm({
       customerId: check.customerId,
       checkNumber: check.checkNumber,
@@ -475,6 +637,7 @@ export function Checks() {
       notes: check.notes || "",
       nameOnCheck: check.nameOnCheck || "",
     });
+    setEditCustomerSearchTerm(customer?.name || "");
     setShowEditModal(true);
   };
 
@@ -1254,20 +1417,52 @@ export function Checks() {
             <div className="modal-body">
               <div className="form-group">
                 <label>العميل *</label>
-                <select
-                  value={checkForm.customerId}
-                  onChange={(e) =>
-                    setCheckForm({ ...checkForm, customerId: e.target.value })
-                  }
-                  className="form-select"
-                >
-                  <option value="">اختر العميل</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="custom-dropdown">
+                  <input
+                    type="text"
+                    value={customerSearchTerm}
+                    onChange={(e) => {
+                      setCustomerSearchTerm(e.target.value);
+                      setIsCustomerDropdownOpen(true);
+                      setSelectedCustomerIndex(-1);
+                    }}
+                    onKeyDown={(e) => handleCustomerKeyDown(e, "add")}
+                    onFocus={() => setIsCustomerDropdownOpen(true)}
+                    placeholder="ابحث عن العميل أو اختر من القائمة"
+                    required={!checkForm.customerId}
+                  />
+                  {isCustomerDropdownOpen && (
+                    <div className="dropdown-options">
+                      {getFilteredCustomers(customerSearchTerm).map(
+                        (customer, index) => (
+                          <div
+                            key={customer.id}
+                            className={`dropdown-option ${
+                              index === selectedCustomerIndex
+                                ? "highlighted"
+                                : ""
+                            } ${
+                              checkForm.customerId === customer.id
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() =>
+                              handleCustomerSelect(customer, "add")
+                            }
+                          >
+                            {customer.name}
+                          </div>
+                        )
+                      )}
+                      {getFilteredCustomers(customerSearchTerm).length ===
+                        0 && (
+                        <div className="dropdown-option disabled">
+                          لا توجد نتائج
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-row">
@@ -1398,20 +1593,52 @@ export function Checks() {
             <div className="modal-body">
               <div className="form-group">
                 <label>العميل *</label>
-                <select
-                  value={checkForm.customerId}
-                  onChange={(e) =>
-                    setCheckForm({ ...checkForm, customerId: e.target.value })
-                  }
-                  className="form-select"
-                >
-                  <option value="">اختر العميل</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="custom-dropdown">
+                  <input
+                    type="text"
+                    value={editCustomerSearchTerm}
+                    onChange={(e) => {
+                      setEditCustomerSearchTerm(e.target.value);
+                      setIsEditCustomerDropdownOpen(true);
+                      setSelectedEditCustomerIndex(-1);
+                    }}
+                    onKeyDown={(e) => handleCustomerKeyDown(e, "edit")}
+                    onFocus={() => setIsEditCustomerDropdownOpen(true)}
+                    placeholder="ابحث عن العميل أو اختر من القائمة"
+                    required={!checkForm.customerId}
+                  />
+                  {isEditCustomerDropdownOpen && (
+                    <div className="dropdown-options">
+                      {getFilteredCustomers(editCustomerSearchTerm).map(
+                        (customer, index) => (
+                          <div
+                            key={customer.id}
+                            className={`dropdown-option ${
+                              index === selectedEditCustomerIndex
+                                ? "highlighted"
+                                : ""
+                            } ${
+                              checkForm.customerId === customer.id
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() =>
+                              handleCustomerSelect(customer, "edit")
+                            }
+                          >
+                            {customer.name}
+                          </div>
+                        )
+                      )}
+                      {getFilteredCustomers(editCustomerSearchTerm).length ===
+                        0 && (
+                        <div className="dropdown-option disabled">
+                          لا توجد نتائج
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-row">
@@ -1581,21 +1808,52 @@ export function Checks() {
             <div className="modal-body">
               <div className="form-group">
                 <label>اختر العميل:</label>
-                <select
-                  value={importForm.customerId}
-                  onChange={(e) =>
-                    setImportForm({ ...importForm, customerId: e.target.value })
-                  }
-                  className="form-select"
-                  required
-                >
-                  <option value="">اختر العميل</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="custom-dropdown">
+                  <input
+                    type="text"
+                    value={importCustomerSearchTerm}
+                    onChange={(e) => {
+                      setImportCustomerSearchTerm(e.target.value);
+                      setIsImportCustomerDropdownOpen(true);
+                      setSelectedImportCustomerIndex(-1);
+                    }}
+                    onKeyDown={(e) => handleCustomerKeyDown(e, "import")}
+                    onFocus={() => setIsImportCustomerDropdownOpen(true)}
+                    placeholder="ابحث عن العميل أو اختر من القائمة"
+                    required={!importForm.customerId}
+                  />
+                  {isImportCustomerDropdownOpen && (
+                    <div className="dropdown-options">
+                      {getFilteredCustomers(importCustomerSearchTerm).map(
+                        (customer, index) => (
+                          <div
+                            key={customer.id}
+                            className={`dropdown-option ${
+                              index === selectedImportCustomerIndex
+                                ? "highlighted"
+                                : ""
+                            } ${
+                              importForm.customerId === customer.id
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() =>
+                              handleCustomerSelect(customer, "import")
+                            }
+                          >
+                            {customer.name}
+                          </div>
+                        )
+                      )}
+                      {getFilteredCustomers(importCustomerSearchTerm).length ===
+                        0 && (
+                        <div className="dropdown-option disabled">
+                          لا توجد نتائج
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-group">

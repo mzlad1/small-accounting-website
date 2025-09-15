@@ -15,6 +15,7 @@ import { PersonalChecks } from "./pages/PersonalChecks";
 import { Statements } from "./pages/Statements";
 import { Suppliers } from "./pages/Suppliers";
 import { SupplierDetails } from "./pages/SupplierDetails";
+import { SupplierPayments } from "./pages/SupplierPayments";
 import { Reports } from "./pages/Reports";
 
 function App() {
@@ -129,6 +130,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <SupplierDetails />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/supplier-payments"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <SupplierPayments />
                 </Layout>
               </ProtectedRoute>
             }

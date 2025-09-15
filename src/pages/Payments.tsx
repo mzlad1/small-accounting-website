@@ -86,6 +86,16 @@ export function Payments() {
     nameOnCheck: "",
   });
 
+  // Custom dropdown states for Payments
+  const [isCustomerDropdownOpen, setIsCustomerDropdownOpen] = useState(false);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState("");
+  const [selectedCustomerIndex, setSelectedCustomerIndex] = useState(-1);
+  const [isEditCustomerDropdownOpen, setIsEditCustomerDropdownOpen] =
+    useState(false);
+  const [editCustomerSearchTerm, setEditCustomerSearchTerm] = useState("");
+  const [selectedEditCustomerIndex, setSelectedEditCustomerIndex] =
+    useState(-1);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -98,6 +108,22 @@ export function Payments() {
   useEffect(() => {
     applyFiltersAndSort();
   }, [payments, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest(".custom-dropdown")) {
+        setIsCustomerDropdownOpen(false);
+        setIsEditCustomerDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const fetchData = async () => {
     try {
@@ -269,6 +295,99 @@ export function Payments() {
     setPaginatedPayments(paginated);
   };
 
+  // Custom dropdown functions for customers
+  const getFilteredCustomers = (searchTerm: string) => {
+    return customers.filter((customer) =>
+      customer.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
+  const handleCustomerSelect = (customer: Customer, isEdit = false) => {
+    if (isEdit) {
+      setPaymentForm({ ...paymentForm, customerId: customer.id });
+      setEditCustomerSearchTerm(customer.name);
+      setIsEditCustomerDropdownOpen(false);
+      setSelectedEditCustomerIndex(-1);
+    } else {
+      setPaymentForm({ ...paymentForm, customerId: customer.id });
+      setCustomerSearchTerm(customer.name);
+      setIsCustomerDropdownOpen(false);
+      setSelectedCustomerIndex(-1);
+    }
+  };
+
+  // Helper function to scroll highlighted option into view
+  const scrollToHighlighted = (index: number, isEdit = false) => {
+    const dropdownSelector = isEdit
+      ? ".modal .dropdown-options"
+      : ".custom-dropdown .dropdown-options";
+    const dropdown = document.querySelector(dropdownSelector);
+
+    if (dropdown && index >= 0) {
+      const option = dropdown.children[index] as HTMLElement;
+      if (option) {
+        const dropdownRect = dropdown.getBoundingClientRect();
+        const optionRect = option.getBoundingClientRect();
+
+        if (optionRect.bottom > dropdownRect.bottom) {
+          // Option is below visible area
+          dropdown.scrollTop += optionRect.bottom - dropdownRect.bottom;
+        } else if (optionRect.top < dropdownRect.top) {
+          // Option is above visible area
+          dropdown.scrollTop -= dropdownRect.top - optionRect.top;
+        }
+      }
+    }
+  };
+
+  const handleCustomerKeyDown = (e: React.KeyboardEvent, isEdit = false) => {
+    const filteredCustomers = getFilteredCustomers(
+      isEdit ? editCustomerSearchTerm : customerSearchTerm
+    );
+    const selectedIndex = isEdit
+      ? selectedEditCustomerIndex
+      : selectedCustomerIndex;
+    const setSelectedIndex = isEdit
+      ? setSelectedEditCustomerIndex
+      : setSelectedCustomerIndex;
+    const setDropdownOpen = isEdit
+      ? setIsEditCustomerDropdownOpen
+      : setIsCustomerDropdownOpen;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        const newDownIndex = Math.min(
+          selectedIndex + 1,
+          filteredCustomers.length - 1
+        );
+        setSelectedIndex(newDownIndex);
+        setDropdownOpen(true);
+        // Scroll highlighted option into view
+        setTimeout(() => scrollToHighlighted(newDownIndex, isEdit), 0);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        const newUpIndex = Math.max(selectedIndex - 1, -1);
+        setSelectedIndex(newUpIndex);
+        setDropdownOpen(true);
+        // Scroll highlighted option into view
+        setTimeout(() => scrollToHighlighted(newUpIndex, isEdit), 0);
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < filteredCustomers.length) {
+          handleCustomerSelect(filteredCustomers[selectedIndex], isEdit);
+        }
+        break;
+      case "Escape":
+        e.preventDefault();
+        setDropdownOpen(false);
+        setSelectedIndex(-1);
+        break;
+    }
+  };
+
   const handleAddPayment = async () => {
     try {
       const newPayment = {
@@ -327,6 +446,9 @@ export function Payments() {
         checkDate: "",
         nameOnCheck: "",
       });
+      setCustomerSearchTerm("");
+      setIsCustomerDropdownOpen(false);
+      setSelectedCustomerIndex(-1);
     } catch (error) {
       console.error("Error adding payment:", error);
     }
@@ -342,6 +464,7 @@ export function Payments() {
     }
 
     setEditingPayment(payment);
+    const customer = customers.find((c) => c.id === payment.customerId);
     setPaymentForm({
       customerId: payment.customerId,
       date: payment.date,
@@ -353,6 +476,7 @@ export function Payments() {
       checkDate: payment.checkDate || "",
       nameOnCheck: payment.nameOnCheck || "",
     });
+    setEditCustomerSearchTerm(customer?.name || "");
     setShowEditModal(true);
   };
 
@@ -421,6 +545,9 @@ export function Payments() {
         checkDate: "",
         nameOnCheck: "",
       });
+      setEditCustomerSearchTerm("");
+      setIsEditCustomerDropdownOpen(false);
+      setSelectedEditCustomerIndex(-1);
     } catch (error) {
       console.error("Error updating payment:", error);
     }
@@ -1021,23 +1148,52 @@ export function Payments() {
             <div className="modal-body">
               <div className="form-group">
                 <label>العميل *</label>
-                <select
-                  value={paymentForm.customerId}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      customerId: e.target.value,
-                    })
-                  }
-                  className="form-select"
-                >
-                  <option value="">اختر العميل</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="custom-dropdown">
+                  <input
+                    type="text"
+                    value={customerSearchTerm}
+                    onChange={(e) => {
+                      setCustomerSearchTerm(e.target.value);
+                      setIsCustomerDropdownOpen(true);
+                      setSelectedCustomerIndex(-1);
+                    }}
+                    onKeyDown={(e) => handleCustomerKeyDown(e, false)}
+                    onFocus={() => setIsCustomerDropdownOpen(true)}
+                    placeholder="ابحث عن العميل أو اختر من القائمة"
+                    required={!paymentForm.customerId}
+                  />
+                  {isCustomerDropdownOpen && (
+                    <div className="dropdown-options">
+                      {getFilteredCustomers(customerSearchTerm).map(
+                        (customer, index) => (
+                          <div
+                            key={customer.id}
+                            className={`dropdown-option ${
+                              index === selectedCustomerIndex
+                                ? "highlighted"
+                                : ""
+                            } ${
+                              paymentForm.customerId === customer.id
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() =>
+                              handleCustomerSelect(customer, false)
+                            }
+                          >
+                            {customer.name}
+                          </div>
+                        )
+                      )}
+                      {getFilteredCustomers(customerSearchTerm).length ===
+                        0 && (
+                        <div className="dropdown-option disabled">
+                          لا توجد نتائج
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-row">
@@ -1221,23 +1377,50 @@ export function Payments() {
             <div className="modal-body">
               <div className="form-group">
                 <label>العميل *</label>
-                <select
-                  value={paymentForm.customerId}
-                  onChange={(e) =>
-                    setPaymentForm({
-                      ...paymentForm,
-                      customerId: e.target.value,
-                    })
-                  }
-                  className="form-select"
-                >
-                  <option value="">اختر العميل</option>
-                  {customers.map((customer) => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="custom-dropdown">
+                  <input
+                    type="text"
+                    value={editCustomerSearchTerm}
+                    onChange={(e) => {
+                      setEditCustomerSearchTerm(e.target.value);
+                      setIsEditCustomerDropdownOpen(true);
+                      setSelectedEditCustomerIndex(-1);
+                    }}
+                    onKeyDown={(e) => handleCustomerKeyDown(e, true)}
+                    onFocus={() => setIsEditCustomerDropdownOpen(true)}
+                    placeholder="ابحث عن العميل أو اختر من القائمة"
+                    required={!paymentForm.customerId}
+                  />
+                  {isEditCustomerDropdownOpen && (
+                    <div className="dropdown-options">
+                      {getFilteredCustomers(editCustomerSearchTerm).map(
+                        (customer, index) => (
+                          <div
+                            key={customer.id}
+                            className={`dropdown-option ${
+                              index === selectedEditCustomerIndex
+                                ? "highlighted"
+                                : ""
+                            } ${
+                              paymentForm.customerId === customer.id
+                                ? "selected"
+                                : ""
+                            }`}
+                            onClick={() => handleCustomerSelect(customer, true)}
+                          >
+                            {customer.name}
+                          </div>
+                        )
+                      )}
+                      {getFilteredCustomers(editCustomerSearchTerm).length ===
+                        0 && (
+                        <div className="dropdown-option disabled">
+                          لا توجد نتائج
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="form-row">

@@ -29,6 +29,7 @@ const navigation = [
   { name: "العملاء", href: "/customers", icon: Users },
   { name: "الطلبات", href: "/orders", icon: Package },
   { name: "الموردين", href: "/suppliers", icon: Truck },
+  { name: "دفعات الموردين", href: "/supplier-payments", icon: CreditCard },
   { name: "المدفوعات", href: "/payments", icon: CreditCard },
   { name: "شيكات العملاء", href: "/checks", icon: FileText },
   { name: "الشيكات الشخصية", href: "/personal-checks", icon: Banknote },
