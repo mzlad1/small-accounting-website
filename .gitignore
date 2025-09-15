@@ -23,3 +23,10 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Firebase and sensitive config files
+appConfig.json
+firebase-config.json
+serviceAccountKey.json
+*.key
+*.pem
