@@ -4,6 +4,7 @@
   flex-direction: row;
   direction: rtl; /* Arabic text direction */
   background: ghostwhite;
+  height: 100vh; /* Ensure exact viewport height */
 }
 
 /* Sidebar */
@@ -17,11 +18,25 @@
   position: relative;
   z-index: 10;
   transition: width 0.3s ease;
+  min-height: 100vh; /* Ensure sidebar covers full viewport height */
+  max-height: 100vh; /* Prevent sidebar from growing beyond viewport */
+  overflow-y: auto; /* Add scrollbar to sidebar when needed */
+  overflow-x: hidden; /* Hide horizontal scroll */
 }
 
 /* Collapsed Sidebar */
 .sidebar.collapsed {
   width: 80px;
+}
+
+/* Sidebar Scrollbar Styling */
+.sidebar {
+  scrollbar-width: none; /* Firefox - hide scrollbar */
+  -ms-overflow-style: none; /* Internet Explorer 10+ - hide scrollbar */
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none; /* WebKit browsers - hide scrollbar */
 }
 
 /* Sidebar Toggle Button */
@@ -130,6 +145,7 @@
   background: white;
   display: flex;
   flex-direction: column;
+  min-height: 0; /* Allow flex child to shrink properly */
 }
 
 .sidebar-nav {
@@ -224,6 +240,7 @@
   flex-direction: column;
   scrollbar-width: thin;
   scrollbar-color: #3b82f6 #f1f5f9;
+  height: 100vh; /* Ensure main content takes full viewport height */
 }
 
 .main-content::-webkit-scrollbar {

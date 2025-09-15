@@ -17,6 +17,7 @@ import { Suppliers } from "./pages/Suppliers";
 import { SupplierDetails } from "./pages/SupplierDetails";
 import { SupplierPayments } from "./pages/SupplierPayments";
 import { Reports } from "./pages/Reports";
+import Backup from "./pages/Backup";
 
 function App() {
   return (
@@ -150,6 +151,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Reports />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/backup"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Backup />
                 </Layout>
               </ProtectedRoute>
             }

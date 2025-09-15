@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Truck,
+  HardDrive,
 } from "lucide-react";
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -35,6 +36,7 @@ const navigation = [
   { name: "الشيكات الشخصية", href: "/personal-checks", icon: Banknote },
   { name: "كشف الحساب", href: "/statements", icon: Receipt },
   { name: "التقارير", href: "/reports", icon: BarChart3 },
+  { name: "النسخ الاحتياطي", href: "/backup", icon: HardDrive },
 ];
 
 export function Layout({ children }: LayoutProps) {
