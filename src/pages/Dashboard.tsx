@@ -17,6 +17,9 @@ import {
   Package,
   Receipt,
   Banknote,
+  CalendarDays,
+  X,
+  Check,
 } from "lucide-react";
 import {
   collection,
@@ -25,6 +28,8 @@ import {
   where,
   orderBy,
   Timestamp,
+  updateDoc,
+  doc,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import "./Dashboard.css";
@@ -94,6 +99,16 @@ interface Check {
   originalType: "customerCheck" | "personalCheck";
 }
 
+interface Task {
+  id: string;
+  name: string;
+  description: string;
+  date: string;
+  notes?: string;
+  completed: boolean;
+  createdAt: string;
+}
+
 export function Dashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -114,6 +129,8 @@ export function Dashboard() {
   const [customerChecks, setCustomerChecks] = useState<CustomerCheck[]>([]);
   const [personalChecks, setPersonalChecks] = useState<PersonalCheck[]>([]);
   const [upcomingChecks, setUpcomingChecks] = useState<Check[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
 
   // Calculated summary data
   const [summaryData, setSummaryData] = useState({
@@ -133,10 +150,12 @@ export function Dashboard() {
       orders.length > 0 ||
       payments.length > 0 ||
       customerChecks.length > 0 ||
-      personalChecks.length > 0
+      personalChecks.length > 0 ||
+      tasks.length > 0
     ) {
       calculateSummaryData();
       generateUpcomingChecks();
+      filterTasks();
     }
   }, [
     customers,
@@ -145,6 +164,7 @@ export function Dashboard() {
     payments,
     customerChecks,
     personalChecks,
+    tasks,
     selectedFilter,
     customDateRange,
   ]);
@@ -153,14 +173,14 @@ export function Dashboard() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (showFilters && !target.closest('.dashboard-filters')) {
+      if (showFilters && !target.closest(".dashboard-filters")) {
         setShowFilters(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showFilters]);
 
@@ -275,6 +295,23 @@ export function Dashboard() {
         });
       });
       setPersonalChecks(personalChecksData);
+
+      // Fetch tasks
+      const tasksSnapshot = await getDocs(collection(db, "tasks"));
+      const tasksData: Task[] = [];
+      tasksSnapshot.forEach((doc) => {
+        const data = doc.data();
+        tasksData.push({
+          id: doc.id,
+          name: data.name,
+          description: data.description,
+          date: data.date,
+          notes: data.notes || "",
+          completed: data.completed || false,
+          createdAt: data.createdAt,
+        });
+      });
+      setTasks(tasksData);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -339,6 +376,51 @@ export function Dashboard() {
       checksDueThisWeek: checksDueThisWeek,
       totalSalesThisMonth: totalSalesThisMonth,
     });
+  };
+
+  const filterTasks = () => {
+    const now = new Date();
+    let filterStartDate: Date;
+    let filterEndDate: Date;
+
+    // Set date range based on filter
+    switch (selectedFilter) {
+      case "today":
+        filterStartDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        filterEndDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() + 1
+        );
+        break;
+      case "week":
+        filterStartDate = now;
+        filterEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        break;
+      case "month":
+        filterStartDate = now;
+        filterEndDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+      case "custom":
+        filterStartDate = new Date(customDateRange.from);
+        filterEndDate = new Date(customDateRange.to);
+        break;
+      default:
+        filterStartDate = now;
+        filterEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Filter tasks by date range
+    const filtered = tasks.filter((task) => {
+      const taskDate = new Date(task.date);
+      return taskDate >= filterStartDate && taskDate <= filterEndDate;
+    });
+
+    setFilteredTasks(filtered);
   };
 
   const generateUpcomingChecks = () => {
@@ -445,6 +527,19 @@ export function Dashboard() {
     setUpcomingChecks(allChecks);
   };
 
+  const handleTaskStatusToggle = async (task: Task) => {
+    try {
+      await updateDoc(doc(db, "tasks", task.id), {
+        completed: !task.completed,
+      });
+      // Refresh data
+      fetchData();
+    } catch (error) {
+      console.error("Error updating task status:", error);
+      alert("حدث خطأ أثناء تحديث حالة المهمة");
+    }
+  };
+
   const handleQuickAction = (action: string) => {
     switch (action) {
       case "add-customer":
@@ -461,6 +556,9 @@ export function Dashboard() {
         break;
       case "add-personal-check":
         navigate("/personal-checks");
+        break;
+      case "view-calendar":
+        navigate("/calendar");
         break;
       default:
         break;
@@ -778,6 +876,127 @@ export function Dashboard() {
             <Banknote className="action-icon" />
             <span>إضافة شيك شخصي</span>
           </button>
+          <button
+            className="quick-action-btn"
+            onClick={() => handleQuickAction("view-calendar")}
+          >
+            <CalendarDays className="action-icon" />
+            <span>عرض التقويم</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Tasks Section */}
+      <div className="tasks-section">
+        <div className="section-header">
+          <h2 className="section-title">المهام</h2>
+          <div className="section-actions">
+            <span className="filter-badge">
+              {getFilterText(selectedFilter)}
+            </span>
+            {filteredTasks.length > 0 && (
+              <span className="tasks-count">{filteredTasks.length} مهمة</span>
+            )}
+          </div>
+        </div>
+
+        <div className="table-container">
+          {filteredTasks.length > 0 ? (
+            <table className="checks-table">
+              <thead>
+                <tr>
+                  <th>اسم المهمة</th>
+                  <th>الوصف</th>
+                  <th>التاريخ</th>
+                  <th>الملاحظات</th>
+                  <th>الحالة</th>
+                  <th>الإجراءات السريعة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredTasks.map((task) => (
+                  <tr
+                    key={task.id}
+                    className={`check-row ${task.completed ? "completed" : ""}`}
+                  >
+                    <td>
+                      <div className="customer-info">
+                        <span className="customer-name">{task.name}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="task-description-cell">
+                        {task.description}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="due-date-info">
+                        <span className="due-date">
+                          {formatDate(task.date)}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="task-notes-cell">
+                        {task.notes || "لا توجد ملاحظات"}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="status-cell">
+                        {task.completed ? (
+                          <>
+                            <CheckCircle className="status-icon cleared" />
+                            <span className="status-text cleared">مكتملة</span>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className="status-icon pending" />
+                            <span className="status-text pending">
+                              قيد التنفيذ
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="action-buttons">
+                        <button
+                          className="action-btn view"
+                          onClick={() => navigate("/tasks")}
+                          title="عرض"
+                        >
+                          <Eye />
+                        </button>
+                        <button
+                          className="action-btn edit"
+                          onClick={() => navigate("/tasks")}
+                          title="تعديل"
+                        >
+                          <Edit />
+                        </button>
+                        <button
+                          className="action-btn update-status"
+                          onClick={() => handleTaskStatusToggle(task)}
+                          title={
+                            task.completed
+                              ? "وضع علامة كغير مكتملة"
+                              : "وضع علامة كمكتملة"
+                          }
+                        >
+                          {task.completed ? <X /> : <Check />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="no-checks-message">
+              <p>لا توجد مهام في هذه الفترة</p>
+              <span>اختر فترة زمنية مختلفة أو أضف مهام جديدة</span>
+            </div>
+          )}
         </div>
       </div>
 
