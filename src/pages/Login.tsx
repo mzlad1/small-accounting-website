@@ -69,11 +69,7 @@ export function Login() {
 
       <div className="login-content">
         <div className="login-header">
-          <div className="login-logo">
-            <Building2 />
-          </div>
           <h2 className="login-title">مرحباً بعودتك</h2>
-          <p className="login-subtitle">سجل دخولك إلى لوحة إدارة الإنشاءات</p>
         </div>
 
         <div className="login-form-container">
@@ -152,17 +148,19 @@ export function Login() {
             </div>
           </form>
 
-          <div className="login-divider">
-            <div className="login-divider-line"></div>
-            <span className="login-divider-text">نظام إدارة الإنشاءات</span>
+          <div className="login-footer">
+            <button
+              type="button"
+              className="forgot-password-link"
+              onClick={() => navigate("/reset-password")}
+            >
+              هل نسيت كلمة السر ؟
+            </button>
           </div>
         </div>
       </div>
 
       {/* Footer branding */}
-      <div className="login-footer">
-        <p className="login-footer-text">إدارة احترافية لأعمال الإنشاءات</p>
-      </div>
     </div>
   );
 }
