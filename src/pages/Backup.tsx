@@ -46,6 +46,7 @@ interface CloudBackup {
 const Backup: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
+  const [isLoadingBackups, setIsLoadingBackups] = useState(false);
   const [backupStats, setBackupStats] = useState<BackupStats | null>(null);
   const [backupHistory, setBackupHistory] = useState<BackupHistory[]>([]);
   const [cloudBackups, setCloudBackups] = useState<CloudBackup[]>([]);
@@ -56,6 +57,8 @@ const Backup: React.FC = () => {
     null
   );
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6);
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(() => {
     return localStorage.getItem("autoBackupEnabled") === "true";
   });
@@ -209,11 +212,14 @@ const Backup: React.FC = () => {
   // ========== CLOUD BACKUP FUNCTIONS ==========
 
   const loadCloudBackups = async () => {
+    setIsLoadingBackups(true);
     try {
       const backups = await backupService.listCloudBackups();
       setCloudBackups(backups);
     } catch (error) {
       console.error("Failed to load cloud backups:", error);
+    } finally {
+      setIsLoadingBackups(false);
     }
   };
 
@@ -330,6 +336,16 @@ const Backup: React.FC = () => {
     return Object.values(backupStats).reduce((sum, count) => sum + count, 0);
   };
 
+  // Pagination for cloud backups
+  const totalPages = Math.ceil(cloudBackups.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentBackups = cloudBackups.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
   return (
     <div className="backup-container">
       <div className="backup-header">
@@ -414,6 +430,10 @@ const Backup: React.FC = () => {
                         ? "شيكات العملاء"
                         : collection === "personalChecks"
                         ? "الشيكات الشخصية"
+                        : collection === "apartments"
+                        ? "الشقق"
+                        : collection === "lands"
+                        ? "الأراضي"
                         : collection}
                     </span>
                     <span className="collection-count">{count} سجل</span>
@@ -548,22 +568,29 @@ const Backup: React.FC = () => {
                     <button
                       className="refresh-btn"
                       onClick={loadCloudBackups}
-                      disabled={isExporting}
+                      disabled={isExporting || isLoadingBackups}
                     >
-                      <RefreshCw size={16} />
-                      تحديث
+                      <RefreshCw size={16} className={isLoadingBackups ? "spinning" : ""} />
+                      {isLoadingBackups ? "جاري التحميل..." : "تحديث"}
                     </button>
                   </div>
 
-                  {cloudBackups.length === 0 ? (
+                  {isLoadingBackups ? (
+                    <div className="loading-state">
+                      <RefreshCw size={48} className="spinning" />
+                      <h4>جاري تحميل النسخ الاحتياطية...</h4>
+                      <p>الرجاء الانتظار</p>
+                    </div>
+                  ) : cloudBackups.length === 0 ? (
                     <div className="empty-state">
                       <Cloud size={48} />
                       <h4>لا توجد نسخ احتياطية سحابية</h4>
                       <p>ابدأ بإنشاء أول نسخة احتياطية سحابية</p>
                     </div>
                   ) : (
+                    <>
                     <div className="backups-grid">
-                      {cloudBackups.map((backup) => (
+                      {currentBackups.map((backup) => (
                         <div key={backup.id} className="backup-card">
                           <div className="backup-header">
                             <div className="backup-icon">
@@ -610,6 +637,42 @@ const Backup: React.FC = () => {
                         </div>
                       ))}
                     </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="backup-pagination">
+                        <button
+                          className="pagination-btn"
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                        >
+                          السابق
+                        </button>
+                        
+                        <div className="pagination-numbers">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                            <button
+                              key={pageNumber}
+                              className={`pagination-number ${
+                                currentPage === pageNumber ? "active" : ""
+                              }`}
+                              onClick={() => handlePageChange(pageNumber)}
+                            >
+                              {pageNumber}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          className="pagination-btn"
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                        >
+                          التالي
+                        </button>
+                      </div>
+                    )}
+                    </>
                   )}
                 </div>
               </div>
@@ -811,7 +874,7 @@ const Backup: React.FC = () => {
             <CheckCircle size={16} />
             <span>
               النسخ الاحتياطية تشمل جميع البيانات: العملاء، الموردين، الطلبات،
-              والمدفوعات
+              المدفوعات، الشقق، والأراضي
             </span>
           </div>
         </div>

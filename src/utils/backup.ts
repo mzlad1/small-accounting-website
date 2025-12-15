@@ -51,6 +51,8 @@ const COLLECTIONS = [
   "supplierPayments",
   "customerChecks",
   "personalChecks",
+  "apartments",
+  "lands",
 ];
 
 export class FirebaseBackupService {

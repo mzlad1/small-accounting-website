@@ -17,6 +17,8 @@ import {
   HardDrive,
   Calendar as CalendarIcon,
   CheckSquare,
+  Building2,
+  Mountain,
 } from "lucide-react";
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
@@ -40,6 +42,8 @@ const navigation = [
   { name: "الشيكات الشخصية", href: "/personal-checks", icon: Banknote },
   { name: "كشف الحساب", href: "/statements", icon: Receipt },
   { name: "التقارير", href: "/reports", icon: BarChart3 },
+  { name: "الشقق", href: "/apartments", icon: Building2 },
+  { name: "الأراضي", href: "/lands", icon: Mountain },
   { name: "النسخ الاحتياطي", href: "/backup", icon: HardDrive },
 ];
 

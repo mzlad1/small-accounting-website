@@ -21,6 +21,12 @@ import { Reports } from "./pages/Reports";
 import Backup from "./pages/Backup";
 import { CalendarPage } from "./pages/Calendar";
 import { Tasks } from "./pages/Tasks";
+import { Apartments } from "./pages/Apartments";
+import { ApartmentDetails } from "./pages/ApartmentDetails";
+import { ApartmentGallery } from "./pages/ApartmentGallery";
+import { Lands } from "./pages/Lands";
+import { LandDetails } from "./pages/LandDetails";
+import { LandGallery } from "./pages/LandGallery";
 
 function App() {
   return (
@@ -185,6 +191,66 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Backup />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/apartments"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Apartments />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/apartments/:apartmentId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ApartmentDetails />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/apartments/:apartmentId/gallery"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ApartmentGallery />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lands"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Lands />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lands/:landId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <LandDetails />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lands/:landId/gallery"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <LandGallery />
                 </Layout>
               </ProtectedRoute>
             }
