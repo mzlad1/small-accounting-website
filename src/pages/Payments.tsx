@@ -935,7 +935,7 @@ export function Payments() {
       </div>
 
       {/* Payments Table */}
-      <div className="table-container">
+      <div className="payments-table-container">
         <table className="payments-table">
           <thead>
             <tr>

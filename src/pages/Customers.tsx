@@ -727,7 +727,7 @@ export function Customers() {
       </div>
 
       {/* Customers Table */}
-      <div className="table-container">
+      <div className="customers-table-container">
         <table className="customers-table">
           <thead>
             <tr>

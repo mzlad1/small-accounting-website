@@ -97,7 +97,7 @@ export function PersonalChecks() {
 
   // Detect table overflow and add visual hint
   useEffect(() => {
-    const tableContainer = document.querySelector(".table-container");
+    const tableContainer = document.querySelector(".personal-table-container");
     if (tableContainer) {
       const checkOverflow = () => {
         const hasOverflow =
@@ -874,7 +874,7 @@ export function PersonalChecks() {
       </div>
 
       {/* Checks Table */}
-      <div className="table-container">
+      <div className="personal-table-container">
         <table className="personal-checks-table">
           <thead>
             <tr>
@@ -1008,103 +1008,101 @@ export function PersonalChecks() {
             )}
           </tbody>
         </table>
-
-        {/* Pagination */}
-        {filteredChecks.length > 0 && (
-          <div className="pagination-container">
-            <div className="pagination-info">
-              <span>
-                عرض {startIndex + 1}-{Math.min(endIndex, filteredChecks.length)}{" "}
-                من {filteredChecks.length} شيك
-              </span>
-              <div className="page-size-selector">
-                <label>عرض:</label>
-                <select
-                  value={checksPerPage}
-                  onChange={(e) => {
-                    setChecksPerPage(Number(e.target.value));
-                    setCurrentPage(1); // Reset to first page when changing page size
-                  }}
-                  className="page-size-select"
-                >
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span>شيك في الصفحة</span>
-              </div>
-            </div>
-            <div className="pagination-controls">
-              <button
-                className="pagination-btn"
-                onClick={goToFirstPage}
-                disabled={currentPage === 1}
-                title="الصفحة الأولى"
+      </div>
+      {/* Pagination */}
+      {filteredChecks.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {startIndex + 1}-{Math.min(endIndex, filteredChecks.length)}{" "}
+              من {filteredChecks.length} شيك
+            </span>
+            <div className="page-size-selector">
+              <label>عرض:</label>
+              <select
+                value={checksPerPage}
+                onChange={(e) => {
+                  setChecksPerPage(Number(e.target.value));
+                  setCurrentPage(1); // Reset to first page when changing page size
+                }}
+                className="page-size-select"
               >
-                <span>«</span>
-              </button>
-              <button
-                className="pagination-btn"
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                title="الصفحة السابقة"
-              >
-                <span>‹</span>
-              </button>
-
-              {/* Page numbers */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((page) => {
-                  // Show first page, last page, current page, and pages around current page
-                  if (page === 1 || page === totalPages) return true;
-                  if (page >= currentPage - 2 && page <= currentPage + 2)
-                    return true;
-                  return false;
-                })
-                .map((page, index, array) => {
-                  // Add ellipsis if there's a gap
-                  const prevPage = array[index - 1];
-                  const showEllipsis = prevPage && page - prevPage > 1;
-
-                  return (
-                    <React.Fragment key={page}>
-                      {showEllipsis && (
-                        <span className="pagination-ellipsis">...</span>
-                      )}
-                      <button
-                        className={`pagination-btn ${
-                          page === currentPage ? "active" : ""
-                        }`}
-                        onClick={() => goToPage(page)}
-                      >
-                        {page}
-                      </button>
-                    </React.Fragment>
-                  );
-                })}
-
-              <button
-                className="pagination-btn"
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                title="الصفحة التالية"
-              >
-                <span>›</span>
-              </button>
-              <button
-                className="pagination-btn"
-                onClick={goToLastPage}
-                disabled={currentPage === totalPages}
-                title="الصفحة الأخيرة"
-              >
-                <span>»</span>
-              </button>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span>شيك في الصفحة</span>
             </div>
           </div>
-        )}
-      </div>
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={goToFirstPage}
+              disabled={currentPage === 1}
+              title="الصفحة الأولى"
+            >
+              <span>«</span>
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={goToPreviousPage}
+              disabled={currentPage === 1}
+              title="الصفحة السابقة"
+            >
+              <span>‹</span>
+            </button>
 
+            {/* Page numbers */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter((page) => {
+                // Show first page, last page, current page, and pages around current page
+                if (page === 1 || page === totalPages) return true;
+                if (page >= currentPage - 2 && page <= currentPage + 2)
+                  return true;
+                return false;
+              })
+              .map((page, index, array) => {
+                // Add ellipsis if there's a gap
+                const prevPage = array[index - 1];
+                const showEllipsis = prevPage && page - prevPage > 1;
+
+                return (
+                  <React.Fragment key={page}>
+                    {showEllipsis && (
+                      <span className="pagination-ellipsis">...</span>
+                    )}
+                    <button
+                      className={`pagination-btn ${
+                        page === currentPage ? "active" : ""
+                      }`}
+                      onClick={() => goToPage(page)}
+                    >
+                      {page}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+
+            <button
+              className="pagination-btn"
+              onClick={goToNextPage}
+              disabled={currentPage === totalPages}
+              title="الصفحة التالية"
+            >
+              <span>›</span>
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={goToLastPage}
+              disabled={currentPage === totalPages}
+              title="الصفحة الأخيرة"
+            >
+              <span>»</span>
+            </button>
+          </div>
+        </div>
+      )}
       {/* Add Check Modal */}
       {showAddModal && (
         <div className="modal-overlay">

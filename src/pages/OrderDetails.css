@@ -443,7 +443,6 @@
   font-size: 0.75rem;
   font-style: italic;
   max-width: 150px;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

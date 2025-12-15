@@ -1189,7 +1189,7 @@ export function Checks() {
       </div>
 
       {/* Checks Table */}
-      <div className="table-container">
+      <div className="checks-table-container">
         <table className="checks-table">
           <thead>
             <tr>

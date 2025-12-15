@@ -188,12 +188,11 @@
 }
 
 /* Table Styles */
-.table-container {
+.personal-table-container {
   background: white;
   border-radius: 1rem;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
   border: 1px solid #e2e8f0;
-  overflow: hidden;
   position: relative;
   width: 100%;
   max-width: 100%;
@@ -201,7 +200,7 @@
 }
 
 /* Add horizontal scrolling for table overflow */
-.table-container {
+.personal-table-container {
   overflow-x: auto;
   overflow-y: visible;
   max-height: none;
@@ -217,7 +216,7 @@
 /* Table container uses global scrollbar styles */
 
 /* Add subtle hint for horizontal scrolling */
-.table-container::after {
+.personal-table-container::after {
   content: "";
   position: absolute;
   top: 0;
@@ -231,12 +230,12 @@
 }
 
 /* Show hint when table overflows */
-.table-container:has(.personal-checks-table[style*="min-width"])::after {
+.personal-table-container:has(.personal-checks-table[style*="min-width"])::after {
   opacity: 1;
 }
 
 /* Alternative approach for browsers that don't support :has() */
-.table-container.overflowing::after {
+.personal-table-container.overflowing::after {
   opacity: 1;
 }
 
@@ -425,7 +424,6 @@
   color: #64748b;
   font-size: 0.875rem;
   max-width: 200px;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -863,7 +861,7 @@
   }
 
   /* Ensure table container shows scrollbar on mobile */
-  .table-container {
+  .personal-table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
@@ -1031,7 +1029,7 @@
     gap: 1.5rem;
   }
 
-  .table-container {
+  .personal-table-container {
     overflow-x: auto;
   }
 
@@ -1089,7 +1087,7 @@
     width: 100%;
   }
 
-  .table-container {
+  .personal-table-container {
     overflow-x: auto;
     border-radius: 0.5rem;
   }
@@ -1210,7 +1208,7 @@
     padding: 0.5rem;
   }
 
-  .table-container {
+  .personal-table-container {
     margin: 0 -0.75rem;
     border-radius: 0;
   }
@@ -1350,7 +1348,7 @@
     gap: 0.75rem;
   }
 
-  .table-container {
+  .personal-table-container {
     margin: 0 -0.5rem;
   }
 

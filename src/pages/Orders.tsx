@@ -922,7 +922,7 @@ export function Orders() {
       </div>
 
       {/* Orders Table */}
-      <div className="table-container">
+      <div className="orders-table-container">
         <table className="orders-table">
           <thead>
             <tr>

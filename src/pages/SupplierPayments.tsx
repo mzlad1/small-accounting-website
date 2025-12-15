@@ -923,7 +923,7 @@ export function SupplierPayments() {
             </div>
 
             {/* Balances Table */}
-            <div className="table-container">
+            <div className="supplier-payments-table-container">
               <table className="payments-table">
                 <thead>
                   <tr>
@@ -1109,7 +1109,7 @@ export function SupplierPayments() {
           </div>
 
           {/* Payments Table */}
-          <div className="table-container">
+          <div className="supplier-payments-table-container">
             <table className="payments-table">
               <thead>
                 <tr>
