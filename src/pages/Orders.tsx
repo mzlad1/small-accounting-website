@@ -29,7 +29,8 @@ import {
   where,
   orderBy,
 } from "firebase/firestore";
-import { db } from "../config/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../config/firebase";
 
 import "./Orders.css";
 
@@ -98,7 +99,10 @@ export function Orders() {
     notes: "",
     supplierId: "",
     supplierName: "",
+    images: [] as string[],
   });
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [existingElementNames, setExistingElementNames] = useState<string[]>(
     []
   );
@@ -549,7 +553,9 @@ export function Orders() {
       notes: "",
       supplierId: "",
       supplierName: "",
+      images: [],
     });
+    setSelectedFiles([]);
     setShowAddElementModal(true);
   };
 
@@ -557,11 +563,28 @@ export function Orders() {
     if (!selectedOrderForElement) return;
 
     try {
+      setUploadingImages(true);
+
+      // Upload images if any
+      let imageUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        const uploadPromises = selectedFiles.map(async (file) => {
+          const fileName = `order-items/${
+            selectedOrderForElement.id
+          }/${Date.now()}_${file.name}`;
+          const storageRef = ref(storage, fileName);
+          await uploadBytes(storageRef, file);
+          return await getDownloadURL(storageRef);
+        });
+        imageUrls = await Promise.all(uploadPromises);
+      }
+
       const total = elementForm.quantity * elementForm.unitPrice;
       const newElement = {
         ...elementForm,
         orderId: selectedOrderForElement.id,
         total,
+        images: imageUrls,
         createdAt: new Date().toISOString(),
       };
 
@@ -578,12 +601,16 @@ export function Orders() {
         notes: "",
         supplierId: "",
         supplierName: "",
+        images: [],
       });
+      setSelectedFiles([]);
       setShowElementNameSuggestions(false);
       fetchData(); // Refresh to update totals and element names
     } catch (error) {
       console.error("Error adding element:", error);
       alert("حدث خطأ أثناء إضافة العنصر");
+    } finally {
+      setUploadingImages(false);
     }
   };
 
@@ -1523,6 +1550,26 @@ export function Orders() {
                 </select>
               </div>
 
+              <div className="form-group">
+                <label>الصور</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      setSelectedFiles(Array.from(e.target.files));
+                    }
+                  }}
+                  className="form-input"
+                />
+                {selectedFiles.length > 0 && (
+                  <small className="form-hint">
+                    تم اختيار {selectedFiles.length} صورة
+                  </small>
+                )}
+              </div>
+
               {elementForm.quantity > 0 && elementForm.unitPrice > 0 && (
                 <div className="total-preview">
                   <span>الإجمالي:</span>
@@ -1549,10 +1596,11 @@ export function Orders() {
                   !elementForm.type ||
                   !elementForm.unit ||
                   elementForm.quantity <= 0 ||
-                  elementForm.unitPrice <= 0
+                  elementForm.unitPrice <= 0 ||
+                  uploadingImages
                 }
               >
-                إضافة العنصر
+                {uploadingImages ? "جاري رفع الصور..." : "إضافة العنصر"}
               </button>
             </div>
           </div>

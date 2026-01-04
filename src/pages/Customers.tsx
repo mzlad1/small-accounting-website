@@ -98,6 +98,8 @@ export function Customers() {
     phone: "",
     notes: "",
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   // State for order items
   const [orderItems, setOrderItems] = useState<{ [orderId: string]: any[] }>(
@@ -176,6 +178,7 @@ export function Customers() {
     });
 
     setFilteredCustomers(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [customers, searchTerm, balanceFilter, sortBy, sortOrder]);
 
   const fetchAllData = async () => {
@@ -445,6 +448,17 @@ export function Customers() {
     if (balance < 0) return "دائن";
     return "متساوي";
   };
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentCustomers = filteredCustomers.slice(
+    indexOfFirstItem,
+    indexOfLastItem
+  );
+  const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
+
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   const printCustomers = () => {
     try {
@@ -749,7 +763,7 @@ export function Customers() {
                 </td>
               </tr>
             ) : (
-              filteredCustomers.map((customer) => (
+              currentCustomers.map((customer) => (
                 <tr key={customer.id} className="customer-row">
                   <td>
                     <div className="customer-info">
@@ -834,6 +848,49 @@ export function Customers() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {filteredCustomers.length > 0 && totalPages > 1 && (
+        <div className="pagination-container">
+          <button
+            className="pagination-btn"
+            onClick={() => paginate(currentPage - 1)}
+            disabled={currentPage === 1}
+          >
+            السابق
+          </button>
+
+          <div className="pagination-pages">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+              (number) => (
+                <button
+                  key={number}
+                  className={`pagination-page ${
+                    currentPage === number ? "active" : ""
+                  }`}
+                  onClick={() => paginate(number)}
+                >
+                  {number}
+                </button>
+              )
+            )}
+          </div>
+
+          <button
+            className="pagination-btn"
+            onClick={() => paginate(currentPage + 1)}
+            disabled={currentPage === totalPages}
+          >
+            التالي
+          </button>
+
+          <div className="pagination-info">
+            عرض {indexOfFirstItem + 1} -{" "}
+            {Math.min(indexOfLastItem, filteredCustomers.length)} من{" "}
+            {filteredCustomers.length}
+          </div>
+        </div>
+      )}
 
       {/* Add Customer Modal */}
       {showAddModal && (

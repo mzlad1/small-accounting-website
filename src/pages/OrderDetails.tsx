@@ -27,7 +27,13 @@ import {
   where,
   orderBy,
 } from "firebase/firestore";
-import { db } from "../config/firebase";
+import {
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
+import { db, storage } from "../config/firebase";
 
 import "./OrderDetails.css";
 
@@ -60,6 +66,7 @@ interface OrderItem {
   notes?: string;
   supplierId?: string;
   supplierName?: string;
+  images?: string[];
   createdAt: string;
 }
 
@@ -94,7 +101,10 @@ export function OrderDetails() {
     notes: "",
     supplierId: "",
     supplierName: "",
+    images: [] as string[],
   });
+  const [uploadingImages, setUploadingImages] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const [orderStatus, setOrderStatus] = useState<Order["status"]>("pending");
 
@@ -108,6 +118,10 @@ export function OrderDetails() {
     []
   );
   const [selectedElementNameIndex, setSelectedElementNameIndex] = useState(-1);
+  const [showImageViewer, setShowImageViewer] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageLoading, setImageLoading] = useState(true);
 
   useEffect(() => {
     if (orderId) {
@@ -180,13 +194,41 @@ export function OrderDetails() {
     }
   };
 
+  const handleImageUpload = async (files: File[]): Promise<string[]> => {
+    const uploadPromises = files.map(async (file) => {
+      const fileName = `order-items/${orderId}/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, fileName);
+      await uploadBytes(storageRef, file);
+      return await getDownloadURL(storageRef);
+    });
+    return await Promise.all(uploadPromises);
+  };
+
+  const handleDeleteImage = async (imageUrl: string) => {
+    try {
+      const imageRef = ref(storage, imageUrl);
+      await deleteObject(imageRef);
+    } catch (error) {
+      console.error("Error deleting image:", error);
+    }
+  };
+
   const handleAddItem = async () => {
     try {
+      setUploadingImages(true);
+
+      // Upload images if any
+      let imageUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        imageUrls = await handleImageUpload(selectedFiles);
+      }
+
       const total = itemForm.quantity * itemForm.unitPrice;
       const newItem = {
         ...itemForm,
         orderId: orderId!,
         total,
+        images: imageUrls,
         createdAt: new Date().toISOString(),
       };
 
@@ -203,11 +245,15 @@ export function OrderDetails() {
         notes: "",
         supplierId: "",
         supplierName: "",
+        images: [],
       });
+      setSelectedFiles([]);
       fetchOrderData(); // Refresh to update data
     } catch (error) {
       console.error("Error adding item:", error);
       alert("حدث خطأ أثناء إضافة العنصر");
+    } finally {
+      setUploadingImages(false);
     }
   };
 
@@ -215,10 +261,22 @@ export function OrderDetails() {
     if (!selectedItem) return;
 
     try {
+      setUploadingImages(true);
+
+      // Upload new images if any
+      let newImageUrls: string[] = [];
+      if (selectedFiles.length > 0) {
+        newImageUrls = await handleImageUpload(selectedFiles);
+      }
+
+      // Combine existing and new images
+      const allImages = [...itemForm.images, ...newImageUrls];
+
       const total = itemForm.quantity * itemForm.unitPrice;
       const updatedItem = {
         ...itemForm,
         total,
+        images: allImages,
       };
 
       await updateDoc(doc(db, "orderItems", selectedItem.id), updatedItem);
@@ -232,10 +290,16 @@ export function OrderDetails() {
         unit: "",
         unitPrice: 0,
         notes: "",
+        supplierId: "",
+        supplierName: "",
+        images: [],
       });
+      setSelectedFiles([]);
       fetchOrderData(); // Refresh to update data
     } catch (error) {
       console.error("Error updating item:", error);
+    } finally {
+      setUploadingImages(false);
     }
   };
 
@@ -372,7 +436,11 @@ export function OrderDetails() {
       unit: item.unit,
       unitPrice: item.unitPrice,
       notes: item.notes || "",
+      supplierId: item.supplierId || "",
+      supplierName: item.supplierName || "",
+      images: item.images || [],
     });
+    setSelectedFiles([]);
     setShowEditItemModal(true);
   };
 
@@ -560,6 +628,30 @@ export function OrderDetails() {
     setSelectedElementNameIndex(-1);
   };
 
+  const openImageViewer = (images: string[], startIndex: number = 0) => {
+    setViewerImages(images);
+    setCurrentImageIndex(startIndex);
+    setShowImageViewer(true);
+  };
+
+  const nextImage = () => {
+    setImageLoading(true);
+    setCurrentImageIndex((prev) => (prev + 1) % viewerImages.length);
+  };
+
+  const prevImage = () => {
+    setImageLoading(true);
+    setCurrentImageIndex(
+      (prev) => (prev - 1 + viewerImages.length) % viewerImages.length
+    );
+  };
+
+  const handleImageViewerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowRight") nextImage();
+    if (e.key === "ArrowLeft") prevImage();
+    if (e.key === "Escape") setShowImageViewer(false);
+  };
+
   if (loading) {
     return (
       <div className="od-order-details-container">
@@ -731,6 +823,7 @@ export function OrderDetails() {
                 <th>الوحدة</th>
                 <th>سعر الوحدة</th>
                 <th>الإجمالي</th>
+                <th>الصور</th>
                 <th>ملاحظات</th>
                 <th>الإجراءات</th>
               </tr>
@@ -738,7 +831,7 @@ export function OrderDetails() {
             <tbody>
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="od-no-data">
+                  <td colSpan={9} className="od-no-data">
                     لا توجد عناصر في هذا الطلب
                   </td>
                 </tr>
@@ -765,6 +858,31 @@ export function OrderDetails() {
                     <td>
                       <div className="od-item-total">
                         {formatCurrency(item.total)}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="od-item-images">
+                        {item.images && item.images.length > 0 ? (
+                          <div className="od-images-preview">
+                            <div
+                              className="od-image-wrapper"
+                              onClick={() => openImageViewer(item.images!, 0)}
+                            >
+                              <img
+                                src={item.images[0]}
+                                alt={`${item.name}`}
+                                className="od-table-image"
+                              />
+                              {item.images.length > 1 && (
+                                <span className="od-image-badge">
+                                  {item.images.length}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="od-no-images">-</span>
+                        )}
                       </div>
                     </td>
                     <td>
@@ -981,6 +1099,26 @@ export function OrderDetails() {
                 </select>
               </div>
 
+              <div className="od-form-group">
+                <label>الصور</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      setSelectedFiles(Array.from(e.target.files));
+                    }
+                  }}
+                  className="od-form-input"
+                />
+                {selectedFiles.length > 0 && (
+                  <small className="form-hint">
+                    تم اختيار {selectedFiles.length} صورة
+                  </small>
+                )}
+              </div>
+
               {itemForm.quantity > 0 && itemForm.unitPrice > 0 && (
                 <div className="od-total-preview">
                   <span>الإجمالي:</span>
@@ -1005,10 +1143,11 @@ export function OrderDetails() {
                   !itemForm.type ||
                   !itemForm.unit ||
                   itemForm.quantity <= 0 ||
-                  itemForm.unitPrice <= 0
+                  itemForm.unitPrice <= 0 ||
+                  uploadingImages
                 }
               >
-                إضافة العنصر
+                {uploadingImages ? "جاري رفع الصور..." : "إضافة العنصر"}
               </button>
             </div>
           </div>
@@ -1023,7 +1162,22 @@ export function OrderDetails() {
               <h3>تعديل العنصر</h3>
               <button
                 className="od-close-btn"
-                onClick={() => setShowEditItemModal(false)}
+                onClick={() => {
+                  setShowEditItemModal(false);
+                  setItemForm({
+                    name: "",
+                    type: "",
+                    quantity: 1,
+                    unit: "",
+                    unitPrice: 0,
+                    notes: "",
+                    supplierId: "",
+                    supplierName: "",
+                    images: [],
+                  });
+                  setSelectedFiles([]);
+                  setSelectedItem(null);
+                }}
               >
                 <X />
               </button>
@@ -1163,6 +1317,79 @@ export function OrderDetails() {
                 />
               </div>
 
+              <div className="od-form-group">
+                <label>المورد</label>
+                <select
+                  value={itemForm.supplierId}
+                  onChange={(e) => {
+                    const selectedSupplier = suppliers.find(
+                      (s) => s.id === e.target.value
+                    );
+                    setItemForm({
+                      ...itemForm,
+                      supplierId: e.target.value,
+                      supplierName: selectedSupplier?.name || "",
+                    });
+                  }}
+                  className="od-form-select"
+                >
+                  <option value="">اختر المورد (اختياري)</option>
+                  {suppliers.map((supplier) => (
+                    <option key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {itemForm.images && itemForm.images.length > 0 && (
+                <div className="od-form-group">
+                  <label>الصور الحالية</label>
+                  <div className="od-images-grid">
+                    {itemForm.images.map((imageUrl, index) => (
+                      <div key={index} className="od-image-item">
+                        <img src={imageUrl} alt={`صورة ${index + 1}`} />
+                        <button
+                          type="button"
+                          className="od-delete-image-btn"
+                          onClick={async () => {
+                            await handleDeleteImage(imageUrl);
+                            setItemForm({
+                              ...itemForm,
+                              images: itemForm.images.filter(
+                                (_, i) => i !== index
+                              ),
+                            });
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="od-form-group">
+                <label>إضافة صور جديدة</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      setSelectedFiles(Array.from(e.target.files));
+                    }
+                  }}
+                  className="od-form-input"
+                />
+                {selectedFiles.length > 0 && (
+                  <small className="form-hint">
+                    تم اختيار {selectedFiles.length} صورة جديدة
+                  </small>
+                )}
+              </div>
+
               {itemForm.quantity > 0 && itemForm.unitPrice > 0 && (
                 <div className="od-total-preview">
                   <span>الإجمالي:</span>
@@ -1175,7 +1402,22 @@ export function OrderDetails() {
             <div className="od-modal-footer">
               <button
                 className="od-btn-secondary"
-                onClick={() => setShowEditItemModal(false)}
+                onClick={() => {
+                  setShowEditItemModal(false);
+                  setItemForm({
+                    name: "",
+                    type: "",
+                    quantity: 1,
+                    unit: "",
+                    unitPrice: 0,
+                    notes: "",
+                    supplierId: "",
+                    supplierName: "",
+                    images: [],
+                  });
+                  setSelectedFiles([]);
+                  setSelectedItem(null);
+                }}
               >
                 إلغاء
               </button>
@@ -1187,13 +1429,69 @@ export function OrderDetails() {
                   !itemForm.type ||
                   !itemForm.unit ||
                   itemForm.quantity <= 0 ||
-                  itemForm.unitPrice <= 0
+                  itemForm.unitPrice <= 0 ||
+                  uploadingImages
                 }
               >
                 <Save className="od-btn-icon" />
-                حفظ التغييرات
+                {uploadingImages ? "جاري رفع الصور..." : "حفظ التغييرات"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image Viewer Modal */}
+      {showImageViewer && (
+        <div
+          className="od-image-viewer-overlay"
+          onClick={() => setShowImageViewer(false)}
+        >
+          <div
+            className="od-image-viewer"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={handleImageViewerKeyDown}
+            tabIndex={0}
+          >
+            <button
+              className="od-viewer-close"
+              onClick={() => setShowImageViewer(false)}
+            >
+              <X size={24} />
+            </button>
+
+            <button
+              className="od-viewer-nav od-viewer-prev"
+              onClick={prevImage}
+              disabled={imageLoading}
+            >
+              <ArrowLeft size={32} />
+            </button>
+
+            <div className="od-viewer-content">
+              {imageLoading && (
+                <div className="od-image-loader">
+                  <div className="od-spinner"></div>
+                </div>
+              )}
+              <img
+                src={viewerImages[currentImageIndex]}
+                alt={`Image ${currentImageIndex + 1}`}
+                onLoad={() => setImageLoading(false)}
+                style={{ display: imageLoading ? "none" : "block" }}
+              />
+              <div className="od-viewer-counter">
+                {currentImageIndex + 1} / {viewerImages.length}
+              </div>
+            </div>
+
+            <button
+              className="od-viewer-nav od-viewer-next"
+              onClick={nextImage}
+              disabled={imageLoading}
+            >
+              <ArrowLeft size={32} style={{ transform: "rotate(180deg)" }} />
+            </button>
           </div>
         </div>
       )}
