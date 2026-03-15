@@ -17,7 +17,7 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
  * Initialize Firebase Cloud Messaging and request notification permission
  */
 export async function requestNotificationPermission(
-  userEmail: string
+  userEmail: string,
 ): Promise<string | null> {
   try {
     // Check if browser supports notifications
@@ -34,10 +34,9 @@ export async function requestNotificationPermission(
       return null;
     }
 
-    // Register service worker
-    const registration = await navigator.serviceWorker.register(
-      "/firebase-messaging-sw.js"
-    );
+    // Register service worker and wait until it is fully active
+    await navigator.serviceWorker.register("/firebase-messaging-sw.js");
+    const registration = await navigator.serviceWorker.ready;
 
     // Get FCM token
     const messaging = getMessaging(app);
@@ -53,10 +52,11 @@ export async function requestNotificationPermission(
       return token;
     }
 
+    console.warn("getToken returned empty — VAPID key or SW scope issue");
     return null;
   } catch (error) {
     console.error("Error requesting notification permission:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -67,13 +67,13 @@ export async function requestNotificationPermission(
  */
 async function saveTokenToFirestore(
   token: string,
-  userEmail: string
+  userEmail: string,
 ): Promise<void> {
   try {
     // Check if this exact token already exists
     const tokensQuery = query(
       collection(db, "fcmTokens"),
-      where("token", "==", token)
+      where("token", "==", token),
     );
 
     const existingTokens = await getDocs(tokensQuery);
@@ -109,7 +109,7 @@ async function saveTokenToFirestore(
  * Listen for foreground messages
  */
 export function onForegroundMessage(
-  callback: (payload: any) => void
+  callback: (payload: any) => void,
 ): () => void {
   const messaging = getMessaging(app);
 
@@ -134,19 +134,16 @@ export function getNotificationPermissionStatus(): string {
  * Call this when a user logs in — only adds the token if it doesn't exist yet
  */
 export async function registerFCMTokenOnLogin(
-  userEmail: string
+  userEmail: string,
 ): Promise<void> {
   try {
     // Only proceed if notifications are already granted (don't prompt)
-    if (
-      !("Notification" in window) ||
-      Notification.permission !== "granted"
-    ) {
+    if (!("Notification" in window) || Notification.permission !== "granted") {
       return;
     }
 
     const registration = await navigator.serviceWorker.register(
-      "/firebase-messaging-sw.js"
+      "/firebase-messaging-sw.js",
     );
 
     const messaging = getMessaging(app);
@@ -167,12 +164,12 @@ export async function registerFCMTokenOnLogin(
  * Remove FCM token (when user disables notifications)
  */
 export async function removeNotificationToken(
-  userEmail: string
+  userEmail: string,
 ): Promise<void> {
   try {
     const tokensQuery = query(
       collection(db, "fcmTokens"),
-      where("userEmail", "==", userEmail)
+      where("userEmail", "==", userEmail),
     );
 
     const tokens = await getDocs(tokensQuery);

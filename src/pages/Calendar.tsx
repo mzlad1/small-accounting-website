@@ -62,9 +62,11 @@ export function CalendarPage() {
   });
 
   // FCM Notification states
-  const [notificationStatus, setNotificationStatus] = useState<string>("default");
+  const [notificationStatus, setNotificationStatus] =
+    useState<string>("default");
   const [notificationLoading, setNotificationLoading] = useState(false);
-  const [foregroundNotification, setForegroundNotification] = useState<any>(null);
+  const [foregroundNotification, setForegroundNotification] =
+    useState<any>(null);
 
   useEffect(() => {
     if (currentUser) {
@@ -105,11 +107,13 @@ export function CalendarPage() {
         alert("تم تفعيل الإشعارات بنجاح! ستصلك تذكيرات المواعيد تلقائياً");
       } else {
         setNotificationStatus(getNotificationPermissionStatus());
-        alert("لم يتم تفعيل الإشعارات. يرجى السماح بالإشعارات من إعدادات المتصفح");
+        alert(
+          "لم يتم تفعيل الإشعارات. يرجى السماح بالإشعارات من إعدادات المتصفح",
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error enabling notifications:", error);
-      alert("حدث خطأ في تفعيل الإشعارات");
+      alert("حدث خطأ في تفعيل الإشعارات: " + (error?.message || error));
     } finally {
       setNotificationLoading(false);
     }
@@ -144,7 +148,7 @@ export function CalendarPage() {
       const eventsQuery = query(
         collection(db, "calendarEvents"),
         where("userEmail", "==", currentUser?.email),
-        orderBy("date", "asc")
+        orderBy("date", "asc"),
       );
 
       const eventsSnapshot = await getDocs(eventsQuery);
