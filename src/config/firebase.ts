@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 
 // Type assertion for environment variables
 declare global {
@@ -14,6 +15,7 @@ declare global {
       readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string;
       readonly VITE_FIREBASE_APP_ID: string;
       readonly VITE_FIREBASE_MEASUREMENT_ID?: string;
+      readonly VITE_FIREBASE_VAPID_KEY?: string;
     };
   }
 }
@@ -40,5 +42,6 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const storage = getStorage(app);
+export const functions = getFunctions(app);
 
 export default app;

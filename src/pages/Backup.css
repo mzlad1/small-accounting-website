@@ -174,6 +174,25 @@
   border: 1px solid #e5e7eb;
 }
 
+/* Cloud Functions Card Styling */
+.action-card.functions-card {
+  border-color: #c084fc;
+  background: linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%);
+}
+
+.action-card.functions-card .action-header > svg {
+  color: #7c3aed;
+}
+
+.action-card.settings-card {
+  border-color: #93c5fd;
+  background: linear-gradient(135deg, #eff6ff 0%, #f0f9ff 100%);
+}
+
+.action-card.settings-card .action-header > svg {
+  color: #2563eb;
+}
+
 .action-header {
   display: flex;
   align-items: center;
@@ -251,6 +270,16 @@
   background: #2563eb;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* Cloud Functions Button */
+.backup-btn.primary.functions-btn {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+}
+
+.backup-btn.primary.functions-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
 }
 
 .backup-btn.secondary {
@@ -360,6 +389,13 @@
   font-size: 14px;
 }
 
+.tip-item:first-child {
+  background: #faf5ff;
+  border-color: #d8b4fe;
+  color: #6b21a8;
+}
+
+.tip-item.success,
 .tip-item:last-child {
   background: #f0fdf4;
   border-color: #bbf7d0;
@@ -426,24 +462,6 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 20px;
-}
-
-.description-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  margin-bottom: 16px;
-  background: #f9fafb;
-  direction: rtl;
-}
-
-.description-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  background: white;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Cloud Backups List */
@@ -653,32 +671,6 @@
   border-radius: 4px;
   font-size: 11px;
   font-weight: 500;
-}
-
-.backup-details {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.detail-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-}
-
-.detail-item span:first-child {
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.detail-item span:last-child {
-  color: #111827;
-  font-weight: 600;
 }
 
 .backup-actions {
@@ -916,6 +908,37 @@
 .setting-row label {
   font-weight: 500;
   color: #4a5568;
+}
+
+.setting-row.last-backup-info {
+  background: #f0fdf4;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid #bbf7d0;
+  font-size: 13px;
+  color: #166534;
+}
+
+.setting-row .success-icon {
+  color: #16a34a;
+  flex-shrink: 0;
+}
+
+.setting-row .doc-count {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.functions-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #1e40af;
 }
 
 .frequency-select {

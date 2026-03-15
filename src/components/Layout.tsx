@@ -31,7 +31,7 @@ interface LayoutProps {
 
 const navigation = [
   { name: "لوحة التحكم", href: "/", icon: Home },
-  // { name: "التقويم والمواعيد", href: "/calendar", icon: CalendarIcon },
+  { name: "التقويم والمواعيد", href: "/calendar", icon: CalendarIcon },
   { name: "المهام", href: "/tasks", icon: CheckSquare },
   { name: "العملاء", href: "/customers", icon: Users },
   { name: "الطلبات", href: "/orders", icon: Package },

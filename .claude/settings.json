@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const f = require\\(''firebase-functions''\\); console.log\\(Object.keys\\(f.https\\)\\)\")",
+      "Bash(npm run:*)"
+    ]
+  }
+}

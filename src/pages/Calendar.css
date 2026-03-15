@@ -4,6 +4,78 @@
   background: #f8fafc;
   min-height: 100vh;
   direction: rtl;
+  position: relative;
+}
+
+/* Foreground Notification Toast */
+.notification-toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  z-index: 9999;
+  max-width: 500px;
+  width: 90%;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translateX(-50%) translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+}
+
+.toast-content {
+  flex: 1;
+}
+
+.toast-content strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.toast-content p {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.9;
+}
+
+.toast-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Header */
@@ -11,7 +83,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -29,9 +101,7 @@
   align-items: center;
 }
 
-.add-event-btn,
-.test-email-btn,
-.check-reminders-btn {
+.add-event-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -44,9 +114,6 @@
   transition: all 0.2s ease;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   font-size: 0.875rem;
-}
-
-.add-event-btn {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
 }
 
@@ -56,31 +123,121 @@
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.test-email-btn {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.test-email-btn:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.check-reminders-btn {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-}
-
-.check-reminders-btn:hover {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-.add-event-btn .icon,
-.test-email-btn .icon,
-.check-reminders-btn .icon {
+.add-event-btn .icon {
   width: 1.25rem;
   height: 1.25rem;
+}
+
+/* FCM Notification Status Bar */
+.notification-bar {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.notification-bar-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.notification-status {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+}
+
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge.active {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.notif-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.notif-btn.enable {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+
+.notif-btn.enable:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+}
+
+.notif-btn.enable:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.notif-btn.test {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+}
+
+.notif-btn.test:hover {
+  background: #dcfce7;
+}
+
+.notif-btn.disable {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.notif-btn.disable:hover {
+  background: #fee2e2;
 }
 
 /* Main Content */
@@ -105,7 +262,7 @@
   width: 100%;
   border: none;
   font-family: inherit;
-  direction: ltr; /* Calendar itself should be LTR for proper navigation */
+  direction: ltr;
 }
 
 .react-calendar__navigation {
@@ -591,10 +748,29 @@
     gap: 0.75rem;
   }
 
-  .add-event-btn,
-  .test-email-btn,
-  .check-reminders-btn {
+  .add-event-btn {
     width: 100%;
+    justify-content: center;
+  }
+
+  .notification-bar-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .notification-status {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .notification-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .notif-btn {
+    flex: 1;
     justify-content: center;
   }
 

@@ -1,6 +1,18 @@
 import React, { useState, useEffect } from "react";
 import Calendar from "react-calendar";
-import { Plus, X, Clock, Mail, Edit, Trash2, Bell } from "lucide-react";
+import {
+  Plus,
+  X,
+  Clock,
+  Edit,
+  Trash2,
+  Bell,
+  BellRing,
+  BellOff,
+  Send,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 import {
   collection,
   addDoc,
@@ -12,18 +24,24 @@ import {
   where,
   orderBy,
 } from "firebase/firestore";
-import { db } from "../config/firebase";
+import { httpsCallable } from "firebase/functions";
+import { db, functions } from "../config/firebase";
 import { useAuth } from "../contexts/AuthContext";
-import emailjs from "@emailjs/browser";
-import { format, isSameDay, isAfter, isBefore, addMinutes } from "date-fns";
+import {
+  requestNotificationPermission,
+  onForegroundMessage,
+  getNotificationPermissionStatus,
+  removeNotificationToken,
+} from "../utils/messaging";
+import { format } from "date-fns";
 import "react-calendar/dist/Calendar.css";
 import "./Calendar.css";
 
 interface CalendarEvent {
   id: string;
   title: string;
-  date: string; // ISO date string
-  time: string; // HH:MM format
+  date: string;
+  time: string;
   note: string;
   userEmail: string;
   reminderSent: boolean;
@@ -43,19 +61,82 @@ export function CalendarPage() {
     note: "",
   });
 
+  // FCM Notification states
+  const [notificationStatus, setNotificationStatus] = useState<string>("default");
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [foregroundNotification, setForegroundNotification] = useState<any>(null);
+
   useEffect(() => {
     if (currentUser) {
       fetchEvents();
-      // Check for reminders every minute
-      const interval = setInterval(() => {
-        // Always fetch fresh events before checking reminders
-        fetchEvents().then(() => {
-          checkReminders();
-        });
-      }, 60000);
-      return () => clearInterval(interval);
+      checkNotificationStatus();
+      setupForegroundListener();
     }
   }, [currentUser]);
+
+  const checkNotificationStatus = () => {
+    const status = getNotificationPermissionStatus();
+    setNotificationStatus(status);
+  };
+
+  const setupForegroundListener = () => {
+    try {
+      const unsubscribe = onForegroundMessage((payload) => {
+        setForegroundNotification(payload);
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => setForegroundNotification(null), 5000);
+        // Refresh events to update reminderSent status
+        fetchEvents();
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error("Error setting up foreground listener:", error);
+    }
+  };
+
+  const handleEnableNotifications = async () => {
+    if (!currentUser?.email) return;
+
+    setNotificationLoading(true);
+    try {
+      const token = await requestNotificationPermission(currentUser.email);
+      if (token) {
+        setNotificationStatus("granted");
+        alert("تم تفعيل الإشعارات بنجاح! ستصلك تذكيرات المواعيد تلقائياً");
+      } else {
+        setNotificationStatus(getNotificationPermissionStatus());
+        alert("لم يتم تفعيل الإشعارات. يرجى السماح بالإشعارات من إعدادات المتصفح");
+      }
+    } catch (error) {
+      console.error("Error enabling notifications:", error);
+      alert("حدث خطأ في تفعيل الإشعارات");
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  const handleDisableNotifications = async () => {
+    if (!currentUser?.email) return;
+
+    try {
+      await removeNotificationToken(currentUser.email);
+      setNotificationStatus("denied");
+      alert("تم إيقاف الإشعارات");
+    } catch (error) {
+      console.error("Error disabling notifications:", error);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      const sendTest = httpsCallable(functions, "sendTestNotification");
+      await sendTest();
+      alert("تم إرسال إشعار تجريبي بنجاح!");
+    } catch (error: any) {
+      console.error("Test notification failed:", error);
+      alert(error.message || "فشل في إرسال الإشعار التجريبي");
+    }
+  };
 
   const fetchEvents = async () => {
     try {
@@ -78,134 +159,6 @@ export function CalendarPage() {
       console.error("Error fetching events:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkReminders = async () => {
-    const now = new Date();
-    console.log("Checking reminders at:", now.toLocaleString());
-
-    // Fetch fresh events from database
-    let currentEvents = events;
-    if (events.length === 0) {
-      console.log("No events in state, fetching from database...");
-      try {
-        const eventsQuery = query(
-          collection(db, "calendarEvents"),
-          where("userEmail", "==", currentUser?.email),
-          orderBy("date", "asc")
-        );
-        const eventsSnapshot = await getDocs(eventsQuery);
-        currentEvents = [];
-        eventsSnapshot.forEach((doc) => {
-          currentEvents.push({ id: doc.id, ...doc.data() } as CalendarEvent);
-        });
-        console.log("Fetched fresh events:", currentEvents);
-      } catch (error) {
-        console.error("Error fetching fresh events:", error);
-        return;
-      }
-    }
-
-    console.log("Total events to check:", currentEvents.length);
-    console.log("All events:", currentEvents);
-
-    // Add a test event for debugging (only if no events exist)
-    if (currentEvents.length === 0) {
-      const testEvent = {
-        id: "test-123",
-        title: "Test Event",
-        date: format(new Date(), "yyyy-MM-dd"),
-        time: format(new Date(Date.now() + 2 * 60 * 1000), "HH:mm"), // 2 minutes from now
-        note: "This is a test event",
-        userEmail: currentUser?.email || "",
-        reminderSent: false,
-        createdAt: new Date().toISOString(),
-      };
-      currentEvents = [testEvent];
-      console.log("Added test event for debugging:", testEvent);
-    }
-
-    const eventsToRemind = currentEvents.filter((event) => {
-      // Create event datetime with seconds set to 0 for accurate comparison
-      const eventDateTime = new Date(`${event.date}T${event.time}:00`);
-
-      // Create current time but round down to the minute (set seconds to 0)
-      const currentTime = new Date(now);
-      currentTime.setSeconds(0, 0); // Set seconds and milliseconds to 0
-
-      const timeDiff = eventDateTime.getTime() - currentTime.getTime();
-      const timeDiffMinutes = Math.round(timeDiff / (1000 * 60));
-
-      console.log(
-        `Event: ${event.title}`,
-        `\n  Event DateTime: ${eventDateTime.toLocaleString()} (${event.date} ${
-          event.time
-        })`,
-        `\n  Current Time (rounded): ${currentTime.toLocaleString()}`,
-        `\n  TimeDiff: ${timeDiffMinutes} minutes`,
-        `\n  ReminderSent: ${event.reminderSent}`,
-        `\n  Should remind: ${
-          timeDiffMinutes <= 5 && timeDiffMinutes >= 0 && !event.reminderSent
-        }`
-      );
-
-      // Send reminder if event is within 5 minutes (0-5 minutes from now) and hasn't been sent yet
-      return (
-        timeDiffMinutes <= 5 && timeDiffMinutes >= 0 && !event.reminderSent
-      );
-    });
-
-    console.log(`Found ${eventsToRemind.length} events to remind`);
-
-    for (const event of eventsToRemind) {
-      console.log(`Sending reminder for: ${event.title}`);
-      await sendEmailReminder(event);
-      // Refresh events after sending to update the state
-      await fetchEvents();
-    }
-  };
-
-  const sendEmailReminder = async (event: CalendarEvent) => {
-    try {
-      console.log("Attempting to send email with data:", {
-        to_email: event.userEmail,
-        to_name: currentUser?.displayName || "مستخدم",
-        event_title: event.title,
-        event_date: format(new Date(event.date), "dd/MM/yyyy"),
-        event_time: event.time,
-        event_note: event.note,
-      });
-
-      // Initialize EmailJS
-      const result = await emailjs.send(
-        "service_khshse4", // Replace with your EmailJS service ID
-        "template_ebxflzi", // Replace with your EmailJS template ID
-        {
-          to_email: event.userEmail,
-          to_name: currentUser?.displayName || "مستخدم",
-          event_title: event.title,
-          event_date: format(new Date(event.date), "dd/MM/yyyy"),
-          event_time: event.time,
-          event_note: event.note,
-        },
-        "3AU1RwSSy_BN9h50e" // Replace with your EmailJS public key
-      );
-
-      console.log("EmailJS Response:", result);
-
-      // Update event to mark reminder as sent
-      await updateDoc(doc(db, "calendarEvents", event.id), {
-        reminderSent: true,
-      });
-
-      console.log("✅ Reminder sent successfully for event:", event.title);
-      alert(`تم إرسال تذكير بنجاح للموعد: ${event.title}`);
-    } catch (error) {
-      console.error("❌ Error sending reminder:", error);
-      alert(
-        `فشل في إرسال التذكير للموعد: ${event.title}. تحقق من إعدادات EmailJS`
-      );
     }
   };
 
@@ -298,34 +251,6 @@ export function CalendarPage() {
 
   const selectedDateEvents = getEventsForDate(selectedDate);
 
-  // Test email function
-  const testEmailSetup = async () => {
-    try {
-      console.log("Testing email setup...");
-      const result = await emailjs.send(
-        "service_khshse4",
-        "template_ebxflzi",
-        {
-          to_email: currentUser?.email || "test@example.com",
-          to_name: currentUser?.displayName || "مستخدم",
-          event_title: "اختبار النظام",
-          event_date: format(new Date(), "dd/MM/yyyy"),
-          event_time: format(new Date(), "HH:mm"),
-          event_note: "هذا اختبار لتأكيد عمل نظام إرسال الإيميلات",
-        },
-        "3AU1RwSSy_BN9h50e"
-      );
-
-      console.log("Test email result:", result);
-      alert("✅ تم إرسال الإيميل التجريبي بنجاح! تحقق من صندوق الوارد");
-    } catch (error) {
-      console.error("Test email failed:", error);
-      alert(
-        "❌ فشل في إرسال الإيميل التجريبي. تحقق من إعدادات EmailJS في وحة التحكم"
-      );
-    }
-  };
-
   if (loading) {
     return (
       <div className="calendar-container">
@@ -339,25 +264,28 @@ export function CalendarPage() {
 
   return (
     <div className="calendar-container">
+      {/* Foreground Notification Toast */}
+      {foregroundNotification && (
+        <div className="notification-toast">
+          <div className="toast-icon">
+            <BellRing size={20} />
+          </div>
+          <div className="toast-content">
+            <strong>{foregroundNotification.notification?.title}</strong>
+            <p>{foregroundNotification.notification?.body}</p>
+          </div>
+          <button
+            className="toast-close"
+            onClick={() => setForegroundNotification(null)}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="calendar-header">
         <h1 className="calendar-title">تقويم المواعيد والتذكيرات</h1>
         <div className="header-actions">
-          <button
-            className="test-email-btn"
-            onClick={testEmailSetup}
-            title="اختبار إعدادات الإيميل"
-          >
-            <Mail className="icon" />
-            اختبار الإيميل
-          </button>
-          <button
-            className="check-reminders-btn"
-            onClick={checkReminders}
-            title="فحص التذكيرات الآن"
-          >
-            <Bell className="icon" />
-            فحص التذكيرات
-          </button>
           <button
             className="add-event-btn"
             onClick={() => {
@@ -369,6 +297,79 @@ export function CalendarPage() {
             <Plus className="icon" />
             إضافة موعد جديد
           </button>
+        </div>
+      </div>
+
+      {/* FCM Notification Status Bar */}
+      <div className="notification-bar">
+        <div className="notification-bar-content">
+          <div className="notification-status">
+            {notificationStatus === "granted" ? (
+              <>
+                <div className="status-badge active">
+                  <Bell size={16} />
+                  <span>الإشعارات مفعلة</span>
+                </div>
+                <p className="status-desc">
+                  ستصلك تذكيرات تلقائية قبل 5 دقائق من كل موعد عبر Firebase
+                  Cloud Functions
+                </p>
+              </>
+            ) : notificationStatus === "denied" ? (
+              <>
+                <div className="status-badge inactive">
+                  <BellOff size={16} />
+                  <span>الإشعارات معطلة</span>
+                </div>
+                <p className="status-desc">
+                  قم بتفعيل الإشعارات لتلقي تذكيرات المواعيد تلقائياً
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="status-badge pending">
+                  <AlertCircle size={16} />
+                  <span>الإشعارات غير مفعلة</span>
+                </div>
+                <p className="status-desc">
+                  فعّل الإشعارات للحصول على تذكيرات تلقائية عبر Firebase Cloud
+                  Messaging
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="notification-actions">
+            {notificationStatus === "granted" ? (
+              <>
+                <button
+                  className="notif-btn test"
+                  onClick={handleTestNotification}
+                  title="إرسال إشعار تجريبي"
+                >
+                  <Send size={16} />
+                  اختبار
+                </button>
+                <button
+                  className="notif-btn disable"
+                  onClick={handleDisableNotifications}
+                  title="إيقاف الإشعارات"
+                >
+                  <BellOff size={16} />
+                  إيقاف
+                </button>
+              </>
+            ) : (
+              <button
+                className="notif-btn enable"
+                onClick={handleEnableNotifications}
+                disabled={notificationLoading}
+              >
+                <Bell size={16} />
+                {notificationLoading ? "جاري التفعيل..." : "تفعيل الإشعارات"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -426,7 +427,7 @@ export function CalendarPage() {
                     </div>
                     {event.reminderSent && (
                       <div className="reminder-sent">
-                        <Bell className="icon" />
+                        <CheckCircle className="icon" />
                         تم إرسال التذكير
                       </div>
                     )}

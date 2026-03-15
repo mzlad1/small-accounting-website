@@ -9,6 +9,7 @@ import {
 } from "react";
 import { User, onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
+import { registerFCMTokenOnLogin } from "../utils/messaging";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -38,6 +39,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);
+
+      // Auto-register FCM token when user logs in (if notifications are already granted)
+      if (user?.email) {
+        registerFCMTokenOnLogin(user.email);
+      }
     });
 
     return unsubscribe;
