@@ -181,27 +181,32 @@
   box-shadow: var(--ring);
 }
 
-/* Summary KPI cards — every card identical ----------------- */
+/* Summary KPI cards — shared bare baseline. These bare classes are
+   the fallback for every page that does not scope its own copy
+   (Dashboard, Receipts, SupplierPayments), so they carry the same
+   "receipt stub" recipe, byte-identical to Dashboard.css. */
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
   margin-bottom: 2rem;
 }
 
 .summary-card {
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  padding: 1.25rem;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
-  transition: box-shadow 0.15s var(--ease-out);
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
 
 .summary-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
@@ -265,6 +270,130 @@
   font-size: 0.78rem;
   font-weight: 400;
   color: var(--text-tertiary);
+}
+
+/* ============================================================
+   Summary KPI "receipt stubs" (Reports only, scoped):
+   each stat is a slip torn from a receipt book — perforated top
+   edge with punch-holes, the label as a rubber-stamp chip, a
+   hand-placed tilt that straightens on hover, and the icon as a
+   faint mark in the lower corner.
+   NOTE: .summary-card / .summary-cards / .card-icon are shared
+   bare classes (Checks, Payments, Receipts, SupplierPayments,
+   ApartmentDetails, LandDetails also use them), so the stub is
+   scoped under .reports-container and the bare rules above are
+   left intact as the baseline for those pages.
+   ============================================================ */
+.reports-container .summary-cards {
+  gap: 1.4rem;
+}
+
+.reports-container .summary-card {
+  display: block;
+  position: relative;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
+}
+
+.reports-container .summary-card:nth-child(even) {
+  transform: rotate(-0.6deg);
+}
+
+.reports-container .summary-card:hover {
+  transform: rotate(0deg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Punch-holes straddling the perforated edge */
+.reports-container .summary-card::before,
+.reports-container .summary-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.reports-container .summary-card::before {
+  inset-inline-start: 16%;
+}
+
+.reports-container .summary-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint mark in the lower corner, like a printer's mark */
+.reports-container .card-icon,
+.reports-container .summary-card.receivables .card-icon,
+.reports-container .summary-card.payables .card-icon,
+.reports-container .summary-card.net-position .card-icon {
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  color: var(--border-strong);
+}
+
+.reports-container .card-icon .icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.reports-container .card-content {
+  display: block;
+  min-width: 0;
+}
+
+/* Label = rubber-stamp chip. In this markup the card's title is
+   the <h3>; the .label span is the caption UNDER the figure, so
+   the h3 takes the chip and .label takes the sub-text role. */
+.reports-container .card-content h3 {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
+  margin: 0 0 1rem 0;
+}
+
+/* The figure — big Alexandria numeral, plain espresso */
+.reports-container .card-content .amount {
+  font-family: var(--font-display);
+  font-size: 2.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
+}
+
+/* Caption under the figure */
+.reports-container .card-content .label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin: 0.55rem 0 0 0;
 }
 
 /* Checks summary — neutral range tiles --------------------- */
@@ -689,12 +818,16 @@
   }
 
   .filters-section,
-  .summary-card,
   .reports-container .checks-summary,
   .monthly-progress,
   .customer-statement,
   .charts-section {
     padding: 1rem;
+  }
+
+  /* the stub keeps its own padding at this breakpoint */
+  .summary-card {
+    padding: 1.6rem 1.5rem 1.25rem;
   }
 
   .reports-container .statement-header {
@@ -734,14 +867,29 @@
     font-size: 1.25rem;
   }
 
-  .summary-card {
-    flex-direction: column;
-    text-align: center;
-    align-items: center;
+  .summary-card,
+  .summary-card:nth-child(even) {
+    transform: none;
+    padding: 1.2rem 1.25rem 1.1rem;
   }
 
   .card-content .amount {
     font-size: 1.5rem;
+  }
+
+  /* Receipt stubs lie flat on small screens */
+  .reports-container .summary-card,
+  .reports-container .summary-card:nth-child(even) {
+    transform: none;
+  }
+
+  .reports-container .summary-card {
+    padding: 1.2rem 1.25rem 1.1rem;
+    text-align: start;
+  }
+
+  .reports-container .card-content .amount {
+    font-size: 1.75rem;
   }
 
   .checks-grid {

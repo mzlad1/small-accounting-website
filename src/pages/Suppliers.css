@@ -201,7 +201,10 @@
 }
 
 /* ============================================================
-   Summary — identical KPI cards
+   Summary — KPI "receipt stubs": each stat is a slip torn from
+   a receipt book — perforated top edge with punch-holes, the
+   label as a rubber-stamp chip, a hand-placed tilt that
+   straightens on hover, and the icon as a faint corner mark.
    ============================================================ */
 .suppliers-summary-section {
   margin-bottom: 2rem;
@@ -210,59 +213,101 @@
 .suppliers-summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
 }
 
 .suppliers-summary-card {
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  box-shadow: none;
-  transition: box-shadow 0.15s var(--ease-out);
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
+}
+
+.suppliers-summary-card:nth-child(even) {
+  transform: rotate(-0.6deg);
 }
 
 .suppliers-summary-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Icon chip — clay tint, identical on every card */
+/* Punch-holes straddling the perforated edge */
+.suppliers-summary-card::before,
+.suppliers-summary-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.suppliers-summary-card::before {
+  inset-inline-start: 16%;
+}
+
+.suppliers-summary-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint mark in the lower corner, like a printer's mark */
 .suppliers-summary-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  color: var(--border-strong);
 }
 
 .suppliers-summary-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
+.suppliers-summary-content {
+  display: block;
+  min-width: 0;
+}
+
+/* Label = rubber-stamp chip */
 .suppliers-summary-content h3 {
-  margin: 0 0 0.25rem 0;
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  font-weight: 500;
+  display: inline-block;
+  margin: 0 0 1rem 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
 }
 
+/* The figure — big Alexandria numeral, plain espresso */
 .suppliers-summary-number {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2.05rem;
+  font-weight: 800;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 /* ============================================================
@@ -854,6 +899,22 @@
   .suppliers-modal {
     margin: 1rem;
     max-width: calc(100% - 2rem);
+  }
+}
+
+/* Receipt stubs lie flat on small screens */
+@media (max-width: 640px) {
+  .suppliers-summary-card,
+  .suppliers-summary-card:nth-child(even) {
+    transform: none;
+  }
+
+  .suppliers-summary-card {
+    padding: 1.2rem 1.25rem 1.1rem;
+  }
+
+  .suppliers-summary-number {
+    font-size: 1.75rem;
   }
 }
 

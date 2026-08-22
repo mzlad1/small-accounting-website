@@ -240,93 +240,129 @@
 .checks-container .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
 }
 
 .checks-container .summary-card {
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  box-shadow: none;
-  transition: box-shadow 0.15s var(--ease-out);
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
 
-/* colored top marker removed — neutralized to preserve inventory */
-.checks-container .summary-card::before {
-  content: none;
+.checks-container .summary-card:nth-child(even) {
+  transform: rotate(-0.6deg);
 }
 
 .checks-container .summary-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Icon chip — the same clay-tint square on every card */
+/* Punch-holes straddling the perforated edge */
+.checks-container .summary-card::before,
+.checks-container .summary-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.checks-container .summary-card::before {
+  inset-inline-start: 16%;
+}
+
+.checks-container .summary-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint mark in the lower corner, like a printer's mark */
 .checks-container .summary-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  color: var(--border-strong);
 }
 
 .checks-container .summary-icon svg {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
-/* per-card color overrides neutralized — all cards identical */
+/* per-card overrides kept in the stub palette — all cards identical */
 .checks-container .summary-card:nth-child(2) .summary-icon {
-  color: var(--accent);
+  color: var(--border-strong);
 }
 
 .checks-container .summary-card:nth-child(2)::before {
-  background: transparent;
+  background: var(--bg-primary);
 }
 
 .checks-container .summary-card:nth-child(3) .summary-icon {
-  color: var(--accent);
+  color: var(--border-strong);
 }
 
 .checks-container .summary-card:nth-child(3)::before {
-  background: transparent;
+  background: var(--bg-primary);
 }
 
 .checks-container .summary-card:nth-child(4) .summary-icon {
-  color: var(--accent);
+  color: var(--border-strong);
 }
 
 .checks-container .summary-card:nth-child(4)::before {
-  background: transparent;
+  background: var(--bg-primary);
 }
 
 .checks-container .summary-content {
+  display: block;
   min-width: 0;
 }
 
+/* Label = rubber-stamp chip */
 .checks-container .summary-content h3 {
-  margin: 0 0 0.3rem 0;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
+  margin: 0 0 1rem 0;
 }
 
+/* The figure — big Alexandria numeral, plain espresso */
 .checks-container .summary-number {
-  margin: 0;
   font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
-  line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  margin: 0;
 }
 
 /* ============================================================
@@ -990,6 +1026,16 @@
 
   .header-content h1 {
     font-size: 1.3rem;
+  }
+
+  .checks-container .summary-card,
+  .checks-container .summary-card:nth-child(even) {
+    transform: none;
+    padding: 1.2rem 1.25rem 1.1rem;
+  }
+
+  .checks-container .summary-number {
+    font-size: 1.75rem;
   }
 
   .checks-table {

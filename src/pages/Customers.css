@@ -860,63 +860,124 @@
 }
 
 /* ============================================================
-   Summary Stats — uniform KPI blocks
+   Summary Stats — "receipt stub" KPI blocks
+   Each stat is a slip torn from a receipt book: perforated top
+   edge with punch-holes, the label as a rubber-stamp chip, a
+   hand-placed tilt that straightens on hover, and the icon as a
+   faint printer's mark in the lower corner.
    ============================================================ */
 .summary-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
   margin-bottom: 2rem;
 }
 
 .stat-card {
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  box-shadow: none;
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  transition: box-shadow 0.15s var(--ease-out);
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
+}
+
+.stat-card:nth-child(even) {
+  transform: rotate(-0.6deg);
 }
 
 .stat-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Icon chip — clay tint square, identical on every card */
+/* Punch-holes straddling the perforated edge */
+.stat-card::before,
+.stat-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.stat-card::before {
+  inset-inline-start: 16%;
+}
+
+.stat-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint printer's mark in the lower corner */
 .stat-icon {
-  width: 40px;
-  height: 40px;
-  padding: 8px;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  color: var(--border-strong);
+}
+
+.stat-icon svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+svg.stat-icon {
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 .stat-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+  display: block;
   min-width: 0;
 }
 
-.stat-value {
-  font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
+/* Markup here is value-then-label; flip it so the stamp chip
+   sits above the figure like every other stub. */
+.customers-container .stat-content {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
 }
 
+/* The figure — big Alexandria numeral, plain espresso */
+.stat-value {
+  font-family: var(--font-display);
+  font-size: 2.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+/* Label = rubber-stamp chip */
 .stat-label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
+  margin: 0 0 1rem 0;
 }
 
 /* ============================================================
@@ -985,6 +1046,16 @@
 @media (max-width: 640px) {
   .customers-container {
     padding: 1rem;
+  }
+
+  .stat-card,
+  .stat-card:nth-child(even) {
+    transform: none;
+    padding: 1.2rem 1.25rem 1.1rem;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
   }
 
   .customers-table {

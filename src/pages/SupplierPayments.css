@@ -91,77 +91,114 @@
 }
 
 /* ============================================================
-   Summary cards — identical warm KPI blocks
+   Summary cards — "receipt stubs": each stat is a slip torn
+   from a receipt book — perforated top edge with punch-holes,
+   the label as a rubber-stamp chip, a hand-placed tilt that
+   straightens on hover, and the icon as a faint mark in the
+   lower corner.
    ============================================================ */
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
   margin-bottom: 1.75rem;
 }
 
 .summary-card {
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  box-shadow: none;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
-  position: relative;
-  overflow: hidden;
-  transition: box-shadow 0.15s var(--ease-out);
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
 
-.summary-card::before {
-  content: none;
+.summary-card:nth-child(even) {
+  transform: rotate(-0.6deg);
 }
 
 .summary-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Icon chip — the same clay-tinted square on every card */
+/* Punch-holes straddling the perforated edge */
+.summary-card::before,
+.summary-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.summary-card::before {
+  inset-inline-start: 16%;
+}
+
+.summary-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint mark in the lower corner, like a printer's mark */
 .summary-icon {
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
-  box-shadow: none;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  color: var(--border-strong);
 }
 
 .summary-icon svg {
-  width: 1.2rem;
-  height: 1.2rem;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 .summary-content {
+  display: block;
   min-width: 0;
-  flex: 1;
 }
 
+/* Label = rubber-stamp chip */
 .summary-content h3 {
-  margin: 0 0 0.375rem 0;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
+  margin: 0 0 1rem 0;
 }
 
+/* The figure — big Alexandria numeral, plain espresso */
 .summary-amount {
-  margin: 0;
   font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--text-primary);
-  letter-spacing: -0.01em;
-  line-height: 1.15;
   font-variant-numeric: tabular-nums;
+  margin: 0;
 }
 
 /* ============================================================
@@ -916,6 +953,16 @@
 
   .page-header h1 {
     font-size: 1.3rem;
+  }
+
+  .summary-card,
+  .summary-card:nth-child(even) {
+    transform: none;
+    padding: 1.2rem 1.25rem 1.1rem;
+  }
+
+  .summary-amount {
+    font-size: 1.75rem;
   }
 }
 

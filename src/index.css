@@ -432,6 +432,34 @@ tbody td p:not([class*="status"]):not([class*="badge"]) {
   font-weight: 700 !important;
 }
 
+/* ============================================================
+   KPI stub values auto-fit their card — long money figures
+   shrink fluidly to fit one line instead of overflowing; short
+   counts keep the full display size. Each stub is a container,
+   the numeral scales with its width. !important beats every
+   page-level size (including mobile overrides).
+   ============================================================ */
+.summary-card,
+.stat-card,
+.ca-summary-card,
+.suppliers-summary-card,
+.supplier-details-summary-card {
+  container-type: inline-size;
+}
+
+.summary-amount,
+.summary-number,
+.stat-value,
+.ca-summary-value,
+.suppliers-summary-number,
+.supplier-details-summary-number,
+.reports-container .amount,
+.backup-container .stat-content h3 {
+  font-size: clamp(1.1rem, 9cqi, 1.95rem) !important;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 /* Sortable table headers + clickable rows — shared affordances */
 thead th.th-sortable {
   cursor: pointer;

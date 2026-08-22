@@ -162,70 +162,112 @@
 }
 
 /* ============================================================
-   Account Summary — uniform KPI / balance cards
+   Account Summary — KPI "receipt stubs": each figure is a slip
+   torn from a receipt book — perforated top edge with punch-
+   holes, the label as a rubber-stamp chip, a hand-placed tilt
+   that straightens on hover, icon as a faint corner mark.
    ============================================================ */
 .ca-account-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
   margin-bottom: 2rem;
 }
 
 .ca-summary-card {
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  box-shadow: none;
-  transition: box-shadow 0.15s var(--ease-out);
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
+}
+
+.ca-summary-card:nth-child(even) {
+  transform: rotate(-0.6deg);
 }
 
 .ca-summary-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Icon chip — identical clay-tint square on every card */
+/* Punch-holes straddling the perforated edge */
+.ca-summary-card::before,
+.ca-summary-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.ca-summary-card::before {
+  inset-inline-start: 16%;
+}
+
+.ca-summary-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint mark in the lower corner, like a printer's mark.
+   The class sits on the <svg> itself here, so it carries the size. */
 .ca-summary-icon {
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
+  width: 1.3rem;
+  height: 1.3rem;
   flex-shrink: 0;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--border-strong);
 }
 
 .ca-summary-icon svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 .ca-summary-content {
-  flex: 1;
+  display: block;
   min-width: 0;
 }
 
+/* Label = rubber-stamp chip */
 .ca-summary-content h3 {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin: 0 0 0.375rem 0;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
+  margin: 0 0 1rem 0;
 }
 
+/* The figure — big Alexandria numeral, plain espresso */
 .ca-summary-value {
   font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2.05rem;
+  font-weight: 800;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
-  margin: 0 0 0.35rem 0;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0;
 }
 
 /* Balance amounts — neutral; the sign is carried by the status pill */
@@ -241,7 +283,7 @@
   color: var(--text-tertiary);
 }
 
-/* Balance status — soft neutral pill */
+/* Balance status — soft neutral pill, sitting under the figure */
 .ca-balance-status {
   display: inline-flex;
   align-items: center;
@@ -253,6 +295,7 @@
   border-radius: 999px;
   background: var(--gray-soft);
   color: var(--text-secondary);
+  margin: 0.55rem 0 0 0;
 }
 
 .ca-summary-card:nth-child(3) .ca-balance-status {
@@ -1168,6 +1211,20 @@
 
   .ca-customer-name {
     font-size: 1.3rem;
+  }
+
+  /* Receipt stubs lie flat on small screens */
+  .ca-summary-card,
+  .ca-summary-card:nth-child(even) {
+    transform: none;
+  }
+
+  .ca-summary-card {
+    padding: 1.2rem 1.25rem 1.1rem;
+  }
+
+  .ca-summary-value {
+    font-size: 1.75rem;
   }
 
   .ca-tabs-header {

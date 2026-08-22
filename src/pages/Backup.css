@@ -88,72 +88,128 @@
   gap: 1.5rem;
 }
 
-/* Stats grid — uniform KPI blocks -------------------------- */
+/* Stats grid — "receipt stub" KPI blocks -------------------
+   Each stat is a slip torn from a receipt book: perforated top
+   edge with punch-holes, the label as a rubber-stamp chip, a
+   hand-placed tilt that straightens on hover, and the icon as a
+   faint printer's mark in the lower corner. */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
 }
 
 .stat-card {
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  box-shadow: none;
-  padding: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 0.875rem;
-  position: relative;
-  overflow: hidden;
-  transition: box-shadow 0.15s var(--ease-out);
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
 
-.stat-card::before {
-  content: none;
+.stat-card:nth-child(even) {
+  transform: rotate(-0.6deg);
 }
 
 .stat-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Icon chip — identical clay-tint square on every stat card */
-.stat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
+/* Punch-holes straddling the perforated edge */
+.stat-card::before,
+.stat-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
 }
 
+.stat-card::before {
+  inset-inline-start: 16%;
+}
+
+.stat-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint printer's mark in the lower corner */
+.stat-icon {
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  color: var(--border-strong);
+}
+
+.stat-icon svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+svg.stat-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+/* Markup here is inverted (h3 = value, p = label); flip it so
+   the stamp chip sits above the figure like every other stub. */
+.backup-container .stat-content {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+}
+
+/* h3 holds the figure — big Alexandria numeral, plain espresso */
 .backup-container .stat-content h3 {
-  margin: 0 0 0.25rem 0;
   font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
-}
-
-.backup-container .stat-content p {
   margin: 0;
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-  font-weight: 500;
 }
 
+/* p holds the label = rubber-stamp chip */
+.backup-container .stat-content p {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
+  margin: 0 0 1rem 0;
+}
+
+/* small trails the figure in the DOM; under column-reverse it would
+   surface at the top, so re-order it back to the foot of the stub */
 .backup-container .stat-content small {
-  font-size: 0.78rem;
+  order: -1;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-tertiary);
   display: block;
-  margin-top: 0.25rem;
+  margin: 0.55rem 0 0 0;
 }
 
 /* Collections overview ------------------------------------- */
@@ -1172,6 +1228,16 @@
 @media (max-width: 640px) {
   .backup-container {
     padding: 1rem;
+  }
+
+  .stat-card,
+  .stat-card:nth-child(even) {
+    transform: none;
+    padding: 1.2rem 1.25rem 1.1rem;
+  }
+
+  .backup-container .stat-content h3 {
+    font-size: 1.75rem;
   }
 }
 

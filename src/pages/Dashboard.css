@@ -143,76 +143,122 @@
   font-weight: 600;
 }
 
-/* Summary cards — identical warm KPI blocks */
+/* ============================================================
+   Summary cards — "receipt stubs": each stat is a slip torn
+   from a receipt book — perforated top edge with punch-holes,
+   the label as a rubber-stamp chip, a hand-placed tilt that
+   straightens on hover, and the icon as a faint mark in the
+   lower corner.
+   ============================================================ */
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
+  gap: 1.4rem;
   margin-bottom: 2rem;
 }
 
 .summary-card {
+  display: block;
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  box-shadow: none;
-  transition: box-shadow 0.15s var(--ease-out);
-  display: flex;
-  align-items: flex-start;
-  gap: 0.875rem;
+  border-top: 2px dashed var(--border-strong); /* the perforation */
+  border-radius: 3px 3px var(--radius-lg) var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  padding: 1.6rem 1.5rem 1.25rem;
+  transform: rotate(0.6deg);
+  transition: transform 0.18s var(--ease-out), box-shadow 0.15s var(--ease-out);
+}
+
+.summary-card:nth-child(even) {
+  transform: rotate(-0.6deg);
 }
 
 .summary-card:hover {
+  transform: rotate(0deg);
   box-shadow: var(--shadow-sm);
 }
 
-/* Icon chip — same accent-soft square on every card */
+/* Punch-holes straddling the perforated edge */
+.summary-card::before,
+.summary-card::after {
+  content: "";
+  position: absolute;
+  top: -7px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-strong);
+}
+
+.summary-card::before {
+  inset-inline-start: 16%;
+}
+
+.summary-card::after {
+  inset-inline-end: 16%;
+}
+
+/* Icon = faint mark in the lower corner, like a printer's mark */
 .summary-icon {
+  position: absolute;
+  bottom: 1rem;
+  inset-inline-end: 1.1rem;
+  top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  color: var(--accent);
+  width: auto;
+  height: auto;
+  background: transparent;
+  border-radius: 0;
+  color: var(--border-strong);
 }
 
 .summary-icon svg {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.3rem;
+  height: 1.3rem;
 }
 
 .summary-content {
-  flex: 1;
+  display: block;
   min-width: 0;
 }
 
+/* Label = rubber-stamp chip */
 .summary-title {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin: 0 0 0.375rem 0;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--accent-deep);
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  padding: 0.22rem 0.6rem;
+  background: transparent;
+  transform: rotate(-1.5deg);
+  transform-origin: right center;
+  margin: 0 0 1rem 0;
 }
 
+/* The figure — big Alexandria numeral, plain espresso */
 .summary-amount {
   font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 700;
+  font-size: 2.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
-  line-height: 1.15;
-  margin: 0 0 0.25rem 0;
+  margin: 0;
 }
 
 .summary-subtitle {
-  font-size: 0.78rem;
-  font-weight: 400;
+  font-size: 0.75rem;
+  font-weight: 500;
   color: var(--text-tertiary);
-  margin: 0;
+  margin: 0.55rem 0 0 0;
 }
 
 /* Quick actions */
@@ -814,6 +860,16 @@
     padding: 1rem;
   }
 
+  .summary-card,
+  .summary-card:nth-child(even) {
+    transform: none;
+    padding: 1.2rem 1.25rem 1.1rem;
+  }
+
+  .summary-amount {
+    font-size: 1.75rem;
+  }
+
   .quick-actions-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -826,5 +882,110 @@
   .no-checks-message {
     margin: 1rem;
     padding: 2rem 1rem;
+  }
+}
+
+/* ============================================================
+   Quick actions prototype — "archive folders" (Dashboard only):
+   each action is a hanging file folder in a drawer — tab on the
+   top edge, all folders resting on the drawer rail (ink rule).
+   Hover pulls the folder up out of the drawer; its bottom stays
+   glued to the rail. Sibling of the receipt-stub KPIs.
+   ============================================================ */
+.dashboard-container .quick-actions-grid {
+  gap: 0.9rem;
+  align-items: end;
+  border-bottom: var(--ink-rule); /* the drawer rail */
+  padding-bottom: 0;
+}
+
+.dashboard-container .quick-action-btn {
+  position: relative;
+  flex-direction: row;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.05rem 1rem;
+  margin-top: 14px; /* headroom for the tab (and the hover pull) */
+  background: var(--gray-soft);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  box-shadow: none;
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: margin-top 0.16s var(--ease-out),
+    padding-top 0.16s var(--ease-out), background 0.14s var(--ease-out),
+    border-color 0.14s var(--ease-out), color 0.14s var(--ease-out);
+}
+
+/* The folder tab */
+.dashboard-container .quick-action-btn::before {
+  content: "";
+  position: absolute;
+  top: -9px;
+  inset-inline-start: 14px;
+  width: 40%;
+  min-width: 46px;
+  height: 9px;
+  background: var(--gray-soft);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 7px 7px 0 0;
+  transition: background 0.14s var(--ease-out),
+    border-color 0.14s var(--ease-out);
+}
+
+/* Hover: the folder is pulled up out of the drawer — the bottom
+   stays on the rail (height grows upward, total footprint stable) */
+.dashboard-container .quick-action-btn:hover {
+  margin-top: 8px;
+  padding-top: calc(1.05rem + 6px);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  box-shadow: none;
+}
+
+.dashboard-container .quick-action-btn:hover::before {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* Click: drops back into the drawer */
+.dashboard-container .quick-action-btn:active {
+  margin-top: 14px;
+  padding-top: 1.05rem;
+}
+
+.dashboard-container .quick-action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dashboard-container .quick-action-btn .action-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* Dashboard KPI grid: always 4 stubs on one line at desktop
+   (auto-fit was wrapping to 3+1); values auto-shrink to fit. */
+.dashboard-container .summary-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .dashboard-container .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-container .summary-grid {
+    grid-template-columns: 1fr;
   }
 }
