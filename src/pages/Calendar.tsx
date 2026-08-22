@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Calendar from "react-calendar";
 import {
   Plus,
@@ -23,9 +23,13 @@ import {
   query,
   where,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
 import { useAuth } from "../contexts/AuthContext";
 import {
   requestNotificationPermission,
@@ -68,12 +72,50 @@ export function CalendarPage() {
   const [foregroundNotification, setForegroundNotification] =
     useState<any>(null);
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several events can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea",
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    if (currentUser) {
-      fetchEvents();
-      checkNotificationStatus();
-      setupForegroundListener();
+    if (showModal) {
+      setAddSuccess(false);
+      focusFirstField();
     }
+  }, [showModal]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    checkNotificationStatus();
+    setupForegroundListener();
+
+    setLoading(true);
+    const eventsQuery = query(
+      collection(db, "calendarEvents"),
+      where("userEmail", "==", currentUser?.email),
+      orderBy("date", "asc"),
+    );
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [eventsQuery],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching events:", error),
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);
 
   const checkNotificationStatus = () => {
@@ -87,8 +129,7 @@ export function CalendarPage() {
         setForegroundNotification(payload);
         // Auto-dismiss after 5 seconds
         setTimeout(() => setForegroundNotification(null), 5000);
-        // Refresh events to update reminderSent status
-        fetchEvents();
+        // The live subscription picks up the change automatically.
       });
       return unsubscribe;
     } catch (error) {
@@ -142,28 +183,16 @@ export function CalendarPage() {
     }
   };
 
-  const fetchEvents = async () => {
-    try {
-      setLoading(true);
-      const eventsQuery = query(
-        collection(db, "calendarEvents"),
-        where("userEmail", "==", currentUser?.email),
-        orderBy("date", "asc"),
-      );
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [eventsSnapshot] = snapshots;
 
-      const eventsSnapshot = await getDocs(eventsQuery);
-      const eventsData: CalendarEvent[] = [];
+    const eventsData: CalendarEvent[] = [];
 
-      eventsSnapshot.forEach((doc) => {
-        eventsData.push({ id: doc.id, ...doc.data() } as CalendarEvent);
-      });
+    eventsSnapshot.forEach((doc) => {
+      eventsData.push({ id: doc.id, ...doc.data() } as CalendarEvent);
+    });
 
-      setEvents(eventsData);
-    } catch (error) {
-      console.error("Error fetching events:", error);
-    } finally {
-      setLoading(false);
-    }
+    setEvents(eventsData);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -187,14 +216,19 @@ export function CalendarPage() {
 
       if (editingEvent) {
         await updateDoc(doc(db, "calendarEvents", editingEvent.id), eventData);
+        setFormData({ title: "", time: "", note: "" });
+        setShowModal(false);
+        setEditingEvent(null);
       } else {
         await addDoc(collection(db, "calendarEvents"), eventData);
+        // Stay open for the next entry: reset the form, confirm inline,
+        // and put the cursor back in the first field.
+        setFormData({ title: "", time: "", note: "" });
+        setAddSuccess(true);
+        focusFirstField();
+        setTimeout(() => setAddSuccess(false), 2500);
       }
-
-      setFormData({ title: "", time: "", note: "" });
-      setShowModal(false);
-      setEditingEvent(null);
-      await fetchEvents();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error saving event:", error);
       alert("حدث خطأ في حفظ الحدث");
@@ -216,7 +250,7 @@ export function CalendarPage() {
     if (confirm("هل أنت متأكد من حذف هذا الحدث؟")) {
       try {
         await deleteDoc(doc(db, "calendarEvents", eventId));
-        await fetchEvents();
+        // The live subscription picks up the change automatically.
       } catch (error) {
         console.error("Error deleting event:", error);
         alert("حدث خطأ في حذف الحدث");
@@ -315,8 +349,7 @@ export function CalendarPage() {
                   <span>الإشعارات مفعلة</span>
                 </div>
                 <p className="status-desc">
-                  ستصلك تذكيرات تلقائية قبل 5 دقائق من كل موعد عبر Firebase
-                  Cloud Functions
+                  ستصلك تذكيرات تلقائية قبل 5 دقائق من كل موعد
                 </p>
               </>
             ) : notificationStatus === "denied" ? (
@@ -336,8 +369,7 @@ export function CalendarPage() {
                   <span>الإشعارات غير مفعلة</span>
                 </div>
                 <p className="status-desc">
-                  فعّل الإشعارات للحصول على تذكيرات تلقائية عبر Firebase Cloud
-                  Messaging
+                  فعّل الإشعارات للحصول على تذكيرات تلقائية بمواعيدك
                 </p>
               </>
             )}
@@ -388,7 +420,7 @@ export function CalendarPage() {
             value={selectedDate}
             tileContent={getTileContent}
             tileClassName={getTileClassName}
-            locale="ar-EG"
+            locale="EN-GB"
           />
         </div>
 
@@ -451,7 +483,11 @@ export function CalendarPage() {
       {/* Add/Edit Event Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-content"
+            ref={addModalRef}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h2>{editingEvent ? "تعديل الموعد" : "إضافة موعد جديد"}</h2>
               <button className="close-btn" onClick={() => setShowModal(false)}>
@@ -460,6 +496,12 @@ export function CalendarPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="event-form">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="form-group">
                 <label>التاريخ المحدد:</label>
                 <div className="selected-date">

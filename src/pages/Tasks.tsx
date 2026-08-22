@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   collection,
@@ -9,11 +9,16 @@ import {
   getDocs,
   query,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 import {
   Plus,
-  Edit2,
+  Edit,
   Trash2,
   X,
   Save,
@@ -21,6 +26,7 @@ import {
   FileText,
   CheckCircle,
   Circle,
+  Search,
 } from "lucide-react";
 import "./Tasks.css";
 
@@ -39,6 +45,7 @@ export function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -48,38 +55,60 @@ export function Tasks() {
     completed: false,
   });
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several tasks can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchTasks();
+    if (showModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showModal]);
+
+  useEffect(() => {
+    setLoading(true);
+    const tasksQuery = query(collection(db, "tasks"), orderBy("date", "desc"));
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [tasksQuery],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching tasks:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchTasks = async () => {
-    try {
-      setLoading(true);
-      const tasksQuery = query(
-        collection(db, "tasks"),
-        orderBy("date", "desc")
-      );
-      const tasksSnapshot = await getDocs(tasksQuery);
-      const tasksData: Task[] = [];
-      tasksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        tasksData.push({
-          id: doc.id,
-          name: data.name,
-          description: data.description,
-          date: data.date,
-          notes: data.notes || "",
-          completed: data.completed || false,
-          createdAt: data.createdAt,
-        });
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [tasksSnapshot] = snapshots;
+
+    const tasksData: Task[] = [];
+    tasksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      tasksData.push({
+        id: doc.id,
+        name: data.name,
+        description: data.description,
+        date: data.date,
+        notes: data.notes || "",
+        completed: data.completed || false,
+        createdAt: data.createdAt,
       });
-      setTasks(tasksData);
-    } catch (error) {
-      console.error("Error fetching tasks:", error);
-      alert("حدث خطأ أثناء جلب المهام");
-    } finally {
-      setLoading(false);
-    }
+    });
+    setTasks(tasksData);
   };
 
   const handleOpenModal = (task?: Task) => {
@@ -146,6 +175,7 @@ export function Tasks() {
           completed: formData.completed,
         });
         alert("تم تحديث المهمة بنجاح");
+        handleCloseModal();
       } else {
         // Add new task
         await addDoc(collection(db, "tasks"), {
@@ -156,10 +186,20 @@ export function Tasks() {
           completed: false,
           createdAt: new Date().toISOString(),
         });
-        alert("تمت إضافة المهمة بنجاح");
+        // Stay open for the next entry: reset the form, confirm inline,
+        // and put the cursor back in the first field.
+        setFormData({
+          name: "",
+          description: "",
+          date: new Date().toISOString().split("T")[0],
+          notes: "",
+          completed: false,
+        });
+        setAddSuccess(true);
+        focusFirstField();
+        setTimeout(() => setAddSuccess(false), 2500);
       }
-      handleCloseModal();
-      fetchTasks();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error saving task:", error);
       alert("حدث خطأ أثناء حفظ المهمة");
@@ -174,7 +214,7 @@ export function Tasks() {
     try {
       await deleteDoc(doc(db, "tasks", taskId));
       alert("تم حذف المهمة بنجاح");
-      fetchTasks();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error deleting task:", error);
       alert("حدث خطأ أثناء حذف المهمة");
@@ -186,7 +226,7 @@ export function Tasks() {
       await updateDoc(doc(db, "tasks", task.id), {
         completed: !task.completed,
       });
-      fetchTasks();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error updating task status:", error);
       alert("حدث خطأ أثناء تحديث حالة المهمة");
@@ -194,7 +234,7 @@ export function Tasks() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("ar-EG", {
+    return new Date(dateString).toLocaleDateString("EN-GB-u-nu-latn", {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -202,9 +242,11 @@ export function Tasks() {
     });
   };
 
+  const filteredTasks = tasks.filter((task) => matchesSearch(task, searchTerm));
+
   const groupTasksByDate = () => {
     const grouped: { [key: string]: Task[] } = {};
-    tasks.forEach((task) => {
+    filteredTasks.forEach((task) => {
       if (!grouped[task.date]) {
         grouped[task.date] = [];
       }
@@ -243,17 +285,36 @@ export function Tasks() {
         </button>
       </div>
 
+      {/* Search */}
+      <div className="search-box">
+        <Search className="search-icon" />
+        <input
+          type="text"
+          placeholder="بحث في المهام..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="search-input"
+        />
+      </div>
+
       {/* Tasks List */}
       <div className="tasks-content">
-        {tasks.length === 0 ? (
+        {filteredTasks.length === 0 ? (
           <div className="empty-state">
             <FileText className="empty-icon" />
-            <h3>لا توجد مهام</h3>
-            <p>ابدأ بإضافة مهمة جديدة</p>
-            <button className="add-task-btn" onClick={() => handleOpenModal()}>
-              <Plus className="btn-icon" />
-              <span>إضافة مهمة</span>
-            </button>
+            <h3>{searchTerm ? "لا توجد نتائج للبحث" : "لا توجد مهام"}</h3>
+            <p>
+              {searchTerm ? "جرّب كلمة بحث أخرى" : "ابدأ بإضافة مهمة جديدة"}
+            </p>
+            {!searchTerm && (
+              <button
+                className="add-task-btn"
+                onClick={() => handleOpenModal()}
+              >
+                <Plus className="btn-icon" />
+                <span>إضافة مهمة</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="tasks-by-date">
@@ -300,7 +361,7 @@ export function Tasks() {
                           className="action-btn edit"
                           onClick={() => handleOpenModal(task)}
                         >
-                          <Edit2 />
+                          <Edit />
                         </button>
                         <button
                           className="action-btn delete"
@@ -321,7 +382,11 @@ export function Tasks() {
       {/* Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={handleCloseModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal-content"
+            ref={addModalRef}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h2 className="modal-title">
                 {editingTask ? "تعديل مهمة" : "إضافة مهمة جديدة"}
@@ -331,6 +396,12 @@ export function Tasks() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="modal-form">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="form-group">
                 <label htmlFor="name">اسم المهمة *</label>
                 <input

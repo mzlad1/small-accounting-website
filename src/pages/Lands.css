@@ -1,9 +1,20 @@
+/* ============================================================
+   Lands — "Warm Studio" design system
+   Property listing on alabaster paper: warm-white cards, espresso
+   ink, one terracotta accent, warm hairlines, Alexandria display
+   headings. Twin of Apartments.css — keep declarations in step.
+   ============================================================ */
+
 .lands-page-container {
-  padding: 2rem;
+  padding: 1.75rem 2rem;
   max-width: 1400px;
   margin: 0 auto;
+  direction: rtl;
+  background: transparent;
+  animation: ed-fade 0.2s var(--ease-out);
 }
 
+/* ---------- Header ---------- */
 .lands-page-header {
   display: flex;
   justify-content: space-between;
@@ -14,34 +25,75 @@
 }
 
 .lands-header-content h1 {
-  font-size: 2rem;
-  color: #1e293b;
-  margin-bottom: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* The clay dash — one per page, under the main title */
+.lands-header-content h1::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-top: 0.5rem;
 }
 
 .lands-header-content p {
-  color: #64748b;
+  color: var(--text-secondary);
+  font-weight: 400;
   font-size: 0.875rem;
+  margin: 0.6rem 0 0;
 }
 
+/* Primary button */
 .lands-add-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #10b981;
-  color: white;
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: #fff;
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius);
   cursor: pointer;
-  font-size: 1rem;
-  transition: background 0.3s;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out);
 }
 
 .lands-add-btn:hover {
-  background: #059669;
+  background: var(--accent-hover);
 }
 
+.lands-add-btn:active {
+  background: var(--accent-deep);
+}
+
+.lands-add-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.lands-add-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.lands-btn-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+/* ---------- Search ---------- */
 .lands-search-section {
   margin-bottom: 2rem;
 }
@@ -55,19 +107,44 @@
   position: absolute;
   right: 1rem;
   top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
+  transform: translate(0, -50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+  transition: color 0.15s var(--ease-out);
+}
+
+.lands-search-box:focus-within .lands-search-icon {
+  color: var(--accent);
 }
 
 .lands-search-box input {
   width: 100%;
-  padding: 0.75rem 3rem 0.75rem 3rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  font-size: 1rem;
+  padding: 0.55rem 2.9rem 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--text-primary);
   direction: rtl;
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
 
+.lands-search-box input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.lands-search-box input:hover {
+  border-color: var(--border-strong);
+}
+
+.lands-search-box input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+/* ---------- Property cards grid ---------- */
 .lands-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -76,29 +153,32 @@
 }
 
 .lands-card {
-  background: white;
-  border-radius: 0.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s, box-shadow 0.3s;
+  box-shadow: none;
+  transition: box-shadow 0.15s var(--ease-out);
 }
 
 .lands-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-sm);
 }
 
+/* Cover image — top corners rounded via the card's overflow clip */
 .lands-card-image {
   position: relative;
   height: 200px;
-  background: #f1f5f9;
+  background: var(--gray-soft);
   overflow: hidden;
+  border-bottom: 1px solid var(--border);
 }
 
 .lands-card-image img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .lands-no-image {
@@ -106,36 +186,47 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #cbd5e1;
+  color: var(--text-tertiary);
 }
 
+/* Price — neutral paper chip in the RTL-inner corner */
 .lands-card-price {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: rgba(16, 185, 129, 0.95);
-  color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: bold;
-  font-size: 1.125rem;
+  bottom: 0.625rem;
+  right: 0.625rem;
+  z-index: 1;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 0.25rem 0.625rem;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-xs);
 }
 
 .lands-card-content {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem 1.5rem;
 }
 
 .lands-card-title {
-  font-size: 1.25rem;
-  color: #1e293b;
-  margin-bottom: 1rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0 0 0.85rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .lands-card-details {
   display: grid;
   grid-template-columns: repeat(1, 1fr);
-  gap: 0.75rem;
+  gap: 0.6rem 0.75rem;
   margin-bottom: 1rem;
 }
 
@@ -143,20 +234,33 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #64748b;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  min-width: 0;
+}
+
+.lands-detail-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .lands-detail-icon {
   width: 16px;
   height: 16px;
-  color: #10b981;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
 }
 
+/* Notes — quiet warm panel, no colored marginal rule */
 .lands-card-notes {
-  background: #f8fafc;
-  padding: 0.75rem;
-  border-radius: 0.5rem;
+  background: var(--gray-soft);
+  border: 1px solid var(--border);
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius);
   margin-bottom: 1rem;
   display: flex;
   gap: 0.5rem;
@@ -165,18 +269,22 @@
 .lands-note-icon {
   width: 16px;
   height: 16px;
-  color: #94a3b8;
+  color: var(--text-tertiary);
   flex-shrink: 0;
-  margin-top: 0.25rem;
+  margin-top: 0.2rem;
 }
 
 .lands-card-notes p {
-  color: #64748b;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 400;
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.6;
+  min-width: 0;
+  overflow-wrap: anywhere; /* long URLs wrap inside the pill */
 }
 
+/* ---------- Card actions — neutral secondary chips ---------- */
 .lands-card-actions {
   display: flex;
   gap: 0.5rem;
@@ -184,117 +292,163 @@
 }
 
 .lands-action-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.375rem;
-  background: white;
-  color: #64748b;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.3s;
+  font-size: 0.8rem;
+  font-weight: 500;
+  font-family: inherit;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out),
+    color 0.15s var(--ease-out);
 }
 
 .lands-action-btn:hover {
-  background: #f8fafc;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
+.lands-action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* View — the primary action, carries the single accent */
 .lands-view-btn {
-  border-color: #10b981;
-  color: #10b981;
+  color: var(--accent);
+  border-color: var(--border);
 }
 
 .lands-view-btn:hover {
-  background: #f0fdf4;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
 }
 
+/* Gallery / contact / edit — neutral */
 .lands-gallery-btn {
-  border-color: #8b5cf6;
-  color: #8b5cf6;
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .lands-gallery-btn:hover {
-  background: #f5f3ff;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .lands-contact-btn {
-  border-color: #06b6d4;
-  color: #06b6d4;
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .lands-contact-btn:hover {
-  background: #ecfeff;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
 .lands-edit-btn {
-  border-color: #f59e0b;
-  color: #f59e0b;
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .lands-edit-btn:hover {
-  background: #fffbeb;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
 }
 
+/* Delete — danger only on hover */
 .lands-delete-btn {
-  border-color: #ef4444;
-  color: #ef4444;
+  color: var(--text-secondary);
+  border-color: var(--border);
 }
 
 .lands-delete-btn:hover {
-  background: #fef2f2;
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
+  color: var(--danger);
 }
 
+/* ---------- Empty state ---------- */
 .lands-no-data-message {
   text-align: center;
-  padding: 4rem 2rem;
-  color: #94a3b8;
+  padding: 2.5rem 1.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
 }
 
 .lands-no-data-message svg {
   margin-bottom: 1rem;
+  color: var(--text-tertiary);
 }
 
 .lands-no-data-message p {
-  font-size: 1.25rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .lands-no-data-message span {
   font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-secondary);
 }
 
-/* Modal Styles */
+/* ---------- Modal ---------- */
 .lands-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(34, 28, 21, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .lands-modal-content {
-  background: white;
-  border-radius: 0.75rem;
-  padding: 2rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem;
   max-width: 800px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  box-shadow: var(--shadow-overlay);
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .lands-modal-content h2 {
-  margin-bottom: 1.5rem;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 1.4rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
 }
 
+/* ---------- Form ---------- */
 .lands-form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -305,6 +459,7 @@
 .lands-form-group {
   display: flex;
   flex-direction: column;
+  gap: 0.375rem;
 }
 
 .lands-full-width {
@@ -312,30 +467,52 @@
 }
 
 .lands-form-group label {
-  margin-bottom: 0.5rem;
-  color: #475569;
-  font-weight: 500;
-  font-size: 0.875rem;
+  margin-bottom: 0;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.78rem;
 }
 
 .lands-form-group input,
 .lands-form-group select,
 .lands-form-group textarea {
-  padding: 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.5rem;
-  font-size: 1rem;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--text-primary);
   direction: rtl;
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
+}
+
+.lands-form-group input::placeholder,
+.lands-form-group textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.lands-form-group textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.lands-form-group input:hover,
+.lands-form-group select:hover,
+.lands-form-group textarea:hover {
+  border-color: var(--border-strong);
 }
 
 .lands-form-group input:focus,
 .lands-form-group select:focus,
 .lands-form-group textarea:focus {
   outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
+/* ---------- Image upload ---------- */
 .lands-upload-area {
   margin-bottom: 1rem;
 }
@@ -345,19 +522,24 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: #f1f5f9;
-  border: 2px dashed #cbd5e1;
-  border-radius: 0.5rem;
-  color: #64748b;
+  padding: 0.85rem 1rem;
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.3s;
   width: 100%;
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out),
+    color 0.15s var(--ease-out);
 }
 
 .lands-upload-btn:hover {
-  background: #e2e8f0;
-  border-color: #94a3b8;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
 }
 
 .lands-images-preview {
@@ -369,73 +551,114 @@
 .lands-image-preview-item {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
+  background: var(--gray-soft);
 }
 
 .lands-image-preview-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .lands-remove-image-btn {
   position: absolute;
   top: 0.5rem;
   left: 0.5rem;
-  background: rgba(239, 68, 68, 0.95);
-  color: white;
-  border: none;
-  border-radius: 0.375rem;
-  padding: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem;
   cursor: pointer;
-  transition: background 0.3s;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
 }
 
 .lands-remove-image-btn:hover {
-  background: rgba(220, 38, 38, 0.95);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: var(--danger-soft);
 }
 
+/* ---------- Modal actions ---------- */
 .lands-modal-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.625rem;
   justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
 }
 
 .lands-submit-btn,
 .lands-cancel-btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius);
   cursor: pointer;
-  font-size: 1rem;
-  transition: all 0.3s;
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
 }
 
 .lands-submit-btn {
-  background: #10b981;
-  color: white;
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
 }
 
 .lands-submit-btn:hover {
-  background: #059669;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.lands-submit-btn:active {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+
+.lands-submit-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .lands-submit-btn:disabled {
-  background: #94a3b8;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .lands-cancel-btn {
-  background: #f1f5f9;
-  color: #64748b;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  font-weight: 500;
+  box-shadow: var(--shadow-xs);
 }
 
 .lands-cancel-btn:hover {
-  background: #e2e8f0;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
 }
 
+.lands-cancel-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Loading ---------- */
 .lands-loading-spinner {
   display: flex;
   flex-direction: column;
@@ -445,26 +668,22 @@
 }
 
 .lands-spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #e2e8f0;
-  border-top-color: #10b981;
+  width: 44px;
+  height: 44px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: lands-spin 1s linear infinite;
-}
-
-@keyframes lands-spin {
-  to {
-    transform: rotate(360deg);
-  }
+  animation: ed-spin 0.8s linear infinite;
 }
 
 .lands-loading-spinner p {
   margin-top: 1rem;
-  color: #64748b;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
-/* Pagination */
+/* ---------- Pagination ---------- */
 .lands-pagination {
   display: flex;
   justify-content: center;
@@ -475,24 +694,37 @@
 }
 
 .lands-pagination-btn {
-  padding: 0.5rem 1rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.375rem;
-  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  min-width: 34px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.3s;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out),
+    color 0.15s var(--ease-out);
 }
 
 .lands-pagination-btn:hover:not(:disabled) {
-  background: #f8fafc;
-  border-color: #10b981;
-  color: #10b981;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+}
+
+.lands-pagination-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .lands-pagination-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 
@@ -502,30 +734,49 @@
 }
 
 .lands-pagination-number {
-  padding: 0.5rem 0.75rem;
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.375rem;
-  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.75rem;
+  min-width: 34px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: all 0.3s;
-  min-width: 2.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out),
+    color 0.15s var(--ease-out);
 }
 
 .lands-pagination-number:hover {
-  background: #f8fafc;
-  border-color: #10b981;
-  color: #10b981;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.lands-pagination-number:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .lands-pagination-number.active {
-  background: #10b981;
-  border-color: #10b981;
-  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 
+/* ---------- Responsive ---------- */
 @media (max-width: 768px) {
+  .lands-page-container {
+    padding: 1.25rem;
+  }
+
   .lands-grid {
     grid-template-columns: 1fr;
   }
@@ -536,6 +787,7 @@
 
   .lands-modal-content {
     padding: 1rem;
+    border-radius: var(--radius-lg);
   }
 
   .lands-pagination {
@@ -544,5 +796,11 @@
 
   .lands-pagination-numbers {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 640px) {
+  .lands-page-container {
+    padding: 1rem;
   }
 }

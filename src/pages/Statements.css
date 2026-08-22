@@ -1,162 +1,242 @@
+/* ============================================================
+   Statements — "Warm Studio" design system
+   Customer account statements as a printed ledger: alabaster
+   paper, espresso ink, one terracotta accent, warm hairlines,
+   and the signature ink rule under every table header.
+   All money figures stay neutral espresso.
+   ============================================================ */
+
 .statements-container {
-  padding: 2rem;
-  background: #f8fafc;
+  padding: 1.75rem 2rem;
+  background: transparent;
   min-height: 100vh;
   direction: rtl; /* Arabic text direction */
+  animation: ed-fade 0.2s var(--ease-out);
 }
 
-/* Header Styles */
+/* Header --------------------------------------------------- */
 .statements-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
 
 .header-content h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
-}
-
-.header-content p {
-  color: #64748b;
-  font-size: 1.125rem;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   margin: 0;
 }
 
+/* The clay dash — one per page, under the main title */
+.header-content h1::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-top: 0.5rem;
+}
+
+.header-content p {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin: 0.55rem 0 0 0;
+}
+
+/* Export buttons — secondary (print) + primary (customer copy) */
 .export-buttons {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
 .export-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 600;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: white;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .export-btn.print {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border);
 }
 
 .export-btn.print-customer {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
 }
 
 .export-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background: var(--row-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.export-btn.print-customer:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
+}
+
+.export-btn.print-customer:active {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+
+.export-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
-/* Filters Section */
+/* Filters — quiet paper panel ------------------------------ */
 .filters-section {
-  background: white;
-  border-radius: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
 }
 
 .filters-header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.625rem;
   margin-bottom: 1.5rem;
 }
 
 .filter-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: #3b82f6;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--accent);
 }
 
 .filters-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .filter-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem;
+  gap: 1.25rem;
   align-items: end;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
   min-width: 150px;
 }
 
 .filter-group label {
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #374151;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .filter-input,
 .filter-select {
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  transition: border-color 0.2s ease;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
   min-width: 150px;
+}
+
+.filter-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.filter-input:hover,
+.filter-select:hover {
+  border-color: var(--text-tertiary);
 }
 
 .filter-input:focus,
 .filter-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
-/* Summary Stats */
+/* Summary stats — identical KPI cards ---------------------- */
 .summary-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.5rem;
+  gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .stat-card {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  padding: 1.25rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.875rem;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.15s var(--ease-out);
 }
 
+.stat-card::before {
+  content: none;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Icon chip — same accent-soft square on every card */
 .stat-icon {
-  width: 3rem;
-  height: 3rem;
-  color: #3b82f6;
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -164,52 +244,60 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
 }
 
 .stat-label {
-  font-size: 0.875rem;
-  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
-/* Statements Table */
+/* Ledger table — the centerpiece --------------------------- */
 .statements-table-container {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  overflow-x: auto;
 }
 
 .statements-table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
 .statements-table th {
-  background: #f8fafc;
-  padding: 1rem 1.5rem;
+  background: var(--bg-surface);
+  padding: 0.7rem 1rem;
   text-align: right;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-bottom: var(--ink-rule); /* signature ink rule */
+  white-space: nowrap;
 }
 
 .statements-table th.sortable {
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
 }
 
 .statements-table th.sortable:hover {
-  background: #f1f5f9;
+  background: var(--row-hover);
+  color: var(--text-primary);
 }
 
 .th-content {
@@ -220,107 +308,166 @@
 }
 
 .th-icon {
-  width: 1rem;
-  height: 1rem;
-  color: #64748b;
+  width: 0.9rem;
+  height: 0.9rem;
+  color: var(--text-tertiary);
 }
 
 .statements-table td {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.statements-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Totals / summary row — ink rule above it */
+.statements-table tfoot td {
+  font-weight: 700;
+  color: var(--text-primary);
+  border-top: var(--ink-rule);
+  border-bottom: none;
+  background: var(--bg-surface);
 }
 
 .main-row {
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s var(--ease-out);
 }
 
 .main-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--row-hover);
 }
 
 .details-row {
-  background: #f8fafc;
+  background: var(--row-hover);
 }
 
 .details-row td {
   padding: 0;
 }
 
-/* Action Buttons */
+/* Row action buttons — icon-only, no fill at rest ---------- */
 .action-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   align-items: center;
 }
 
-/* Expand Button */
 .expand-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: background-color 0.2s ease;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .expand-btn:hover {
-  background: #e2e8f0;
+  background: var(--gray-soft);
+  color: var(--text-primary);
+}
+
+.expand-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .expand-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: #64748b;
-  transition: transform 0.2s ease;
+  width: 1.05rem;
+  height: 1.05rem;
+  color: currentColor;
+  transition: color 0.15s var(--ease-out);
 }
 
-/* Print Button */
+/* Header-level print button (shared secondary recipe) */
 .print-btn {
-  background: #3b82f6;
-  border: none;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
+  font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .print-btn:hover {
-  background: #2563eb;
-  transform: scale(1.05);
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.print-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* …but inside a ledger row it is a bare icon button */
+.action-buttons .print-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  gap: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: none;
+  color: var(--text-tertiary);
+}
+
+.action-buttons .print-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  border: none;
 }
 
 .print-icon {
-  width: 1rem;
-  height: 1rem;
+  width: 0.95rem;
+  height: 0.95rem;
+  color: currentColor;
 }
 
-/* Order Items Expansion */
+/* Order items expansion ------------------------------------ */
 .expand-order-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.375rem;
-  transition: background-color 0.2s ease;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .expand-order-btn:hover {
-  background: #e2e8f0;
+  background: var(--gray-soft);
+  color: var(--text-primary);
 }
 
 .order-items-row {
-  background: #f8fafc;
+  background: var(--row-hover);
 }
 
 .order-items-details {
@@ -329,9 +476,10 @@
 
 .order-items-details h5 {
   margin: 0 0 1rem 0;
-  color: #1e293b;
-  font-size: 1rem;
-  font-weight: 600;
+  font-family: var(--font-display);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 700;
 }
 
 .order-items-table {
@@ -339,28 +487,40 @@
   border-collapse: collapse;
   margin-top: 0.5rem;
   font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .order-items-table th,
 .order-items-table td {
   padding: 0.5rem;
-  border: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   text-align: right;
 }
 
 .order-items-table th {
-  background: #f1f5f9;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.75rem;
+  background: var(--bg-surface);
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  border-bottom: var(--ink-rule); /* signature ink rule */
+  white-space: nowrap;
 }
 
 .order-items-table td {
-  color: #374151;
+  color: var(--text-primary);
   font-size: 0.75rem;
 }
 
-/* Print Styles */
+.order-items-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Print Styles — keep output plain and functional */
 @media print {
   .expand-order-btn,
   .print-btn,
@@ -370,7 +530,7 @@
 
   .order-items-row {
     display: table-row !important;
-    background: white !important;
+    background: #fff !important;
   }
 
   .order-items-details {
@@ -387,7 +547,7 @@
   }
 }
 
-/* Customer Info */
+/* Customer info -------------------------------------------- */
 .customer-info {
   display: flex;
   align-items: center;
@@ -395,9 +555,10 @@
 }
 
 .customer-avatar {
-  width: 2.5rem;
-  height: 2.5rem;
-  background: #f1f5f9;
+  width: 2.25rem;
+  height: 2.25rem;
+  background: var(--accent-soft);
+  border: none;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -406,29 +567,27 @@
 }
 
 .avatar-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: #64748b;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--accent);
 }
 
 .customer-details {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
 
 .customer-name {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .customer-notes {
-  font-size: 0.875rem;
-  color: #64748b;
-  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
 }
 
-/* Contact Info */
 .contact-info {
   display: flex;
   flex-direction: column;
@@ -436,54 +595,66 @@
 }
 
 .phone {
-  color: #64748b;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Balance */
+/* Balance — neutral espresso; the sign lives in the figure */
 .balance {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1.125rem;
+  font-size: 1.02rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .balance.positive {
-  color: #047857;
+  color: var(--text-primary);
 }
 
 .balance.negative {
-  color: #dc2626;
+  color: var(--text-primary);
 }
 
-/* Summary Sections */
-.orders-summary,
-.payments-summary,
-.checks-summary {
+/* Cell summaries — scoped to the ledger cells -------------- */
+.statements-table .orders-summary,
+.statements-table .payments-summary,
+.statements-table .checks-summary {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
   text-align: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
 }
 
-.count {
-  font-weight: 600;
-  color: #374151;
+.statements-table .count {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--text-primary);
   font-size: 1rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.total {
-  font-size: 0.875rem;
-  color: #64748b;
+.statements-table .total {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Last Activity */
 .last-activity {
-  color: #64748b;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
 }
 
-/* Customer Details Content */
+/* Expanded customer detail --------------------------------- */
 .customer-details-content {
   padding: 1.5rem;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .details-section {
@@ -497,160 +668,198 @@
 .details-section h4 {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.625rem;
   margin: 0 0 1rem 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
 }
 
 .section-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: #3b82f6;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--accent);
 }
 
-/* Nested Tables */
-.orders-table,
-.payments-table,
-.checks-table {
+/* Nested ledgers — keep original scroll behavior ----------- */
+.customer-details-content .orders-table,
+.customer-details-content .payments-table,
+.customer-details-content .checks-table {
   overflow-x: auto;
   margin-bottom: 1rem;
 }
 
-.orders-table table,
-.payments-table table,
-.checks-table table {
+.customer-details-content .orders-table table,
+.customer-details-content .payments-table table,
+.customer-details-content .checks-table table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  border-radius: 0.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: none;
+  font-variant-numeric: tabular-nums;
 }
 
-.orders-table th,
-.payments-table th,
-.checks-table th {
-  background: #f1f5f9;
-  padding: 0.75rem;
+.customer-details-content .orders-table th,
+.customer-details-content .payments-table th,
+.customer-details-content .checks-table th {
+  background: var(--bg-surface);
+  padding: 0.625rem 0.75rem;
   text-align: right;
-  font-weight: 600;
-  color: #374151;
-  font-size: 0.875rem;
-  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-bottom: var(--ink-rule); /* signature ink rule */
+  white-space: nowrap;
 }
 
-.orders-table td,
-.payments-table td,
-.checks-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid #f1f5f9;
+.customer-details-content .orders-table td,
+.customer-details-content .payments-table td,
+.customer-details-content .checks-table td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  color: var(--text-primary);
+  font-size: 0.82rem;
 }
 
-/* Status Badges */
+.customer-details-content .orders-table tbody tr:last-child td,
+.customer-details-content .payments-table tbody tr:last-child td,
+.customer-details-content .checks-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.customer-details-content .orders-table tbody tr:hover,
+.customer-details-content .payments-table tbody tr:hover,
+.customer-details-content .checks-table tbody tr:hover {
+  background: var(--row-hover);
+}
+
+/* Status badges — the only home of status color ------------ */
 .status-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border: none;
+  color: var(--text-secondary);
+  background: var(--gray-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.status-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .status-badge.completed {
-  background: #d1fae5;
-  color: #047857;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 
 .status-badge.in-progress {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .status-badge.pending {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-soft);
+  color: var(--warning-text);
 }
 
 .status-badge.cancelled {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 .status-badge.collected {
-  background: #d1fae5;
-  color: #047857;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 
 .status-badge.returned {
-  background: #fee2e2;
-  color: #dc2626;
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 .status-badge.overdue {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
-/* Payment Types */
+/* Payment types — neutral / accent-soft pills -------------- */
 .payment-type {
   display: inline-block;
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.22rem 0.6rem;
+  border: none;
+  color: var(--text-secondary);
+  background: var(--gray-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  line-height: 1.4;
 }
 
 .payment-type.cash {
-  background: #d1fae5;
-  color: #047857;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .payment-type.check {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--gray-soft);
+  color: var(--text-secondary);
 }
 
-/* No Data Messages */
-.no-data {
+/* Empty states -------------------------------------------- */
+.customer-details-content .no-data {
+  padding: 1.75rem 1.25rem;
   text-align: center;
-  color: #9ca3af;
-  font-style: italic;
-  padding: 2rem;
-  background: #f8fafc;
-  border-radius: 0.5rem;
-  border: 2px dashed #cbd5e1;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius);
+  margin: 0;
 }
 
 .no-data-message {
+  padding: 2.5rem 1.5rem;
   text-align: center;
-  padding: 3rem 2rem;
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
 }
 
 .no-data-message p {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.125rem;
+  margin: 0 0 0.375rem 0;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-primary);
 }
 
 .no-data-message span {
-  font-size: 0.875rem;
-  color: #9ca3af;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
 }
 
-/* Loading Spinner */
+/* Loading -------------------------------------------------- */
 .loading-spinner {
   display: flex;
   flex-direction: column;
@@ -661,28 +870,23 @@
 }
 
 .spinner {
-  width: 3rem;
-  height: 3rem;
-  border: 3px solid #e2e8f0;
-  border-top: 3px solid #3b82f6;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: ed-spin 0.8s linear infinite;
   margin-bottom: 1rem;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .loading-spinner p {
-  color: #64748b;
-  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
   margin: 0;
 }
 
-/* Responsive Design */
+/* Responsive Design ---------------------------------------- */
 @media (max-width: 1024px) {
   .statements-container {
     padding: 1.5rem;
@@ -694,7 +898,7 @@
   }
 
   .header-content h1 {
-    font-size: 2rem;
+    font-size: 1.35rem;
   }
 
   .filter-row {
@@ -712,13 +916,13 @@
 
   .statements-table th,
   .statements-table td {
-    padding: 0.75rem 1rem;
+    padding: 0.7rem 0.9rem;
   }
 }
 
 @media (max-width: 768px) {
   .statements-container {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .filters-section,
@@ -732,7 +936,7 @@
   }
 
   .statements-table {
-    font-size: 0.875rem;
+    font-size: 0.85rem;
   }
 
   .statements-table th,
@@ -754,25 +958,29 @@
     justify-content: center;
   }
 
-  .orders-table,
-  .payments-table,
-  .checks-table {
+  .customer-details-content .orders-table,
+  .customer-details-content .payments-table,
+  .customer-details-content .checks-table {
     font-size: 0.75rem;
   }
 
-  .orders-table th,
-  .payments-table th,
-  .checks-table th,
-  .orders-table td,
-  .payments-table td,
-  .checks-table td {
+  .customer-details-content .orders-table th,
+  .customer-details-content .payments-table th,
+  .customer-details-content .checks-table th,
+  .customer-details-content .orders-table td,
+  .customer-details-content .payments-table td,
+  .customer-details-content .checks-table td {
     padding: 0.5rem;
   }
 }
 
 @media (max-width: 640px) {
+  .statements-container {
+    padding: 1rem;
+  }
+
   .header-content h1 {
-    font-size: 1.75rem;
+    font-size: 1.25rem;
   }
 
   .stat-card {
@@ -787,9 +995,9 @@
     gap: 0.5rem;
   }
 
-  .orders-summary,
-  .payments-summary,
-  .checks-summary {
+  .statements-table .orders-summary,
+  .statements-table .payments-summary,
+  .statements-table .checks-summary {
     text-align: center;
   }
 

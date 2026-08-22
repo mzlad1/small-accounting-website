@@ -1,75 +1,112 @@
+/* ============================================================
+   Reports — "Warm Studio" design system
+   Financial reports on alabaster paper: identical KPI cards with
+   terracotta icon chips, ledger tables ruled with the espresso
+   ink rule, warm hairline panels. Amounts stay neutral espresso.
+   ============================================================ */
+
 .reports-container {
-  padding: 2rem;
-  background: #f8fafc;
+  padding: 1.75rem 2rem;
+  background: transparent;
   min-height: 100vh;
   direction: rtl; /* Arabic text direction */
+  animation: ed-fade 0.2s var(--ease-out);
 }
 
-/* Header Styles */
+/* Header --------------------------------------------------- */
 .reports-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
 }
 
 .header-content h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
-}
-
-.header-content p {
-  color: #64748b;
-  font-size: 1.125rem;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   margin: 0;
 }
 
+/* The clay dash — one per page, under the main title */
+.header-content h1::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-top: 0.5rem;
+}
+
+.header-content p {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin: 0.55rem 0 0 0;
+}
+
+/* Export / print — secondary buttons ----------------------- */
 .export-buttons {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
 .export-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 600;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: white;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
 }
 
 .export-btn.print {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-color: var(--border);
 }
 
 .export-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background: var(--row-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.export-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .btn-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: currentColor;
 }
 
-/* Filters Section */
+/* Filters — quiet paper panel ------------------------------ */
 .filters-section {
-  background: white;
-  border-radius: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
 }
 
 .filters-header {
@@ -80,16 +117,17 @@
 }
 
 .filter-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: #3b82f6;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--accent);
 }
 
 .filters-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .filter-row {
@@ -102,129 +140,153 @@
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
   min-width: 150px;
 }
 
 .filter-group label {
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #374151;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .filter-input,
 .filter-select {
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  transition: border-color 0.2s ease;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
   min-width: 150px;
+}
+
+.filter-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.filter-input:hover,
+.filter-select:hover {
+  border-color: var(--text-tertiary);
 }
 
 .filter-input:focus,
 .filter-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
-/* Summary Cards */
+/* Summary KPI cards — every card identical ----------------- */
 .summary-cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
+  gap: 1rem;
   margin-bottom: 2rem;
 }
 
 .summary-card {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  padding: 1.25rem;
   display: flex;
-  align-items: center;
-  gap: 1rem;
+  align-items: flex-start;
+  gap: 0.875rem;
+  transition: box-shadow 0.15s var(--ease-out);
 }
 
+.summary-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Icon chip — same accent-soft square on every card */
 .card-icon {
-  width: 4rem;
-  height: 4rem;
-  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
-.summary-card.receivables .card-icon {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  color: #047857;
-}
-
-.summary-card.payables .card-icon {
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
-  color: #dc2626;
-}
-
+.summary-card.receivables .card-icon,
+.summary-card.payables .card-icon,
 .summary-card.net-position .card-icon {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  color: #1d4ed8;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .card-icon .icon {
-  width: 2rem;
-  height: 2rem;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .card-content {
   flex: 1;
+  min-width: 0;
 }
 
 .card-content h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #374151;
+  margin: 0 0 0.375rem 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .card-content .amount {
   margin: 0 0 0.25rem 0;
-  font-size: 1.75rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
 .card-content .amount.positive {
-  color: #047857;
+  color: var(--text-primary);
 }
 
 .card-content .amount.negative {
-  color: #dc2626;
+  color: var(--text-primary);
 }
 
 .card-content .label {
-  font-size: 0.875rem;
-  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
 }
 
-/* Checks Summary */
-.checks-summary {
-  background: white;
-  border-radius: 1rem;
+/* Checks summary — neutral range tiles --------------------- */
+.reports-container .checks-summary {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
 }
 
-.checks-summary h3 {
+.reports-container .checks-summary h3,
+.monthly-progress h3,
+.charts-section h3 {
   margin: 0 0 1.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .checks-grid {
@@ -233,70 +295,77 @@
   gap: 1rem;
 }
 
+/* Uniform warm tile — no status tinting */
 .check-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.875rem;
   padding: 1rem;
-  background: #f8fafc;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: box-shadow 0.15s var(--ease-out);
 }
 
-.check-item.today {
-  border-color: #f59e0b;
-  background: #fef3c7;
+.check-item:hover {
+  box-shadow: var(--shadow-sm);
 }
 
-.check-item.week {
-  border-color: #3b82f6;
-  background: #dbeafe;
-}
-
+.check-item.today,
+.check-item.week,
 .check-item.month {
-  border-color: #10b981;
-  background: #d1fae5;
+  background: var(--bg-surface);
+  border-color: var(--border);
 }
 
+/* Accent-soft icon chip — identical across all tiles */
 .check-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: #64748b;
+  width: 40px;
+  height: 40px;
+  padding: 10px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.check-item.today .check-icon,
+.check-item.week .check-icon,
+.check-item.month .check-icon {
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .check-info {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
 }
 
 .check-label {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .check-amount {
-  font-size: 1.125rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-/* Monthly Progress */
+/* Monthly progress — ruled ledger table -------------------- */
 .monthly-progress {
-  background: white;
-  border-radius: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-}
-
-.monthly-progress h3 {
-  margin: 0 0 1.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
 }
 
 .progress-table {
@@ -306,47 +375,72 @@
 .progress-table table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-table th {
-  background: #f8fafc;
-  padding: 1rem;
+  background: var(--bg-surface);
+  padding: 0.7rem 1rem;
   text-align: right;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-bottom: var(--ink-rule); /* signature ink rule */
+  white-space: nowrap;
 }
 
 .progress-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.progress-table tbody tr {
+  transition: background-color 0.15s var(--ease-out);
+}
+
+.progress-table tbody tr:hover {
+  background-color: var(--row-hover);
+}
+
+.progress-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .progress-table td.positive {
-  color: #047857;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .progress-table td.negative {
-  color: #dc2626;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-/* Customer Statement */
-.customer-statement {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  margin-bottom: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+/* Totals row — ink rule above it */
+.progress-table tfoot td {
+  font-weight: 700;
+  color: var(--text-primary);
+  border-top: var(--ink-rule);
+  border-bottom: none;
+  background: var(--bg-surface);
 }
 
-.statement-header {
+/* Customer statement — ruled ledger table ------------------ */
+.customer-statement {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.reports-container .statement-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -355,120 +449,149 @@
   gap: 1rem;
 }
 
-.statement-header h3 {
+.reports-container .statement-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-.customer-selector {
+.reports-container .customer-selector {
   min-width: 200px;
 }
 
-.customer-select {
+.reports-container .customer-select {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  transition: border-color 0.2s ease;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
 }
 
-.customer-select:focus {
+.reports-container .customer-select:hover {
+  border-color: var(--text-tertiary);
+}
+
+.reports-container .customer-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
-.statement-content {
+.reports-container .statement-content {
   margin-top: 1.5rem;
 }
 
-.customer-info {
+.reports-container .customer-info {
+  display: block;
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background: #f8fafc;
-  border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
+  background: var(--gray-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
-.customer-info h4 {
+.reports-container .customer-info h4 {
   margin: 0 0 0.5rem 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
-.customer-info p {
+.reports-container .customer-info p {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.875rem;
 }
 
-.statement-table {
+.reports-container .statement-table {
   overflow-x: auto;
 }
 
-.statement-table table {
+.reports-container .statement-table table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
-.statement-table th {
-  background: #f8fafc;
-  padding: 1rem;
+.reports-container .statement-table th {
+  background: var(--bg-surface);
+  padding: 0.7rem 1rem;
   text-align: right;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e2e8f0;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-bottom: var(--ink-rule); /* signature ink rule */
+  white-space: nowrap;
 }
 
-.statement-table td {
-  padding: 1rem;
-  border-bottom: 1px solid #f1f5f9;
+.reports-container .statement-table td {
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.statement-table td.debit {
-  color: #dc2626;
+.reports-container .statement-table tbody tr {
+  transition: background-color 0.15s var(--ease-out);
+}
+
+.reports-container .statement-table tbody tr:hover {
+  background-color: var(--row-hover);
+}
+
+.reports-container .statement-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Debit / credit / running balance — all neutral espresso */
+.reports-container .statement-table td.debit {
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-.statement-table td.credit {
-  color: #047857;
+.reports-container .statement-table td.credit {
+  color: var(--text-primary);
   font-weight: 600;
 }
 
-.statement-table td.balance.positive {
-  color: #047857;
+.reports-container .statement-table td.balance.positive {
+  color: var(--text-primary);
   font-weight: 700;
 }
 
-.statement-table td.balance.negative {
-  color: #dc2626;
+.reports-container .statement-table td.balance.negative {
+  color: var(--text-primary);
   font-weight: 700;
 }
 
-/* Charts Section */
+/* Closing totals — ink rule above the row */
+.reports-container .statement-table tfoot td {
+  font-weight: 700;
+  color: var(--text-primary);
+  border-top: var(--ink-rule);
+  border-bottom: none;
+  background: var(--bg-surface);
+}
+
+/* Charts section ------------------------------------------- */
 .charts-section {
-  background: white;
-  border-radius: 1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-}
-
-.charts-section h3 {
-  margin: 0 0 1.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
 }
 
 .charts-placeholder {
@@ -476,33 +599,35 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem 1.5rem;
+  padding: 2.5rem 1.5rem;
   text-align: center;
-  background: #f8fafc;
-  border-radius: 0.75rem;
-  border: 2px dashed #cbd5e1;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
 }
 
 .chart-icon {
-  width: 4rem;
-  height: 4rem;
-  color: #94a3b8;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--text-tertiary);
   margin-bottom: 1rem;
 }
 
 .charts-placeholder p {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.125rem;
+  margin: 0 0 0.375rem 0;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-primary);
 }
 
 .charts-placeholder span {
-  font-size: 0.875rem;
-  color: #94a3b8;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
 }
 
-/* Loading Spinner */
+/* Loading -------------------------------------------------- */
 .loading-spinner {
   display: flex;
   flex-direction: column;
@@ -513,28 +638,23 @@
 }
 
 .spinner {
-  width: 3rem;
-  height: 3rem;
-  border: 3px solid #e2e8f0;
-  border-top: 3px solid #3b82f6;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: ed-spin 0.8s linear infinite;
   margin-bottom: 1rem;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .loading-spinner p {
-  color: #64748b;
-  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
   margin: 0;
 }
 
-/* Responsive Design */
+/* Responsive Design ---------------------------------------- */
 @media (max-width: 1024px) {
   .reports-container {
     padding: 1.5rem;
@@ -546,7 +666,7 @@
   }
 
   .header-content h1 {
-    font-size: 2rem;
+    font-size: 1.35rem;
   }
 
   .filter-row {
@@ -565,33 +685,33 @@
 
 @media (max-width: 768px) {
   .reports-container {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .filters-section,
   .summary-card,
-  .checks-summary,
+  .reports-container .checks-summary,
   .monthly-progress,
   .customer-statement,
   .charts-section {
     padding: 1rem;
   }
 
-  .statement-header {
+  .reports-container .statement-header {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .customer-selector {
+  .reports-container .customer-selector {
     min-width: 100%;
   }
 
   .progress-table th,
   .progress-table td,
-  .statement-table th,
-  .statement-table td {
-    padding: 0.75rem 0.5rem;
-    font-size: 0.875rem;
+  .reports-container .statement-table th,
+  .reports-container .statement-table td {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.82rem;
   }
 
   .export-buttons {
@@ -606,18 +726,18 @@
 }
 
 @media (max-width: 640px) {
+  .reports-container {
+    padding: 1rem;
+  }
+
   .header-content h1 {
-    font-size: 1.75rem;
+    font-size: 1.25rem;
   }
 
   .summary-card {
     flex-direction: column;
     text-align: center;
-  }
-
-  .card-icon {
-    width: 3rem;
-    height: 3rem;
+    align-items: center;
   }
 
   .card-content .amount {

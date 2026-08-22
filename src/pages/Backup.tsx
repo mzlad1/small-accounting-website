@@ -69,6 +69,12 @@ const Backup: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"local" | "cloud">("cloud");
   const [selectedBackup, setSelectedBackup] = useState<CloudBackup | null>(null);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [restoreConfirmText, setRestoreConfirmText] = useState("");
+  const [backupToDelete, setBackupToDelete] = useState<CloudBackup | null>(
+    null
+  );
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingBackup, setDeletingBackup] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
 
@@ -128,7 +134,7 @@ const Backup: React.FC = () => {
       setBackupSettings((prev) => ({ ...prev, autoBackupEnabled: enabled }));
       alert(
         enabled
-          ? "تم تفعيل النسخ الاحتياطي التلقائي عبر Cloud Functions"
+          ? "تم تفعيل النسخ الاحتياطي التلقائي في السحابة"
           : "تم إيقاف النسخ الاحتياطي التلقائي"
       );
     } catch (error: any) {
@@ -161,7 +167,7 @@ const Backup: React.FC = () => {
 
   const handleCloudFunctionBackup = async () => {
     setCloudBackupLoading(true);
-    setExportProgress("جاري إنشاء نسخة احتياطية عبر Cloud Functions...");
+    setExportProgress("جاري إنشاء نسخة احتياطية في السحابة...");
 
     try {
       const triggerBackup = httpsCallable(functions, "triggerCloudBackup");
@@ -226,7 +232,7 @@ const Backup: React.FC = () => {
     setExportProgress("بدء النسخ الاحتياطي...");
 
     try {
-      setExportProgress("تصدير البيانات من Firebase...");
+      setExportProgress("جاري تصدير البيانات...");
       await backupService.downloadBackup();
       setExportProgress("تم إنشاء النسخة الاحتياطية بنجاح!");
       loadBackupHistory();
@@ -283,6 +289,7 @@ const Backup: React.FC = () => {
 
   const handleRestoreBackup = async (backup: CloudBackup) => {
     setSelectedBackup(backup);
+    setRestoreConfirmText("");
     setShowRestoreModal(true);
   };
 
@@ -308,16 +315,25 @@ const Backup: React.FC = () => {
     }
   };
 
-  const handleDeleteBackup = async (backup: CloudBackup) => {
-    if (confirm(`هل أنت متأكد من حذف النسخة الاحتياطية: ${backup.name}؟`)) {
-      try {
-        await backupService.deleteCloudBackup(backup.name);
-        await loadCloudBackups();
-        alert("تم حذف النسخة الاحتياطية بنجاح");
-      } catch (error) {
-        console.error("Delete failed:", error);
-        alert("فشل في حذف النسخة الاحتياطية");
-      }
+  const handleDeleteBackup = (backup: CloudBackup) => {
+    setBackupToDelete(backup);
+    setDeleteConfirmText("");
+  };
+
+  const confirmDeleteBackup = async () => {
+    if (!backupToDelete || deletingBackup) return;
+
+    setDeletingBackup(true);
+    try {
+      await backupService.deleteCloudBackup(backupToDelete.name);
+      await loadCloudBackups();
+      setBackupToDelete(null);
+      setDeleteConfirmText("");
+    } catch (error) {
+      console.error("Delete failed:", error);
+      alert("فشل في حذف النسخة الاحتياطية");
+    } finally {
+      setDeletingBackup(false);
     }
   };
 
@@ -330,10 +346,10 @@ const Backup: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("en-US", {
+    return new Date(dateString).toLocaleString("en-GB", {
       year: "numeric",
-      month: "long",
-      day: "numeric",
+      month: "2-digit",
+      day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
@@ -376,7 +392,13 @@ const Backup: React.FC = () => {
               <Database size={24} />
             </div>
             <div className="stat-content">
-              <h3>{getTotalDocuments()}</h3>
+              <h3>
+                {backupStats ? (
+                  getTotalDocuments()
+                ) : (
+                  <span className="skeleton skeleton-number" />
+                )}
+              </h3>
               <p>إجمالي السجلات</p>
             </div>
           </div>
@@ -386,7 +408,13 @@ const Backup: React.FC = () => {
               <FileText size={24} />
             </div>
             <div className="stat-content">
-              <h3>{backupStats ? Object.keys(backupStats).length : 0}</h3>
+              <h3>
+                {backupStats ? (
+                  Object.keys(backupStats).length
+                ) : (
+                  <span className="skeleton skeleton-number" />
+                )}
+              </h3>
               <p>المجموعات</p>
             </div>
           </div>
@@ -396,7 +424,13 @@ const Backup: React.FC = () => {
               <Clock size={24} />
             </div>
             <div className="stat-content">
-              <h3>{backupHistory.length + cloudBackups.length}</h3>
+              <h3>
+                {isLoadingBackups ? (
+                  <span className="skeleton skeleton-number" />
+                ) : (
+                  backupHistory.length + cloudBackups.length
+                )}
+              </h3>
               <p>النسخ السابقة</p>
             </div>
           </div>
@@ -406,15 +440,25 @@ const Backup: React.FC = () => {
               <Calendar size={24} />
             </div>
             <div className="stat-content">
-              <h3>{lastBackupDate ? "مُحدث" : "لا يوجد"}</h3>
+              <h3>
+                {isLoadingBackups ? (
+                  <span className="skeleton skeleton-number" />
+                ) : lastBackupDate ? (
+                  "مُحدث"
+                ) : (
+                  "لا يوجد"
+                )}
+              </h3>
               <p>آخر نسخة احتياطية</p>
-              {lastBackupDate && <small>{formatDate(lastBackupDate)}</small>}
+              {!isLoadingBackups && lastBackupDate && (
+                <small>{formatDate(lastBackupDate)}</small>
+              )}
             </div>
           </div>
         </div>
 
         {/* Collection Details */}
-        {backupStats && (
+        {backupStats ? (
           <div className="collections-overview">
             <h2>تفاصيل المجموعات</h2>
             <div className="collections-grid">
@@ -458,6 +502,17 @@ const Backup: React.FC = () => {
               ))}
             </div>
           </div>
+        ) : (
+          <div className="collections-overview">
+            <h2>تفاصيل المجموعات</h2>
+            <div className="collections-grid">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="collection-item">
+                  <span className="skeleton skeleton-line" />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Backup Type Tabs */}
@@ -489,9 +544,9 @@ const Backup: React.FC = () => {
                     <div className="action-header">
                       <Zap size={24} />
                       <div>
-                        <h3>نسخة احتياطية عبر Cloud Functions</h3>
+                        <h3>نسخة احتياطية في السحابة</h3>
                         <p>
-                          إنشاء نسخة احتياطية باستخدام Firebase Cloud Functions
+                          إنشاء نسخة احتياطية في السحابة
                           (أسرع وأكثر موثوقية)
                         </p>
                       </div>
@@ -524,7 +579,7 @@ const Backup: React.FC = () => {
                       <CloudUpload size={24} />
                       <div>
                         <h3>نسخة احتياطية سحابية</h3>
-                        <p>حفظ النسخة الاحتياطية في Firebase Storage</p>
+                        <p>حفظ النسخة الاحتياطية في التخزين السحابي</p>
                       </div>
                     </div>
 
@@ -557,7 +612,7 @@ const Backup: React.FC = () => {
                       <div>
                         <h3>النسخ الاحتياطي التلقائي</h3>
                         <p>
-                          جدولة تلقائية عبر Firebase Cloud Functions (يعمل في
+                          جدولة تلقائية في السحابة (يعمل في
                           الخلفية حتى بدون فتح التطبيق)
                         </p>
                       </div>
@@ -617,7 +672,7 @@ const Backup: React.FC = () => {
                           <div className="functions-info">
                             <AlertCircle size={14} />
                             <span>
-                              يتم تنفيذ النسخ الاحتياطي عبر Cloud Functions -
+                              يتم تنفيذ النسخ الاحتياطي في السحابة -
                               يعمل تلقائياً في السيرفر
                             </span>
                           </div>
@@ -849,11 +904,25 @@ const Backup: React.FC = () => {
                   </p>
                 </div>
 
+                <div className="form-group">
+                  <label>اكتب "موافق" لتأكيد الاستعادة</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={restoreConfirmText}
+                    onChange={(e) => setRestoreConfirmText(e.target.value)}
+                    placeholder="موافق"
+                    autoFocus
+                  />
+                </div>
+
                 <div className="modal-actions">
                   <button
                     className="backup-btn secondary"
                     onClick={() => confirmRestore(false)}
-                    disabled={isRestoring}
+                    disabled={
+                      isRestoring || restoreConfirmText.trim() !== "موافق"
+                    }
                   >
                     {isRestoring
                       ? "جاري الاستعادة..."
@@ -862,7 +931,9 @@ const Backup: React.FC = () => {
                   <button
                     className="backup-btn danger"
                     onClick={() => confirmRestore(true)}
-                    disabled={isRestoring}
+                    disabled={
+                      isRestoring || restoreConfirmText.trim() !== "موافق"
+                    }
                   >
                     {isRestoring
                       ? "جاري الاستعادة..."
@@ -881,12 +952,67 @@ const Backup: React.FC = () => {
           </div>
         )}
 
+        {/* Delete Backup Confirmation — typed "موافق" required */}
+        {backupToDelete && (
+          <div className="modal-overlay">
+            <div className="modal delete-modal">
+              <div className="modal-header">
+                <h3>تأكيد الحذف</h3>
+                <button
+                  className="close-btn"
+                  onClick={() => setBackupToDelete(null)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="modal-body">
+                <p>
+                  هل أنت متأكد من حذف النسخة الاحتياطية{" "}
+                  <strong>{backupToDelete.name}</strong>؟
+                </p>
+                <p className="warning-text">
+                  سيتم حذف هذه النسخة نهائياً ولا يمكن استرجاعها!
+                </p>
+                <div className="form-group">
+                  <label>اكتب "موافق" لتأكيد الحذف</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="موافق"
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setBackupToDelete(null)}
+                  disabled={deletingBackup}
+                >
+                  إلغاء
+                </button>
+                <button
+                  className="btn-danger"
+                  onClick={confirmDeleteBackup}
+                  disabled={
+                    deletingBackup || deleteConfirmText.trim() !== "موافق"
+                  }
+                >
+                  {deletingBackup ? "جاري الحذف..." : "حذف النسخة الاحتياطية"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Tips */}
         <div className="backup-tips">
           <div className="tip-item">
             <Zap size={16} />
             <span>
-              النسخ التلقائي عبر Cloud Functions يعمل في السيرفر ولا يحتاج لفتح
+              النسخ التلقائي في السحابة يعمل في السيرفر ولا يحتاج لفتح
               التطبيق
             </span>
           </div>

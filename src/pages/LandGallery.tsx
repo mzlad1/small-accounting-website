@@ -7,8 +7,15 @@ import {
   DollarSign,
   X,
 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  DocumentData,
+  DocumentSnapshot,
+} from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchDocsCacheFirst } from "../utils/cacheFirst";
+import { subscribeDocs } from "../utils/live";
 import { useParams, useNavigate } from "react-router-dom";
 import "./LandGallery.css";
 
@@ -36,24 +43,25 @@ export function LandGallery() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchLand();
+    if (!landId) return;
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeDocs(
+      [doc(db, "lands", landId)],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching land:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [landId]);
 
-  const fetchLand = async () => {
-    try {
-      setLoading(true);
-
-      if (!landId) return;
-
-      const landDoc = await getDoc(doc(db, "lands", landId));
-      if (landDoc.exists()) {
-        setLand({ id: landDoc.id, ...landDoc.data() } as Land);
-      }
-    } catch (error) {
-      console.error("Error fetching land:", error);
-      alert("حدث خطأ أثناء تحميل البيانات");
-    } finally {
-      setLoading(false);
+  // Runs once from the local cache (instant paint) and again with the
+  // server result. Must fully replace state, never append.
+  const applySnapshots = ([landDoc]: Array<DocumentSnapshot<DocumentData>>) => {
+    if (landDoc.exists()) {
+      setLand({ id: landDoc.id, ...landDoc.data() } as Land);
     }
   };
 

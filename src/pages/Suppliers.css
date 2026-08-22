@@ -1,11 +1,22 @@
+/* Suppliers — "Warm Studio" design system */
+/* ============================================================
+   Supplier register list page: masthead + actions, search
+   panel, KPI summary strip, printed-ledger table with quiet
+   row actions, and the add/edit modal. Alabaster paper,
+   espresso ink, one terracotta accent, warm hairlines.
+   ============================================================ */
+
 .suppliers-container {
-  padding: 2rem;
-  background: #f8fafc;
-  min-height: 100vh;
+  padding: 1.75rem 2rem;
   direction: rtl;
+  animation: ed-fade 0.2s var(--ease-out);
+  background: transparent;
+  min-height: 100vh;
 }
 
-/* Header */
+/* ============================================================
+   Header — page masthead
+   ============================================================ */
 .suppliers-header {
   display: flex;
   justify-content: space-between;
@@ -16,236 +27,282 @@
 }
 
 .suppliers-header-content h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   margin: 0;
 }
 
+/* The clay dash — one per page, under the main title */
+.suppliers-header-content h1::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-top: 0.5rem;
+}
+
 .suppliers-header-content p {
-  font-size: 1.125rem;
-  color: #64748b;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 400;
   margin: 0.5rem 0 0 0;
 }
 
 .suppliers-header-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
+/* ============================================================
+   Buttons
+   ============================================================ */
+
+/* Secondary-role actions: print / refresh / payments */
 .suppliers-print-btn,
-.suppliers-refresh-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-  color: white;
-  border: none;
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-}
-
+.suppliers-refresh-btn,
 .suppliers-payments-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  color: white;
-  border: none;
-  border-radius: 0.75rem;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .suppliers-print-btn:hover,
-.suppliers-refresh-btn:hover {
-  background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
-}
-
+.suppliers-refresh-btn:hover,
 .suppliers-payments-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
+  background: var(--row-hover);
+  border-color: var(--border-strong);
 }
 
+.suppliers-print-btn:active,
+.suppliers-refresh-btn:active,
+.suppliers-payments-btn:active,
+.suppliers-add-supplier-btn:active {
+  background: var(--gray-soft);
+}
+
+.suppliers-payments-btn:active {
+  background: var(--gray-soft);
+}
+
+.suppliers-add-supplier-btn:active {
+  background: var(--accent-deep);
+}
+
+.suppliers-print-btn:focus-visible,
+.suppliers-refresh-btn:focus-visible,
+.suppliers-payments-btn:focus-visible,
+.suppliers-add-supplier-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Primary — add supplier */
 .suppliers-add-supplier-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: #fff;
   border: none;
-  border-radius: 0.75rem;
-  font-size: 0.875rem;
+  border-radius: var(--radius);
   font-weight: 600;
+  font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out);
 }
 
 .suppliers-add-supplier-btn:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background: var(--accent-hover);
 }
 
 .suppliers-btn-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
 }
 
-/* Search Section */
+/* ============================================================
+   Search — quiet paper panel
+   ============================================================ */
 .suppliers-search-section {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
   margin-bottom: 2rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  box-shadow: none;
 }
 
 .suppliers-search-box {
   position: relative;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .suppliers-search-icon {
   position: absolute;
   right: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
-  width: 1.25rem;
-  height: 1.25rem;
+  top: 0;
+  bottom: 0;
+  margin-block: auto;
+  color: var(--text-tertiary);
+  width: 1.1rem;
+  height: 1.1rem;
+  pointer-events: none;
 }
 
 .suppliers-search-input {
   width: 100%;
-  padding: 0.75rem 3rem 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.75rem;
-  font-size: 1rem;
-  background-color: white;
-  transition: border-color 0.2s ease;
+  padding: 0.55rem 2.75rem 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
   box-sizing: border-box;
+}
+
+.suppliers-search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.suppliers-search-input:hover {
+  border-color: var(--text-tertiary);
 }
 
 .suppliers-search-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
-/* Summary Section */
+/* ============================================================
+   Summary — identical KPI cards
+   ============================================================ */
 .suppliers-summary-section {
   margin-bottom: 2rem;
 }
 
 .suppliers-summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
 }
 
 .suppliers-summary-card {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: none;
+  transition: box-shadow 0.15s var(--ease-out);
   display: flex;
   align-items: center;
-  gap: 1rem;
-  transition: transform 0.2s ease;
+  gap: 0.875rem;
 }
 
 .suppliers-summary-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
+/* Icon chip — clay tint, identical on every card */
 .suppliers-summary-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  flex-shrink: 0;
 }
 
-.suppliers-summary-card:nth-child(1) .suppliers-summary-icon {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-}
-
-.suppliers-summary-card:nth-child(2) .suppliers-summary-icon {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.suppliers-summary-card:nth-child(3) .suppliers-summary-icon {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+.suppliers-summary-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
 .suppliers-summary-content h3 {
   margin: 0 0 0.25rem 0;
-  font-size: 0.875rem;
-  color: #64748b;
-  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .suppliers-summary-number {
   margin: 0;
-  font-size: 1.5rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
-/* Table Container */
+/* ============================================================
+   Table — the printed ledger
+   ============================================================ */
 .suppliers-table-container {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   overflow: hidden;
 }
 
 .suppliers-table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
 .suppliers-table th {
-  background: #f8fafc;
-  padding: 1rem 1.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  padding: 0.7rem 1rem;
   text-align: right;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border-bottom: var(--ink-rule);
+  white-space: nowrap;
 }
 
 .suppliers-table th.sortable {
   cursor: pointer;
   user-select: none;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .suppliers-table th.sortable:hover {
-  background: #f1f5f9;
+  background: var(--row-hover);
+  color: var(--text-primary);
 }
 
 .suppliers-th-content {
@@ -258,76 +315,108 @@
 .suppliers-th-icon {
   width: 1rem;
   height: 1rem;
-  color: #9ca3af;
+  color: var(--text-tertiary);
 }
 
 .suppliers-table td {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.suppliers-table th:first-child,
+.suppliers-table td:first-child {
+  padding-right: 1.5rem; /* RTL */
+}
+
+.suppliers-table th:last-child,
+.suppliers-table td:last-child {
+  padding-left: 1.5rem;
+}
+
+.suppliers-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .suppliers-supplier-row {
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s var(--ease-out);
 }
 
 .suppliers-supplier-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--row-hover);
 }
 
-/* Supplier Info */
+/* ============================================================
+   Supplier identity cell
+   ============================================================ */
 .suppliers-supplier-info {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .suppliers-supplier-avatar {
-  width: 3rem;
-  height: 3rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 50%;
-  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  background: var(--gray-soft);
+  border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: var(--text-secondary);
   flex-shrink: 0;
+  box-shadow: none;
+  transition: border-color 0.15s var(--ease-out), background 0.15s var(--ease-out),
+    color 0.15s var(--ease-out);
+}
+
+.suppliers-supplier-row:hover .suppliers-supplier-avatar {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  color: var(--accent);
 }
 
 .suppliers-avatar-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .suppliers-supplier-details {
   display: flex;
   flex-direction: column;
+  gap: 0.25rem;
 }
 
 .suppliers-supplier-name {
   font-weight: 600;
-  color: #1e293b;
-  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-size: 0.9rem;
 }
 
 .suppliers-supplier-name.clickable {
   cursor: pointer;
-  color: #2563eb;
-  transition: color 0.2s ease;
+  color: var(--accent);
+  transition: color 0.15s var(--ease-out);
 }
 
 .suppliers-supplier-name.clickable:hover {
-  color: #1d4ed8;
+  color: var(--accent-deep);
   text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .suppliers-supplier-notes {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-tertiary);
   margin-top: 0.125rem;
 }
 
-/* Contact Info */
+/* ============================================================
+   Contact cell
+   ============================================================ */
 .suppliers-contact-info {
   display: flex;
   flex-direction: column;
@@ -342,16 +431,20 @@
 }
 
 .suppliers-contact-label {
-  color: #64748b;
-  font-weight: 600;
+  color: var(--text-tertiary);
+  font-weight: 500;
   min-width: 2.5rem;
 }
 
 .suppliers-contact-value {
-  color: #1e293b;
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Elements Count */
+/* ============================================================
+   Numeric cells — neutral espresso figures
+   ============================================================ */
 .suppliers-elements-count {
   display: flex;
   flex-direction: column;
@@ -360,24 +453,25 @@
 }
 
 .suppliers-count-number {
-  font-size: 1.125rem;
+  font-size: 1.05rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
 .suppliers-count-label {
-  font-size: 0.75rem;
-  color: #64748b;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
 }
 
-/* Value Amount */
 .suppliers-value-amount {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #059669;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Last Order */
 .suppliers-last-order {
   display: flex;
   flex-direction: column;
@@ -385,178 +479,199 @@
 }
 
 .suppliers-order-date {
-  font-size: 0.875rem;
-  color: #374151;
-  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .suppliers-no-orders {
   font-size: 0.75rem;
-  color: #9ca3af;
-  font-style: italic;
+  color: var(--text-tertiary);
 }
 
-/* Action Buttons */
+/* ============================================================
+   Row actions — icon-only, no fill at rest
+   ============================================================ */
 .suppliers-action-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   justify-content: center;
+}
+
+.suppliers-action-btn svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .suppliers-action-btn {
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 0.375rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+
+.suppliers-action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .suppliers-action-btn.view {
-  background-color: #f0f9ff;
-  color: #0369a1;
+  color: var(--text-tertiary);
 }
 
 .suppliers-action-btn.view:hover {
-  background-color: #e0f2fe;
-  transform: translateY(-1px);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .suppliers-action-btn.edit {
-  background-color: #dbeafe;
-  color: #2563eb;
+  color: var(--text-tertiary);
 }
 
 .suppliers-action-btn.edit:hover {
-  background-color: #bfdbfe;
-  transform: translateY(-1px);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .suppliers-action-btn.delete {
-  background-color: #fee2e2;
-  color: #dc2626;
+  color: var(--text-tertiary);
 }
 
 .suppliers-action-btn.delete:hover {
-  background-color: #fecaca;
-  transform: translateY(-1px);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
-/* No Data */
+/* ============================================================
+   Empty + loading states
+   ============================================================ */
 .suppliers-no-data {
   text-align: center;
-  color: #9ca3af;
-  font-style: italic;
-  padding: 2.5rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 2.5rem 1.5rem;
+  background: transparent;
 }
 
-/* Loading Spinner */
 .suppliers-loading-spinner {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 3.75rem;
-  color: #64748b;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .suppliers-spinner {
   width: 2.5rem;
   height: 2.5rem;
-  border: 4px solid #e2e8f0;
-  border-top: 4px solid #7c3aed;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: suppliers-spin 1s linear infinite;
+  animation: ed-spin 0.8s linear infinite;
   margin-bottom: 1rem;
 }
 
-@keyframes suppliers-spin {
-  0% {
-    transform: rotate(0deg);
-  }
-  100% {
-    transform: rotate(360deg);
-  }
-}
-
-/* Modal Styles */
+/* ============================================================
+   Modal — add / edit supplier
+   ============================================================ */
 .suppliers-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  background: rgba(34, 28, 21, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  padding: 1.25rem;
+  padding: 1rem;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .suppliers-modal {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
   width: 100%;
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .suppliers-modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1.25rem;
-  border-bottom: 1px solid #e2e8f0;
+  justify-content: space-between;
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .suppliers-modal-header h3 {
   margin: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .suppliers-close-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: #64748b;
-  cursor: pointer;
-  padding: 0;
-  width: 2rem;
-  height: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.375rem;
-  transition: background-color 0.2s ease;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .suppliers-close-btn:hover {
-  background-color: #f1f5f9;
+  background: var(--gray-soft);
+  color: var(--text-primary);
 }
 
 .suppliers-modal-body {
-  padding: 1.25rem;
+  padding: 1.4rem;
 }
 
 .suppliers-modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  border-top: 1px solid #e2e8f0;
+  gap: 0.625rem;
+  padding: 1rem 1.4rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-/* Form Styles */
+/* ============================================================
+   Form
+   ============================================================ */
 .suppliers-form-group {
-  margin-bottom: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1.1rem;
 }
 
 .suppliers-form-row {
@@ -567,27 +682,41 @@
 
 .suppliers-form-group label {
   display: block;
-  margin-bottom: 0.375rem;
+  margin-bottom: 0;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #374151;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .suppliers-form-input,
 .suppliers-form-textarea {
   width: 100%;
-  padding: 0.625rem 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.375rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  transition: border-color 0.2s ease;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
   box-sizing: border-box;
+}
+
+.suppliers-form-input::placeholder,
+.suppliers-form-textarea::placeholder {
+  color: var(--text-tertiary);
+}
+
+.suppliers-form-input:hover,
+.suppliers-form-textarea:hover {
+  border-color: var(--text-tertiary);
 }
 
 .suppliers-form-input:focus,
 .suppliers-form-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
 .suppliers-form-textarea {
@@ -595,57 +724,89 @@
   min-height: 5rem;
 }
 
-/* Button Styles */
+/* ============================================================
+   Modal buttons
+   ============================================================ */
 .suppliers-btn-primary {
-  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: #fff;
   border: none;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
+  border-radius: var(--radius);
   font-weight: 600;
+  font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out);
 }
 
 .suppliers-btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 8px -1px rgba(0, 0, 0, 0.15);
+  background: var(--accent-hover);
+}
+
+.suppliers-btn-primary:active {
+  background: var(--accent-deep);
+}
+
+.suppliers-btn-primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .suppliers-btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .suppliers-btn-secondary {
-  background: #f1f5f9;
-  color: #374151;
-  border: none;
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 0.875rem;
-  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .suppliers-btn-secondary:hover {
-  background: #e2e8f0;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
 }
 
-/* Responsive Design */
+.suppliers-btn-secondary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
 @media (max-width: 768px) {
   .suppliers-container {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .suppliers-header {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
+  }
+
+  .suppliers-header-content h1::after {
+    margin-inline: auto;
   }
 
   .suppliers-header-actions {
@@ -668,16 +829,26 @@
   }
 
   .suppliers-table {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
   }
 
   .suppliers-table th,
   .suppliers-table td {
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .suppliers-table th:first-child,
+  .suppliers-table td:first-child {
+    padding-right: 1rem;
+  }
+
+  .suppliers-table th:last-child,
+  .suppliers-table td:last-child {
+    padding-left: 1rem;
   }
 
   .suppliers-contact-info {
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
   }
 
   .suppliers-modal {
@@ -687,6 +858,10 @@
 }
 
 @media (max-width: 480px) {
+  .suppliers-container {
+    padding: 1rem;
+  }
+
   .suppliers-table {
     display: block;
     overflow-x: auto;

@@ -17,9 +17,21 @@ import {
   ChevronDown,
   ChevronRight,
   Printer,
+  Search,
 } from "lucide-react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  DocumentData,
+  QuerySnapshot,
+} from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 import "./Statements.css";
 
 interface Customer {
@@ -113,6 +125,8 @@ export function Statements() {
     customerId: undefined as string | undefined,
   });
 
+  const [searchTerm, setSearchTerm] = useState("");
+
   const [expandedCustomers, setExpandedCustomers] = useState<Set<string>>(
     new Set()
   );
@@ -123,7 +137,23 @@ export function Statements() {
   });
 
   useEffect(() => {
-    fetchData();
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        collection(db, "customers"),
+        collection(db, "orders"),
+        collection(db, "orderItems"),
+        collection(db, "payments"),
+        collection(db, "customerChecks"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Helper function to calculate order totals from order items
@@ -139,102 +169,92 @@ export function Statements() {
     }
   }, [customers, orders, orderItems, payments, customerChecks, filters]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [
+      customersSnapshot,
+      ordersSnapshot,
+      orderItemsSnapshot,
+      paymentsSnapshot,
+      customerChecksSnapshot,
+    ] = snapshots;
 
-      // Fetch customers
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersData: Customer[] = [];
-      customersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        customersData.push({
-          id: doc.id,
-          name: data.name,
-          phone: data.phone,
-          notes: data.notes,
-        });
+    // Fetch customers
+    const customersData: Customer[] = [];
+    customersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      customersData.push({
+        id: doc.id,
+        name: data.name,
+        phone: data.phone,
+        notes: data.notes,
       });
-      setCustomers(customersData);
+    });
+    setCustomers(customersData);
 
-      // Fetch orders
-      const ordersSnapshot = await getDocs(collection(db, "orders"));
-      const ordersData: Order[] = [];
-      ordersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        ordersData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          title: data.title,
-          date: data.date,
-          status: data.status,
-          total: data.total,
-          items: data.items || [],
-          notes: data.notes,
-        });
+    // Fetch orders
+    const ordersData: Order[] = [];
+    ordersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      ordersData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        title: data.title,
+        date: data.date,
+        status: data.status,
+        total: data.total,
+        items: data.items || [],
+        notes: data.notes,
       });
-      setOrders(ordersData);
+    });
+    setOrders(ordersData);
 
-      // Fetch order items for all orders
-      const orderItemsData: { [orderId: string]: any[] } = {};
-      for (const order of ordersData) {
-        const itemsQuery = query(
-          collection(db, "orderItems"),
-          where("orderId", "==", order.id)
-        );
-        const itemsSnapshot = await getDocs(itemsQuery);
-        const items: any[] = [];
-        itemsSnapshot.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() });
-        });
-        orderItemsData[order.id] = items;
+    // Group all order items by orderId in memory
+    // (replaces the per-order query loop — one read instead of N)
+    const orderItemsData: { [orderId: string]: any[] } = {};
+    orderItemsSnapshot.forEach((doc) => {
+      const item = { id: doc.id, ...doc.data() } as any;
+      if (!orderItemsData[item.orderId]) {
+        orderItemsData[item.orderId] = [];
       }
-      setOrderItems(orderItemsData);
+      orderItemsData[item.orderId].push(item);
+    });
+    setOrderItems(orderItemsData);
 
-      // Fetch payments
-      const paymentsSnapshot = await getDocs(collection(db, "payments"));
-      const paymentsData: Payment[] = [];
-      paymentsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        paymentsData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          date: data.date,
-          type: data.type,
-          amount: data.amount,
-          notes: data.notes,
-          checkId: data.checkId,
-        });
+    // Fetch payments
+    const paymentsData: Payment[] = [];
+    paymentsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      paymentsData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        date: data.date,
+        type: data.type,
+        amount: data.amount,
+        notes: data.notes,
+        checkId: data.checkId,
       });
-      setPayments(paymentsData);
+    });
+    setPayments(paymentsData);
 
-      // Fetch customer checks
-      const customerChecksSnapshot = await getDocs(
-        collection(db, "customerChecks")
-      );
-      const customerChecksData: CustomerCheck[] = [];
-      customerChecksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        customerChecksData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          checkNumber: data.checkNumber,
-          bank: data.bank,
-          amount: data.amount,
-          dueDate: data.dueDate,
-          status: data.status,
-          notes: data.notes,
-        });
+    // Fetch customer checks
+    const customerChecksData: CustomerCheck[] = [];
+    customerChecksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      customerChecksData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        checkNumber: data.checkNumber,
+        bank: data.bank,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        status: data.status,
+        notes: data.notes,
       });
-      setCustomerChecks(customerChecksData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    });
+    setCustomerChecks(customerChecksData);
   };
 
   const generateCustomerStatements = () => {
@@ -511,15 +531,15 @@ export function Statements() {
               .header { 
                 text-align: center; 
                 margin-bottom: 30px; 
-                border-bottom: 2px solid #333;
+                border-bottom: 2px solid #2b241c;
                 padding-bottom: 20px;
               }
               .customer-summary {
-                background: #f8f9fa;
+                background: #faf6ee;
                 padding: 15px;
                 border-radius: 8px;
                 margin-bottom: 20px;
-                border: 1px solid #dee2e6;
+                border: 1px solid #d8cdbb;
               }
               .summary-grid {
                 display: grid;
@@ -532,16 +552,16 @@ export function Statements() {
                 padding: 10px;
                 background: white;
                 border-radius: 6px;
-                border: 1px solid #dee2e6;
+                border: 1px solid #d8cdbb;
               }
               .summary-value {
                 font-size: 18px;
                 font-weight: bold;
-                color: #2c3e50;
+                color: #221c15;
                 display: block;
               }
               .summary-label {
-                color: #6c757d;
+                color: #6f6459;
                 font-size: 12px;
               }
               table { 
@@ -551,23 +571,23 @@ export function Statements() {
                 font-size: 18px;
               }
               th, td { 
-                border: 1px solid #ddd; 
+                border: 1px solid #d8cdbb; 
                 padding: 6px; 
                 text-align: right; 
               }
               th { 
-                background-color: #f2f2f2; 
+                background-color: #f0eae0; 
                 font-weight: bold; 
                 font-size: 18px;
               }
               .section-header {
-                background: #e9ecef;
+                background: #f0eae0;
                 padding: 10px;
                 margin: 20px 0 10px 0;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                border-right: 4px solid #007bff;
+                border-right: 4px solid #bc5727;
               }
               .status-badge {
                 padding: 2px 6px;
@@ -575,30 +595,30 @@ export function Statements() {
                 font-size: 10px;
                 font-weight: bold;
               }
-              .status-completed { background: #d4edda; color: #155724; }
-              .status-in-progress { background: #fff3cd; color: #856404; }
-              .status-pending { background: #d1ecf1; color: #0c5460; }
-              .status-cancelled { background: #f8d7da; color: #721c24; }
-              .status-collected { background: #d4edda; color: #155724; }
-              .status-returned { background: #f8d7da; color: #721c24; }
-              .status-overdue { background: #fff3cd; color: #856404; }
+              .status-completed { background: #eaf1eb; color: #3e6a4c; }
+              .status-in-progress { background: #f8f0de; color: #8f6118; }
+              .status-pending { background: #f6e7dc; color: #8f3e1b; }
+              .status-cancelled { background: #f9e9e6; color: #9a3226; }
+              .status-collected { background: #eaf1eb; color: #3e6a4c; }
+              .status-returned { background: #f9e9e6; color: #9a3226; }
+              .status-overdue { background: #f8f0de; color: #8f6118; }
               .payment-type {
                 padding: 2px 6px;
                 border-radius: 4px;
                 font-size: 10px;
                 font-weight: bold;
               }
-              .payment-type.cash { background: #d1ecf1; color: #0c5460; }
-              .payment-type.check { background: #e2e3e5; color: #383d41; }
+              .payment-type.cash { background: #f6e7dc; color: #8f3e1b; }
+              .payment-type.check { background: #f0eae0; color: #6f6459; }
               .no-data {
                 text-align: center;
-                color: #6c757d;
+                color: #6f6459;
                 font-style: italic;
                 padding: 10px;
               }
               .print-date {
                 text-align: left;
-                color: #6c757d;
+                color: #6f6459;
                 font-size: 11px;
                 margin-top: 20px;
               }
@@ -611,7 +631,7 @@ export function Statements() {
           <body>
             <div class="header">
               <h1>${customerId ? "كشف حساب عميل" : "كشوف الحسابات"}</h1>
-              <p>تاريخ الطباعة: ${new Date().toLocaleDateString("en-US")}</p>
+              <p>تاريخ الطباعة: ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             
             ${statementsToPrint
@@ -815,7 +835,7 @@ export function Statements() {
               .join("")}
             
             <div class="print-date">
-              تمت الطباعة في: ${new Date().toLocaleString("en-US")}
+              تمت الطباعة في: ${new Date().toLocaleString("en-GB")}
             </div>
           </body>
           </html>
@@ -837,11 +857,7 @@ export function Statements() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const getStatusClass = (status: string) => {
@@ -904,6 +920,12 @@ export function Statements() {
     }
   };
 
+  // Any-field, Arabic-aware search over the generated statements
+  // (the dropdown filters above are applied in generateCustomerStatements).
+  const visibleStatements = customerStatements.filter((statement) =>
+    matchesSearch(statement, searchTerm)
+  );
+
   if (loading) {
     return (
       <div className="statements-container">
@@ -940,119 +962,12 @@ export function Statements() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="filters-header">
-          <Filter className="filter-icon" />
-          <h3>فلاتر التقرير</h3>
-        </div>
-        <div className="filters-content">
-          <div className="filter-row">
-            <div className="filter-group">
-              <label>من تاريخ:</label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateFrom: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
-            <div className="filter-group">
-              <label>إلى تاريخ:</label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateTo: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
-            <div className="filter-group">
-              <label>الحالة:</label>
-              <select
-                value={filters.status}
-                onChange={(e) =>
-                  setFilters({ ...filters, status: e.target.value })
-                }
-                className="filter-select"
-              >
-                <option value="all">جميع العملاء</option>
-                <option value="active">عملاء نشطون</option>
-                <option value="inactive">عملاء غير نشطين</option>
-              </select>
-            </div>
-            <div className="filter-group">
-              <label>نوع الرصيد:</label>
-              <select
-                value={filters.balanceType}
-                onChange={(e) =>
-                  setFilters({ ...filters, balanceType: e.target.value })
-                }
-                className="filter-select"
-              >
-                <option value="all">جميع الأرصدة</option>
-                <option value="positive">رصيد موجب</option>
-                <option value="negative">رصيد سالب</option>
-                <option value="zero">رصيد صفر</option>
-              </select>
-            </div>
-            <div className="filter-group">
-              <label>العميل:</label>
-              <select
-                value={filters.customerId || "all"}
-                onChange={(e) =>
-                  setFilters({
-                    ...filters,
-                    customerId:
-                      e.target.value === "all" ? undefined : e.target.value,
-                  })
-                }
-                className="filter-select"
-              >
-                <option value="all">جميع العملاء</option>
-                {customers.map((customer) => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <button
-                onClick={() =>
-                  setFilters({
-                    ...filters,
-                    dateFrom: "2020-01-01",
-                    dateTo: new Date().toISOString().split("T")[0],
-                  })
-                }
-                className="filter-btn"
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: "#3b82f6",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "0.375rem",
-                  cursor: "pointer",
-                  fontSize: "0.875rem",
-                }}
-              >
-                عرض جميع البيانات
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Summary Stats */}
       <div className="summary-stats">
         <div className="stat-card">
           <Users className="stat-icon" />
           <div className="stat-content">
-            <span className="stat-value">{customerStatements.length}</span>
+            <span className="stat-value">{visibleStatements.length}</span>
             <span className="stat-label">إجمالي العملاء</span>
           </div>
         </div>
@@ -1060,7 +975,7 @@ export function Statements() {
           <Package className="stat-icon" />
           <div className="stat-content">
             <span className="stat-value">
-              {customerStatements.reduce(
+              {visibleStatements.reduce(
                 (sum, stmt) => sum + stmt.orders.length,
                 0
               )}
@@ -1074,7 +989,7 @@ export function Statements() {
           <div className="stat-content">
             <span className="stat-value">
               {formatCurrency(
-                customerStatements.reduce(
+                visibleStatements.reduce(
                   (sum, stmt) => sum + stmt.totalPayments,
                   0
                 )
@@ -1083,6 +998,114 @@ export function Statements() {
             <span className="stat-label">إجمالي المدفوعات</span>
           </div>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              placeholder="بحث..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        </div>
+
+        <div className="filter-field">
+          <label>من تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateFrom}
+            onChange={(e) =>
+              setFilters({ ...filters, dateFrom: e.target.value })
+            }
+            className="filter-input"
+          />
+        </div>
+
+        <div className="filter-field">
+          <label>إلى تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateTo}
+            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+            className="filter-input"
+          />
+        </div>
+
+        <div className="filter-field">
+          <label>الحالة</label>
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            className="filter-select"
+          >
+            <option value="all">جميع العملاء</option>
+            <option value="active">عملاء نشطون</option>
+            <option value="inactive">عملاء غير نشطين</option>
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>نوع الرصيد</label>
+          <select
+            value={filters.balanceType}
+            onChange={(e) =>
+              setFilters({ ...filters, balanceType: e.target.value })
+            }
+            className="filter-select"
+          >
+            <option value="all">جميع الأرصدة</option>
+            <option value="positive">رصيد موجب</option>
+            <option value="negative">رصيد سالب</option>
+            <option value="zero">رصيد صفر</option>
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>العميل</label>
+          <select
+            value={filters.customerId || "all"}
+            onChange={(e) =>
+              setFilters({
+                ...filters,
+                customerId:
+                  e.target.value === "all" ? undefined : e.target.value,
+              })
+            }
+            className="filter-select"
+          >
+            <option value="all">جميع العملاء</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setFilters({
+              dateFrom: "2020-01-01",
+              dateTo: new Date().toISOString().split("T")[0],
+              status: "all",
+              balanceType: "all",
+              customerId: undefined,
+            });
+          }}
+        >
+          <Filter size={18} />
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Customer Statements Table */}
@@ -1122,7 +1145,7 @@ export function Statements() {
             </tr>
           </thead>
           <tbody>
-            {customerStatements.map((statement) => (
+            {visibleStatements.map((statement) => (
               <React.Fragment key={statement.customer.id}>
                 {/* Main Row */}
                 <tr className="main-row">
@@ -1440,7 +1463,7 @@ export function Statements() {
         </table>
       </div>
 
-      {customerStatements.length === 0 && (
+      {visibleStatements.length === 0 && (
         <div className="no-data-message">
           <p>لا توجد بيانات لعرضها</p>
           <span>جرب تغيير الفلاتر أو نطاق التاريخ</span>

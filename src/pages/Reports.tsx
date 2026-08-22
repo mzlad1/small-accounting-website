@@ -22,8 +22,12 @@ import {
   where,
   orderBy,
   Timestamp,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
 import "./Reports.css";
 
 interface Customer {
@@ -149,7 +153,24 @@ export function Reports() {
   );
 
   useEffect(() => {
-    fetchData();
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        collection(db, "customers"),
+        collection(db, "orders"),
+        collection(db, "orderItems"),
+        collection(db, "payments"),
+        collection(db, "customerChecks"),
+        collection(db, "personalChecks"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Helper function to calculate order totals from order items
@@ -173,121 +194,109 @@ export function Reports() {
     filters,
   ]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [
+      customersSnapshot,
+      ordersSnapshot,
+      orderItemsSnapshot,
+      paymentsSnapshot,
+      customerChecksSnapshot,
+      personalChecksSnapshot,
+    ] = snapshots;
 
-      // Fetch customers
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersData: Customer[] = [];
-      customersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        customersData.push({
-          id: doc.id,
-          name: data.name,
-          phone: data.phone,
-          notes: data.notes,
-        });
+    // Fetch customers
+    const customersData: Customer[] = [];
+    customersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      customersData.push({
+        id: doc.id,
+        name: data.name,
+        phone: data.phone,
+        notes: data.notes,
       });
-      setCustomers(customersData);
+    });
+    setCustomers(customersData);
 
-      // Fetch orders
-      const ordersSnapshot = await getDocs(collection(db, "orders"));
-      const ordersData: Order[] = [];
-      ordersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        ordersData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          title: data.title,
-          date: data.date,
-          status: data.status,
-          total: data.total,
-          items: data.items || [],
-        });
+    // Fetch orders
+    const ordersData: Order[] = [];
+    ordersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      ordersData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        title: data.title,
+        date: data.date,
+        status: data.status,
+        total: data.total,
+        items: data.items || [],
       });
-      setOrders(ordersData);
+    });
+    setOrders(ordersData);
 
-      // Fetch order items for all orders
-      const orderItemsData: { [orderId: string]: any[] } = {};
-      for (const order of ordersData) {
-        const itemsQuery = query(
-          collection(db, "orderItems"),
-          where("orderId", "==", order.id)
-        );
-        const itemsSnapshot = await getDocs(itemsQuery);
-        const items: any[] = [];
-        itemsSnapshot.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() });
-        });
-        orderItemsData[order.id] = items;
+    // Group all order items by orderId in memory
+    // (replaces the per-order query loop — one read instead of N)
+    const orderItemsData: { [orderId: string]: any[] } = {};
+    orderItemsSnapshot.forEach((doc) => {
+      const item = { id: doc.id, ...doc.data() } as any;
+      if (!orderItemsData[item.orderId]) {
+        orderItemsData[item.orderId] = [];
       }
-      setOrderItems(orderItemsData);
+      orderItemsData[item.orderId].push(item);
+    });
+    setOrderItems(orderItemsData);
 
-      // Fetch payments
-      const paymentsSnapshot = await getDocs(collection(db, "payments"));
-      const paymentsData: Payment[] = [];
-      paymentsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        paymentsData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          date: data.date,
-          type: data.type,
-          amount: data.amount,
-          notes: data.notes,
-          checkId: data.checkId,
-        });
+    // Fetch payments
+    const paymentsData: Payment[] = [];
+    paymentsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      paymentsData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        date: data.date,
+        type: data.type,
+        amount: data.amount,
+        notes: data.notes,
+        checkId: data.checkId,
       });
-      setPayments(paymentsData);
+    });
+    setPayments(paymentsData);
 
-      // Fetch customer checks
-      const customerChecksSnapshot = await getDocs(
-        collection(db, "customerChecks")
-      );
-      const customerChecksData: CustomerCheck[] = [];
-      customerChecksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        customerChecksData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          checkNumber: data.checkNumber,
-          bank: data.bank,
-          amount: data.amount,
-          dueDate: data.dueDate,
-          status: data.status,
-          notes: data.notes,
-        });
+    // Fetch customer checks
+    const customerChecksData: CustomerCheck[] = [];
+    customerChecksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      customerChecksData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        checkNumber: data.checkNumber,
+        bank: data.bank,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        status: data.status,
+        notes: data.notes,
       });
-      setCustomerChecks(customerChecksData);
+    });
+    setCustomerChecks(customerChecksData);
 
-      // Fetch personal checks
-      const personalChecksSnapshot = await getDocs(
-        collection(db, "personalChecks")
-      );
-      const personalChecksData: PersonalCheck[] = [];
-      personalChecksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        personalChecksData.push({
-          id: doc.id,
-          payee: data.payee,
-          checkNumber: data.checkNumber,
-          bank: data.bank,
-          amount: data.amount,
-          dueDate: data.dueDate,
-          status: data.status,
-          notes: data.notes,
-        });
+    // Fetch personal checks
+    const personalChecksData: PersonalCheck[] = [];
+    personalChecksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      personalChecksData.push({
+        id: doc.id,
+        payee: data.payee,
+        checkNumber: data.checkNumber,
+        bank: data.bank,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        status: data.status,
+        notes: data.notes,
       });
-      setPersonalChecks(personalChecksData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    });
+    setPersonalChecks(personalChecksData);
   };
 
   const calculateFinancialSummary = () => {
@@ -410,10 +419,7 @@ export function Reports() {
       d <= dateTo;
       d.setMonth(d.getMonth() + 1)
     ) {
-      const monthKey = d.toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-      });
+      const monthKey = d.toLocaleDateString("en-GB");
       monthlyMap.set(monthKey, {
         month: monthKey,
         orders: 0,
@@ -426,10 +432,7 @@ export function Reports() {
     orders.forEach((order) => {
       const orderDate = new Date(order.date);
       if (orderDate >= dateFrom && orderDate <= dateTo) {
-        const monthKey = orderDate.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-        });
+        const monthKey = orderDate.toLocaleDateString("en-GB");
         const monthData = monthlyMap.get(monthKey);
         if (monthData) {
           monthData.orders += 1;
@@ -442,10 +445,7 @@ export function Reports() {
     payments.forEach((payment) => {
       const paymentDate = new Date(payment.date);
       if (paymentDate >= dateFrom && paymentDate <= dateTo) {
-        const monthKey = paymentDate.toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "short",
-        });
+        const monthKey = paymentDate.toLocaleDateString("en-GB");
         const monthData = monthlyMap.get(monthKey);
         if (monthData) {
           monthData.payments += payment.amount;
@@ -555,7 +555,7 @@ export function Reports() {
               .header { 
                 text-align: center; 
                 margin-bottom: 30px; 
-                border-bottom: 2px solid #333;
+                border-bottom: 2px solid #2b241c;
                 padding-bottom: 20px;
               }
               .summary-grid {
@@ -567,18 +567,18 @@ export function Reports() {
               .summary-item {
                 text-align: center;
                 padding: 10px;
-                background: #f8f9fa;
+                background: #faf6ee;
                 border-radius: 6px;
-                border: 1px solid #dee2e6;
+                border: 1px solid #d8cdbb;
               }
               .summary-value {
                 font-size: 18px;
                 font-weight: bold;
-                color: #2c3e50;
+                color: #221c15;
                 display: block;
               }
               .summary-label {
-                color: #6c757d;
+                color: #6f6459;
                 font-size: 12px;
               }
               table { 
@@ -588,27 +588,27 @@ export function Reports() {
                 font-size: 11px;
               }
               th, td { 
-                border: 1px solid #ddd; 
+                border: 1px solid #d8cdbb; 
                 padding: 6px; 
                 text-align: right; 
               }
               th { 
-                background-color: #f2f2f2; 
+                background-color: #f0eae0; 
                 font-weight: bold; 
                 font-size: 11px;
               }
               .section-header {
-                background: #e9ecef;
+                background: #f0eae0;
                 padding: 10px;
                 margin: 20px 0 10px 0;
                 border-radius: 6px;
                 font-weight: bold;
                 font-size: 14px;
-                border-right: 4px solid #007bff;
+                border-right: 4px solid #bc5727;
               }
               .print-date {
                 text-align: left;
-                color: #6c757d;
+                color: #6f6459;
                 font-size: 11px;
                 margin-top: 20px;
               }
@@ -621,7 +621,7 @@ export function Reports() {
           <body>
                          <div class="header">
                <h1>التقارير المالية</h1>
-               <p>تاريخ الطباعة: ${new Date().toLocaleDateString("en-US")}</p>
+               <p>تاريخ الطباعة: ${new Date().toLocaleDateString("en-GB")}</p>
              </div>
              
              <div class="summary-grid">
@@ -754,7 +754,7 @@ export function Reports() {
              </table>
              
              <div class="print-date">
-               تمت الطباعة في: ${new Date().toLocaleString("en-US")}
+               تمت الطباعة في: ${new Date().toLocaleString("en-GB")}
              </div>
           </body>
           </html>
@@ -776,11 +776,7 @@ export function Reports() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   if (loading) {
@@ -807,40 +803,6 @@ export function Reports() {
             <Printer className="btn-icon" />
             طباعة التقرير
           </button>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="filters-section">
-        <div className="filters-header">
-          <Filter className="filter-icon" />
-          <h3>فلاتر التقرير</h3>
-        </div>
-        <div className="filters-content">
-          <div className="filter-row">
-            <div className="filter-group">
-              <label>من تاريخ:</label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateFrom: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
-            <div className="filter-group">
-              <label>إلى تاريخ:</label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateTo: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -871,6 +833,46 @@ export function Reports() {
             <span className="label">المبالغ المستحقة عليك</span>
           </div>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="filters-bar">
+        <div className="filter-field">
+          <label>من تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateFrom}
+            onChange={(e) =>
+              setFilters({ ...filters, dateFrom: e.target.value })
+            }
+            className="filter-input"
+          />
+        </div>
+
+        <div className="filter-field">
+          <label>إلى تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateTo}
+            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+            className="filter-input"
+          />
+        </div>
+
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() =>
+            setFilters({
+              ...filters,
+              dateFrom: "2025-01-01",
+              dateTo: new Date().toISOString().split("T")[0],
+            })
+          }
+        >
+          <Filter size={18} />
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Checks Due Summary */}

@@ -1,11 +1,25 @@
+/* Customer Account — "Warm Studio" design system */
+
+/* ============================================================
+   Customer Account — single-customer ledger.
+   Entity masthead, balance KPI cards, tabbed content
+   (orders / payments / checks / statement) with printed-ledger
+   tables, soft pill status badges, and ledger modals.
+   Debit / credit / balance amounts stay neutral espresso —
+   direction is carried by the column, never by color.
+   ============================================================ */
+
 .ca-customer-account-container {
-  padding: 2rem;
-  background: #f8fafc;
+  padding: 1.75rem 2rem;
+  background: transparent;
   min-height: 100vh;
   direction: rtl; /* Arabic text direction */
+  animation: ed-fade 0.2s var(--ease-out);
 }
 
-/* Header Styles */
+/* ============================================================
+   Header — entity masthead
+   ============================================================ */
 .ca-account-header {
   display: flex;
   justify-content: space-between;
@@ -21,29 +35,38 @@
   gap: 1rem;
 }
 
+/* Back button — secondary */
 .ca-back-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.75rem;
-  color: #64748b;
-  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-weight: 500;
   font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .ca-back-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+}
+
+.ca-back-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ca-back-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.2rem;
+  height: 1.2rem;
 }
 
 .ca-customer-info {
@@ -52,218 +75,255 @@
   gap: 0.5rem;
 }
 
+/* Main page title — Alexandria display face + the clay dash */
 .ca-customer-name {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   margin: 0;
+}
+
+.ca-customer-name::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-top: 0.5rem;
 }
 
 .ca-customer-details {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
+/* Phone — quiet hairline contact chip */
 .ca-phone {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: #f1f5f9;
-  border-radius: 0.5rem;
-  color: #374151;
+  padding: 0.35rem 0.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Notes — neutral informational pill (not a status color) */
+.ca-notes {
+  padding: 0.35rem 0.75rem;
+  background: var(--gray-soft);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+/* Edit customer — secondary button */
+.ca-edit-customer-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   font-weight: 500;
   font-size: 0.875rem;
-}
-
-.ca-notes {
-  padding: 0.5rem 1rem;
-  background: #fef3c7;
-  border-radius: 0.5rem;
-  color: #92400e;
-  font-size: 0.875rem;
-  font-style: italic;
-}
-
-.ca-edit-customer-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.875rem 1.5rem;
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  border: none;
-  border-radius: 0.75rem;
-  font-weight: 600;
-  font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .ca-edit-customer-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+}
+
+.ca-edit-customer-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ca-btn-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
-/* Account Summary */
+/* ============================================================
+   Account Summary — uniform KPI / balance cards
+   ============================================================ */
 .ca-account-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
+  gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 .ca-summary-card {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.ca-summary-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  box-shadow: none;
+  transition: box-shadow 0.15s var(--ease-out);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
 }
 
 .ca-summary-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
-.ca-summary-card {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-}
-
+/* Icon chip — identical clay-tint square on every card */
 .ca-summary-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-  color: #6366f1;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ca-summary-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .ca-summary-content {
   flex: 1;
+  min-width: 0;
 }
 
 .ca-summary-content h3 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #64748b;
-  margin: 0 0 0.5rem 0;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0 0 0.375rem 0;
 }
 
 .ca-summary-value {
-  font-size: 1.875rem;
+  font-family: var(--font-display);
+  font-size: 1.7rem;
   font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.25rem 0;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin: 0 0 0.35rem 0;
 }
 
+/* Balance amounts — neutral; the sign is carried by the status pill */
 .ca-summary-value.positive {
-  color: #059669;
+  color: var(--text-primary);
 }
 
 .ca-summary-value.negative {
-  color: #dc2626;
+  color: var(--text-primary);
 }
 
 .ca-summary-value.zero {
-  color: #6b7280;
+  color: var(--text-tertiary);
 }
 
+/* Balance status — soft neutral pill */
 .ca-balance-status {
-  font-size: 0.75rem;
-  font-weight: 500;
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.25rem;
-  text-align: center;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--gray-soft);
+  color: var(--text-secondary);
 }
 
 .ca-summary-card:nth-child(3) .ca-balance-status {
-  background: #d1fae5;
-  color: #047857;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 
-/* Tabs Container */
+/* ============================================================
+   Tabs — underline style, clay when active
+   ============================================================ */
 .ca-tabs-container {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   overflow: hidden;
 }
 
 .ca-tabs-header {
   display: flex;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
 
 .ca-tab-btn {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   padding: 1rem 1.5rem;
   background: none;
   border: none;
-  color: #64748b;
-  font-weight: 600;
+  color: var(--text-secondary);
+  font-weight: 500;
   font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
   white-space: nowrap;
-  border-bottom: 3px solid transparent;
+  border-bottom: 2px solid transparent;
 }
 
 .ca-tab-btn:hover {
-  color: #3b82f6;
-  background: #eff6ff;
+  color: var(--text-primary);
+  background: var(--gray-soft);
+}
+
+.ca-tab-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .ca-tab-btn.active {
-  color: #3b82f6;
-  background: white;
-  border-bottom-color: #3b82f6;
+  color: var(--accent-deep);
+  background: transparent;
+  border-bottom-color: var(--accent);
+  font-weight: 700;
 }
 
 .ca-tab-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.15rem;
+  height: 1.15rem;
 }
 
 .ca-tab-content {
   padding: 2rem;
+  animation: ed-fade 0.2s var(--ease-out);
 }
 
-/* Tab Header */
+/* Tab header — section title + actions */
 .ca-tab-header {
   display: flex;
   justify-content: space-between;
@@ -273,31 +333,46 @@
   gap: 1rem;
 }
 
+/* Section title — display face, NO clay dash */
 .ca-tab-header h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
+/* Add — primary clay button */
 .ca-add-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: #fff;
   border: none;
-  border-radius: 0.75rem;
+  border-radius: var(--radius);
   font-weight: 600;
   font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out);
 }
 
 .ca-add-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background: var(--accent-hover);
+}
+
+.ca-add-btn:active {
+  background: var(--accent-deep);
+}
+
+.ca-add-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ca-export-buttons {
@@ -305,37 +380,48 @@
   gap: 0.75rem;
 }
 
+/* Export — secondary button */
 .ca-export-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .ca-export-btn:hover {
-  background: #2563eb;
-  transform: translateY(-2px);
+  background: var(--row-hover);
+  border-color: var(--border-strong);
 }
 
-/* Filters Section */
+.ca-export-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Filters — quiet hairline panel
+   ============================================================ */
 .ca-filters-section {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
   align-items: center;
   margin-bottom: 1.5rem;
-  padding: 1.5rem;
-  background: #f8fafc;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .ca-filter-group {
@@ -345,29 +431,37 @@
 }
 
 .ca-filter-group label {
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #374151;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .ca-filter-select,
 .ca-filter-input {
-  padding: 0.5rem 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  background: white;
-  color: #374151;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   font-size: 0.875rem;
+  font-family: inherit;
+  font-weight: 500;
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
   min-width: 120px;
+}
+
+.ca-filter-select:hover,
+.ca-filter-input:hover {
+  border-color: var(--text-tertiary);
 }
 
 .ca-filter-select:focus,
 .ca-filter-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
 .ca-filter-input {
@@ -375,108 +469,160 @@
   min-width: 140px;
 }
 
-/* Table Container */
+.ca-filter-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* ============================================================
+   Tables — the printed ledger
+   ============================================================ */
 .ca-table-container {
-  background: white;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  overflow: hidden;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+  overflow: hidden; /* keep original overflow behavior */
 }
 
 .ca-data-table {
   width: 100%;
   border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
 }
 
 .ca-data-table th {
-  background: #f8fafc;
-  padding: 1rem 1.5rem;
-  text-align: right; /* Changed from left for RTL */
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  padding: 0.7rem 1rem;
+  text-align: right; /* RTL */
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  border-bottom: var(--ink-rule); /* signature ink rule */
+  white-space: nowrap;
 }
 
 .ca-data-table td {
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #f1f5f9;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.ca-data-table th:first-child,
+.ca-data-table td:first-child {
+  padding-right: 1.5rem; /* RTL */
+}
+
+.ca-data-table th:last-child,
+.ca-data-table td:last-child {
+  padding-left: 1.5rem;
+}
+
+.ca-data-table tbody tr:last-child td {
+  border-bottom: none;
 }
 
 .ca-data-row {
-  transition: background-color 0.2s ease;
+  transition: background-color 0.15s var(--ease-out);
 }
 
 .ca-data-row:hover {
-  background-color: #f8fafc;
+  background-color: var(--row-hover);
 }
 
+/* Empty ledger cell */
 .ca-no-data {
   text-align: center;
-  color: #9ca3af;
-  font-style: italic;
-  padding: 3rem 1.5rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 0.9rem;
+  padding: 2.5rem 1.5rem;
+  background: transparent;
 }
 
-/* Status Badge */
+/* ============================================================
+   Status Badges — soft pill with a colored dot
+   (the only place status colors appear)
+   ============================================================ */
 .ca-status-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--gray-soft);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  line-height: 1.4;
+  width: fit-content;
+  white-space: nowrap;
+}
+
+.ca-status-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .ca-status-badge.completed {
-  background: #d1fae5;
-  color: #047857;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 
 .ca-status-badge.in-progress {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .ca-status-badge.pending {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--warning-soft);
+  color: var(--warning-text);
 }
 
 .ca-status-badge.cancelled {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
+/* Legacy icon selector — the dot carries the color now */
 .ca-status-icon {
   width: 1rem;
   height: 1rem;
 }
 
-/* Type Badge */
+/* Icon rendered inside the badge is hidden; the dot carries color */
+.ca-status-badge .status-icon {
+  display: none;
+}
+
+/* Type Badge — neutral / informational pill (not a status color) */
 .ca-type-badge {
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--gray-soft);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1.4;
   text-align: center;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .ca-type-badge.cash {
-  background: #d1fae5;
-  color: #047857;
+  background: var(--gray-soft);
+  color: var(--text-secondary);
 }
 
 .ca-type-badge.check {
-  background: #e9d5ff;
-  color: #7c3aed;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 /* Check Details */
@@ -485,53 +631,69 @@
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-tertiary);
 }
 
-/* Action Buttons */
+/* Grouped payment indicator — informational clay note */
+.ca-grouped-indicator {
+  color: var(--accent-deep);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Row Action Buttons — icon-only, neutral at rest
+   ============================================================ */
 .ca-action-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
 .ca-action-btn {
-  width: 2.5rem;
-  height: 2.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: white;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+
+.ca-action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ca-action-btn.view {
-  background: #3b82f6;
+  color: var(--text-tertiary);
 }
 
 .ca-action-btn.view:hover {
-  background: #2563eb;
-  transform: scale(1.05);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .ca-action-btn.edit {
-  background: #f59e0b;
+  color: var(--text-tertiary);
 }
 
 .ca-action-btn.edit:hover {
-  background: #d97706;
-  transform: scale(1.05);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .ca-action-btn.delete {
-  background: #ef4444;
+  color: var(--text-tertiary);
 }
 
 .ca-action-btn.delete:hover {
-  background: #dc2626;
-  transform: scale(1.05);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .ca-action-btn svg {
@@ -539,88 +701,114 @@
   height: 1rem;
 }
 
-/* Statement Table Specific */
+/* ============================================================
+   Statement Table — debit / credit amounts stay neutral;
+   direction is carried by the column, not by color
+   ============================================================ */
 .ca-statement-table .debit {
-  color: #dc2626;
+  color: var(--text-primary);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .ca-statement-table .credit {
-  color: #059669;
+  color: var(--text-primary);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
+/* Running balance — the ledger's bottom line, still neutral ink */
 .ca-running-balance {
+  font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.875rem;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 .ca-running-balance.positive {
-  color: #059669;
+  color: var(--text-primary);
 }
 
 .ca-running-balance.negative {
-  color: #dc2626;
+  color: var(--text-primary);
 }
 
 .ca-running-balance.zero {
-  color: #6b7280;
+  color: var(--text-tertiary);
 }
 
-/* Modal Styles */
+/* ============================================================
+   Modals — ledger dialog
+   ============================================================ */
 .ca-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(34, 28, 21, 0.45); /* espresso dim, NO blur */
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .ca-modal {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .ca-modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 1.5rem 1rem 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid var(--border);
 }
 
+/* Modal title — display face, NO clay dash */
 .ca-modal-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
+/* Close — neutral icon button */
 .ca-close-btn {
-  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  line-height: 1;
+  font-size: 1.25rem;
+  background: transparent;
   border: none;
-  font-size: 1.5rem;
-  color: #9ca3af;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-  transition: color 0.2s ease;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .ca-close-btn:hover {
-  color: #6b7280;
+  background: var(--gray-soft);
+  color: var(--text-primary);
 }
 
 .ca-modal-body {
-  padding: 1rem 1.5rem;
+  padding: 1.5rem;
 }
 
 .ca-form-group {
@@ -635,29 +823,44 @@
 
 .ca-form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.375rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #374151;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
 }
 
 .ca-form-input,
 .ca-form-select,
 .ca-form-textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  transition: border-color 0.2s ease;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
   box-sizing: border-box;
+}
+
+.ca-form-input:hover,
+.ca-form-select:hover,
+.ca-form-textarea:hover {
+  border-color: var(--text-tertiary);
 }
 
 .ca-form-input:focus,
 .ca-form-select:focus,
 .ca-form-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+}
+
+.ca-form-input::placeholder,
+.ca-form-textarea::placeholder {
+  color: var(--text-tertiary);
 }
 
 .ca-form-textarea {
@@ -665,72 +868,99 @@
   min-height: 80px;
 }
 
+/* Form info — clay-tint informational callout */
 .ca-form-info {
-  background: #f0f9ff;
-  border: 1px solid #0ea5e9;
-  border-radius: 0.5rem;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
   padding: 0.75rem;
   margin-top: 0.5rem;
 }
 
 .ca-form-info p {
   margin: 0;
-  color: #0369a1;
-  font-size: 0.875rem;
+  color: var(--accent-deep);
+  font-size: 0.85rem;
+  font-weight: 500;
   text-align: center;
 }
 
 .ca-modal-footer {
   display: flex;
-  gap: 1rem;
+  gap: 0.625rem;
   justify-content: flex-end;
-  padding: 1rem 1.5rem 1.5rem 1.5rem;
-  border-top: 1px solid #e2e8f0;
+  padding: 1rem 1.4rem;
+  border-top: 1px solid var(--border);
 }
 
 .ca-btn-secondary,
 .ca-btn-primary {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius);
   font-size: 0.875rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+}
+
+.ca-btn-secondary:focus-visible,
+.ca-btn-primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ca-btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  font-weight: 500;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out), border-color 0.15s var(--ease-out);
 }
 
 .ca-btn-secondary:hover {
-  background: #e5e7eb;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
 }
 
 .ca-btn-primary {
-  background: #3b82f6;
-  color: white;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out);
 }
 
 .ca-btn-primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--accent-hover);
+}
+
+.ca-btn-primary:active {
+  background: var(--accent-deep);
 }
 
 .ca-btn-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
+/* Confirm-delete primary — solid brick */
 .ca-btn-primary.delete {
-  background: #dc2626;
+  background: var(--danger);
+  color: #fff;
+  border: none;
 }
 
 .ca-btn-primary.delete:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--danger-text); /* #9a3226 */
 }
 
-/* Loading Spinner */
+/* ============================================================
+   Loading Spinner
+   ============================================================ */
 .ca-loading-spinner {
   display: flex;
   flex-direction: column;
@@ -743,45 +973,36 @@
 .ca-spinner {
   width: 3rem;
   height: 3rem;
-  border: 3px solid #e2e8f0;
-  border-top: 3px solid #3b82f6;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: ca-spin 1s linear infinite;
+  animation: ed-spin 0.8s linear infinite;
   margin-bottom: 1rem;
 }
 
-@keyframes ca-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .ca-loading-spinner p {
-  color: #64748b;
-  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  font-weight: 500;
   margin: 0;
 }
 
-/* Error Message */
+/* Error Message — inline validation color allowed */
 .ca-error-message {
   text-align: center;
   padding: 4rem 2rem;
 }
 
 .ca-error-message p {
-  color: #dc2626;
-  font-size: 1.125rem;
+  color: var(--danger-text);
+  font-size: 1rem;
+  font-weight: 600;
   margin-bottom: 1.5rem;
 }
 
-/* Form Row Layout */
-.ca-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
-/* Tab Actions */
+/* ============================================================
+   Tab Actions
+   ============================================================ */
 .ca-tab-actions {
   display: flex;
   align-items: center;
@@ -792,50 +1013,69 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  color: #64748b;
-  font-weight: 600;
-  font-size: 0.875rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.85rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.15s var(--ease-out), color 0.15s var(--ease-out),
+    background 0.15s var(--ease-out);
 }
 
 .ca-sort-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+}
+
+.ca-sort-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ca-sort-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+  background: var(--bg-surface);
+  border-color: var(--border);
+  color: var(--accent-deep);
+  font-weight: 700;
+  box-shadow: var(--shadow-xs);
 }
 
 .ca-refresh-btn {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  color: #64748b;
-  font-weight: 600;
-  font-size: 0.875rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: 0.85rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.15s var(--ease-out), color 0.15s var(--ease-out),
+    background 0.15s var(--ease-out);
 }
 
 .ca-refresh-btn:hover {
-  border-color: #10b981;
-  color: #10b981;
-  background: #f0fdf4;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
 }
 
-/* Responsive Design */
+.ca-refresh-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   Responsive Design
+   ============================================================ */
 @media (max-width: 1024px) {
   .ca-customer-account-container {
     padding: 1.5rem;
@@ -847,7 +1087,7 @@
   }
 
   .ca-customer-name {
-    font-size: 2rem;
+    font-size: 1.4rem;
   }
 
   .ca-account-summary {
@@ -878,7 +1118,7 @@
 
 @media (max-width: 768px) {
   .ca-customer-account-container {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .ca-tab-content {
@@ -895,14 +1135,24 @@
     padding: 0.75rem 1rem;
   }
 
+  .ca-data-table th:first-child,
+  .ca-data-table td:first-child {
+    padding-right: 1rem;
+  }
+
+  .ca-data-table th:last-child,
+  .ca-data-table td:last-child {
+    padding-left: 1rem;
+  }
+
   .ca-action-buttons {
     flex-direction: column;
     gap: 0.25rem;
   }
 
   .ca-action-btn {
-    width: 2rem;
-    height: 2rem;
+    width: 30px;
+    height: 30px;
   }
 
   .ca-modal {
@@ -912,8 +1162,12 @@
 }
 
 @media (max-width: 640px) {
+  .ca-customer-account-container {
+    padding: 1rem;
+  }
+
   .ca-customer-name {
-    font-size: 1.75rem;
+    font-size: 1.3rem;
   }
 
   .ca-tabs-header {
@@ -923,16 +1177,16 @@
   .ca-tab-btn {
     justify-content: center;
     border-bottom: none;
-    border-right: 3px solid transparent; /* Changed from border-bottom for mobile */
+    border-right: 3px solid transparent; /* RTL accent on mobile */
   }
 
   .ca-tab-btn.active {
-    border-right-color: #3b82f6; /* Changed from border-bottom-color for mobile */
+    border-right-color: var(--accent); /* RTL accent on mobile */
     border-bottom-color: transparent;
   }
 
   .ca-data-table {
-    font-size: 0.875rem;
+    font-size: 0.85rem;
   }
 
   .ca-data-table th,
@@ -950,16 +1204,19 @@
   }
 }
 
-/* Pagination Styles */
+/* ============================================================
+   Pagination — neutral controls, clay active page
+   ============================================================ */
 .ca-pagination-container {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 1.5rem;
   padding: 1rem;
-  background: white;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: none;
   flex-wrap: wrap;
   gap: 1rem;
 }
@@ -972,9 +1229,10 @@
 }
 
 .ca-pagination-info span {
-  font-size: 0.875rem;
-  color: #64748b;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .ca-items-per-page {
@@ -984,26 +1242,28 @@
 }
 
 .ca-items-per-page label {
-  font-size: 0.875rem;
-  color: #64748b;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .ca-pagination-select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  background: white;
-  font-size: 0.875rem;
-  color: #374151;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 500;
+  color: var(--text-primary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
 }
 
 .ca-pagination-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
 .ca-pagination-controls {
@@ -1017,41 +1277,52 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  background: white;
-  color: #374151;
-  font-size: 0.875rem;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
   font-weight: 500;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
+  transition: border-color 0.15s var(--ease-out), color 0.15s var(--ease-out),
+    background 0.15s var(--ease-out);
   min-width: 2.5rem;
   height: 2.5rem;
 }
 
 .ca-pagination-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #9ca3af;
-  color: #1f2937;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.ca-pagination-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .ca-pagination-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
-  background: #f9fafb;
-  color: #9ca3af;
+  background: var(--gray-soft);
+  color: var(--text-tertiary);
 }
 
 .ca-pagination-btn.active {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 
 .ca-pagination-btn.active:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  color: #fff;
 }
 
 /* Responsive pagination styles */

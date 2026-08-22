@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Plus,
+  CheckCircle,
   Search,
   Filter,
   Edit,
@@ -27,8 +28,12 @@ import {
   query,
   orderBy,
   where,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 import "./SupplierPayments.css";
 
 interface Supplier {
@@ -119,8 +124,44 @@ export function SupplierPayments() {
   const [selectedEditSupplierIndex, setSelectedEditSupplierIndex] =
     useState(-1);
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several payments can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchData();
+    if (showAddModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
+
+  useEffect(() => {
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        query(collection(db, "suppliers"), orderBy("name", "asc")),
+        query(collection(db, "supplierPayments"), orderBy("createdAt", "desc")),
+        collection(db, "orderItems"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -161,54 +202,41 @@ export function SupplierPayments() {
     };
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [suppliersSnapshot, paymentsSnapshot, orderItemsSnapshot] = snapshots;
 
-      // Fetch suppliers
-      const suppliersSnapshot = await getDocs(
-        query(collection(db, "suppliers"), orderBy("name", "asc"))
+    const suppliersData: Supplier[] = [];
+    suppliersSnapshot.forEach((doc) => {
+      suppliersData.push({ id: doc.id, ...doc.data() } as Supplier);
+    });
+    setSuppliers(suppliersData);
+
+    // Map supplier payments with supplier names
+    const paymentsData: SupplierPayment[] = [];
+    paymentsSnapshot.forEach((doc) => {
+      const paymentData = doc.data();
+      const supplier = suppliersData.find(
+        (s) => s.id === paymentData.supplierId
       );
-      const suppliersData: Supplier[] = [];
-      suppliersSnapshot.forEach((doc) => {
-        suppliersData.push({ id: doc.id, ...doc.data() } as Supplier);
-      });
-      setSuppliers(suppliersData);
+      paymentsData.push({
+        id: doc.id,
+        ...paymentData,
+        supplierName: supplier?.name || "Unknown Supplier",
+      } as SupplierPayment);
+    });
+    setPayments(paymentsData);
 
-      // Fetch supplier payments
-      const paymentsSnapshot = await getDocs(
-        query(collection(db, "supplierPayments"), orderBy("createdAt", "desc"))
-      );
-      const paymentsData: SupplierPayment[] = [];
-      paymentsSnapshot.forEach((doc) => {
-        const paymentData = doc.data();
-        const supplier = suppliersData.find(
-          (s) => s.id === paymentData.supplierId
-        );
-        paymentsData.push({
-          id: doc.id,
-          ...paymentData,
-          supplierName: supplier?.name || "Unknown Supplier",
-        } as SupplierPayment);
-      });
-      setPayments(paymentsData);
-
-      // Calculate supplier balances
-      await calculateSupplierBalances(suppliersData, paymentsData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    // Calculate supplier balances
+    calculateSupplierBalances(suppliersData, paymentsData, orderItemsSnapshot);
   };
 
-  const calculateSupplierBalances = async (
+  const calculateSupplierBalances = (
     suppliersData: Supplier[],
-    paymentsData: SupplierPayment[]
+    paymentsData: SupplierPayment[],
+    orderItemsSnapshot: QuerySnapshot<DocumentData>
   ) => {
     try {
-      // Fetch order items to calculate how much we owe suppliers
-      const orderItemsSnapshot = await getDocs(collection(db, "orderItems"));
+      // Order items tell us how much we owe suppliers
       const supplierTotals: {
         [supplierId: string]: { totalOrdered: number; lastOrderDate?: string };
       } = {};
@@ -279,19 +307,10 @@ export function SupplierPayments() {
   const applyFiltersAndSort = () => {
     let filtered = [...payments];
 
-    // Apply search
+    // Apply search (any field)
     if (searchTerm) {
-      filtered = filtered.filter(
-        (payment) =>
-          payment.supplierName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          (payment.notes &&
-            payment.notes.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (payment.checkNumber &&
-            payment.checkNumber
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()))
+      filtered = filtered.filter((payment) =>
+        matchesSearch(payment, searchTerm)
       );
     }
 
@@ -418,7 +437,8 @@ export function SupplierPayments() {
 
       await addDoc(collection(db, "supplierPayments"), newPayment);
 
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setPaymentForm({
         supplierId: "",
         amount: "",
@@ -432,8 +452,10 @@ export function SupplierPayments() {
       setIsSupplierDropdownOpen(false);
       setSelectedSupplierIndex(-1);
 
-      fetchData();
-      alert("تم إضافة الدفعة بنجاح!");
+      // The live subscription refreshes the list automatically.
+      setAddSuccess(true);
+      focusFirstField();
+      setTimeout(() => setAddSuccess(false), 2500);
     } catch (error) {
       console.error("Error adding payment:", error);
       alert("حدث خطأ أثناء إضافة الدفعة");
@@ -474,7 +496,7 @@ export function SupplierPayments() {
       setIsEditSupplierDropdownOpen(false);
       setSelectedEditSupplierIndex(-1);
 
-      fetchData();
+      // The live subscription refreshes the list automatically.
       alert("تم تحديث الدفعة بنجاح!");
     } catch (error) {
       console.error("Error updating payment:", error);
@@ -493,7 +515,7 @@ export function SupplierPayments() {
 
     try {
       await deleteDoc(doc(db, "supplierPayments", payment.id));
-      fetchData();
+      // The live subscription refreshes the list automatically.
       alert("تم حذف الدفعة بنجاح!");
     } catch (error) {
       console.error("Error deleting payment:", error);
@@ -545,7 +567,7 @@ export function SupplierPayments() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const currentDate = new Date().toLocaleDateString("ar-EG");
+    const currentDate = new Date().toLocaleDateString("en-GB");
     const printContent = `
       <!DOCTYPE html>
       <html dir="rtl" lang="ar">
@@ -576,7 +598,7 @@ export function SupplierPayments() {
           }
           .print-date { 
             font-size: 14px; 
-            color: #333; 
+            color: #2b241c; 
           }
           table { 
             width: 100%; 
@@ -593,7 +615,7 @@ export function SupplierPayments() {
             color: black;
           }
           th { 
-            background-color: #f0f0f0 !important; 
+            background-color: #f0eae0 !important; 
             font-weight: bold;
             border: 2px solid #000;
           }
@@ -623,7 +645,7 @@ export function SupplierPayments() {
               color: black !important;
             }
             th {
-              background-color: #f0f0f0 !important;
+              background-color: #f0eae0 !important;
             }
           }
         </style>
@@ -652,7 +674,7 @@ export function SupplierPayments() {
               <tr>
                 <td style="font-weight: bold;">${payment.supplierName}</td>
                 <td style="font-weight: bold; color: #000;">${payment.amount.toLocaleString()}</td>
-                <td>${new Date(payment.date).toLocaleDateString("ar-EG")}</td>
+                <td>${new Date(payment.date).toLocaleDateString("en-GB")}</td>
                 <td>${
                   payment.type === "cash"
                     ? "نقدي"
@@ -700,17 +722,17 @@ export function SupplierPayments() {
         <table style="width: 50%; margin: 0 auto;">
           <tbody>
             <tr>
-              <td style="font-weight: bold; background-color: #f0f0f0;">إجمالي عدد الدفعات</td>
+              <td style="font-weight: bold; background-color: #f0eae0;">إجمالي عدد الدفعات</td>
               <td style="font-weight: bold;">${filteredPayments.length}</td>
             </tr>
             <tr>
-              <td style="font-weight: bold; background-color: #f0f0f0;">إجمالي المدفوع (₪)</td>
+              <td style="font-weight: bold; background-color: #f0eae0;">إجمالي المدفوع (₪)</td>
               <td style="font-weight: bold;">${filteredPayments
                 .reduce((sum, payment) => sum + payment.amount, 0)
                 .toLocaleString()}</td>
             </tr>
             <tr>
-              <td style="font-weight: bold; background-color: #f0f0f0;">عدد الموردين</td>
+              <td style="font-weight: bold; background-color: #f0eae0;">عدد الموردين</td>
               <td style="font-weight: bold;">${filteredBalances.length}</td>
             </tr>
           </tbody>
@@ -826,6 +848,17 @@ export function SupplierPayments() {
     0
   );
 
+  if (loading) {
+    return (
+      <div className="supplier-payments">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>جاري تحميل دفعات الموردين...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="supplier-payments">
       <div className="page-header">
@@ -905,20 +938,28 @@ export function SupplierPayments() {
             <h2>أرصدة الموردين</h2>
 
             {/* Balance Filters */}
-            <div className="filters">
-              <div className="filter-group">
-                <Search size={20} />
-                <input
-                  type="text"
-                  placeholder="البحث في الموردين..."
-                  value={balanceSearchTerm}
-                  onChange={(e) => setBalanceSearchTerm(e.target.value)}
-                />
+            <div className="filters-bar">
+              <div className="filter-field filter-field-search">
+                <label>بحث</label>
+                <div className="search-box">
+                  <Search className="search-icon" />
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="بحث..."
+                    value={balanceSearchTerm}
+                    onChange={(e) => setBalanceSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
 
-              <button className="btn btn-secondary" onClick={resetFilters}>
+              <button
+                type="button"
+                className="filters-clear-btn"
+                onClick={resetFilters}
+              >
                 <Filter size={18} />
-                إعادة تعيين
+                مسح الفلاتر
               </button>
             </div>
 
@@ -1005,14 +1046,14 @@ export function SupplierPayments() {
                           {balance.lastPaymentDate
                             ? new Date(
                                 balance.lastPaymentDate
-                              ).toLocaleDateString("en-US")
+                              ).toLocaleDateString("en-GB")
                             : "لا توجد دفعات"}
                         </td>
                         <td>
                           {balance.lastOrderDate
                             ? new Date(
                                 balance.lastOrderDate
-                              ).toLocaleDateString("en-US")
+                              ).toLocaleDateString("en-GB")
                             : "لا توجد طلبات"}
                         </td>
                       </tr>
@@ -1069,42 +1110,56 @@ export function SupplierPayments() {
         /* Payments View */
         <>
           {/* Filters */}
-          <div className="filters">
-            <div className="filter-group">
-              <Search size={20} />
-              <input
-                type="text"
-                placeholder="البحث في الدفعات..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <div className="filters-bar">
+            <div className="filter-field filter-field-search">
+              <label>بحث</label>
+              <div className="search-box">
+                <Search className="search-icon" />
+                <input
+                  type="text"
+                  className="search-input"
+                  placeholder="بحث..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
             </div>
 
-            <select
-              value={selectedSupplier}
-              onChange={(e) => setSelectedSupplier(e.target.value)}
-            >
-              <option value="">جميع الموردين</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
+            <div className="filter-field">
+              <label>المورد</label>
+              <select
+                value={selectedSupplier}
+                onChange={(e) => setSelectedSupplier(e.target.value)}
+              >
+                <option value="">جميع الموردين</option>
+                {suppliers.map((supplier) => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-            >
-              <option value="">جميع الأنواع</option>
-              <option value="cash">نقد</option>
-              <option value="check">شيك</option>
-              <option value="transfer">تحويل</option>
-            </select>
+            <div className="filter-field">
+              <label>النوع</label>
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+              >
+                <option value="">جميع الأنواع</option>
+                <option value="cash">نقد</option>
+                <option value="check">شيك</option>
+                <option value="transfer">تحويل</option>
+              </select>
+            </div>
 
-            <button className="btn btn-secondary" onClick={resetFilters}>
+            <button
+              type="button"
+              className="filters-clear-btn"
+              onClick={resetFilters}
+            >
               <Filter size={18} />
-              إعادة تعيين
+              مسح الفلاتر
             </button>
           </div>
 
@@ -1172,7 +1227,7 @@ export function SupplierPayments() {
                       <td>{payment.supplierName}</td>
                       <td className="amount">{payment.amount.toFixed(2)} ₪</td>
                       <td>
-                        {new Date(payment.date).toLocaleDateString("en-US")}
+                        {new Date(payment.date).toLocaleDateString("en-GB")}
                       </td>
                       <td>
                         <span className={`type-badge ${payment.type}`}>
@@ -1251,7 +1306,7 @@ export function SupplierPayments() {
       {/* Add Payment Modal */}
       {showAddModal && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal" ref={addModalRef}>
             <div className="modal-header">
               <h3>إضافة دفعة جديدة</h3>
               <button
@@ -1262,6 +1317,12 @@ export function SupplierPayments() {
               </button>
             </div>
             <form onSubmit={handleAddPayment}>
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="form-group">
                 <label>المورد *</label>
                 <div className="custom-dropdown">

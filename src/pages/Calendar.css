@@ -1,48 +1,52 @@
-/* Calendar Page Styles */
+/* Calendar — "Warm Studio" design system */
+/* ============================================================
+   Appointments & reminders. Warm alabaster page, printed-ledger
+   calendar card: hairline grid, Alexandria month title, today =
+   clay tint, selected = solid terracotta. Events read as quiet
+   paper rows; status lives only in small pill badges.
+   ============================================================ */
+
 .calendar-container {
-  padding: 2rem;
-  background: #f8fafc;
+  padding: 1.75rem 2rem;
+  background: transparent;
   min-height: 100vh;
   direction: rtl;
   position: relative;
+  animation: ed-fade 0.2s var(--ease-out);
 }
 
-/* Foreground Notification Toast */
+/* Notification toast — floating warm paper panel */
 .notification-toast {
   position: fixed;
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  padding: 1rem 1.5rem;
-  border-radius: 0.75rem;
-  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.3);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
   display: flex;
   align-items: center;
   gap: 1rem;
   z-index: 9999;
   max-width: 500px;
   width: 90%;
-  animation: slideDown 0.3s ease-out;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
-@keyframes slideDown {
-  from {
-    transform: translateX(-50%) translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(-50%) translateY(0);
-    opacity: 1;
-  }
-}
-
+/* Clay-tint icon chip */
 .toast-icon {
   flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.5rem;
-  border-radius: 0.5rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .toast-content {
@@ -53,29 +57,36 @@
   display: block;
   margin-bottom: 0.25rem;
   font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 
 .toast-content p {
   margin: 0;
   font-size: 0.8rem;
-  opacity: 0.9;
+  color: var(--text-secondary);
 }
 
+/* Neutral icon button */
 .toast-close {
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  color: white;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .toast-close:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--gray-soft);
+  color: var(--text-primary);
 }
 
 /* Header */
@@ -88,11 +99,24 @@
   gap: 1rem;
 }
 
+/* Page title + the clay dash */
 .calendar-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   margin: 0;
+}
+
+.calendar-title::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin-top: 0.5rem;
 }
 
 .header-actions {
@@ -101,41 +125,56 @@
   align-items: center;
 }
 
+/* Primary button */
 .add-event-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.875rem 1.75rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: #fff;
   border: none;
-  border-radius: 0.75rem;
-  color: white;
+  border-radius: var(--radius);
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   font-size: 0.875rem;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out);
 }
 
 .add-event-btn:hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background: var(--accent-hover);
+}
+
+.add-event-btn:active {
+  background: var(--accent-deep);
+}
+
+.add-event-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.add-event-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .add-event-btn .icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
-/* FCM Notification Status Bar */
+/* Notification status bar — plain paper card */
 .notification-bar {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 1rem 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
 }
 
 .notification-bar-content {
@@ -153,36 +192,48 @@
   flex: 1;
 }
 
+/* Status = soft pill badge with a leading dot */
 .status-badge {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
-  border-radius: 2rem;
-  font-size: 0.8rem;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1.4;
   white-space: nowrap;
 }
 
+.status-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
 .status-badge.active {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--success-soft);
+  color: var(--success-text);
 }
 
 .status-badge.inactive {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--danger-soft);
+  color: var(--danger-text);
 }
 
 .status-badge.pending {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-soft);
+  color: var(--warning-text);
 }
 
 .status-desc {
   margin: 0;
   font-size: 0.8rem;
-  color: #64748b;
+  font-weight: 400;
+  color: var(--text-secondary);
 }
 
 .notification-actions {
@@ -191,56 +242,84 @@
   flex-shrink: 0;
 }
 
+/* Secondary button (compact) */
 .notif-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.375rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: var(--shadow-xs);
   white-space: nowrap;
+  transition: background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
+.notif-btn:hover {
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+}
+
+.notif-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Primary variant */
 .notif-btn.enable {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
 }
 
 .notif-btn.enable:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  transform: translateY(-1px);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.notif-btn.enable:active:not(:disabled) {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
 }
 
 .notif-btn.enable:disabled {
-  opacity: 0.7;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
 .notif-btn.test {
-  background: #f0fdf4;
-  color: #16a34a;
-  border: 1px solid #bbf7d0;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
 }
 
 .notif-btn.test:hover {
-  background: #dcfce7;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
 }
 
 .notif-btn.disable {
-  background: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
 }
 
 .notif-btn.disable:hover {
-  background: #fee2e2;
+  background: var(--danger-soft);
+  color: var(--danger-text);
+  border-color: var(--danger-soft);
 }
 
-/* Main Content */
+/* Main content */
 .calendar-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -248,110 +327,143 @@
   align-items: start;
 }
 
-/* Calendar Section */
+/* Calendar panel — warm paper card */
 .calendar-section {
-  background: white;
-  border-radius: 1rem;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  box-shadow: none;
+  border: 1px solid var(--border);
 }
 
-/* React Calendar Customization */
+/* ---- React Calendar skin ---- */
 .react-calendar {
   width: 100%;
   border: none;
   font-family: inherit;
   direction: ltr;
+  background: transparent;
 }
 
 .react-calendar__navigation {
   display: flex;
   height: 44px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .react-calendar__navigation button {
-  color: #3b82f6;
+  color: var(--text-secondary);
   min-width: 44px;
   background: none;
   border: none;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
   padding: 0.5rem;
-  border-radius: 0.5rem;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .react-calendar__navigation button:hover {
-  background-color: #f1f5f9;
-  color: #1d4ed8;
+  background-color: var(--gray-soft);
+  color: var(--text-primary);
 }
 
+.react-calendar__navigation button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Month title in the display face */
 .react-calendar__navigation__label {
   flex-grow: 1;
   text-align: center;
+  font-family: var(--font-display);
+  font-size: 1rem;
   font-weight: 700;
-  color: #1e293b;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
+/* Weekday headers — ledger column heads under the ink rule */
 .react-calendar__month-view__weekdays {
   text-align: center;
-  font-weight: 600;
-  color: #64748b;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
 }
 
 .react-calendar__month-view__weekdays__weekday {
-  padding: 0.75rem 0;
+  padding: 0.6rem 0;
+  border-bottom: var(--ink-rule);
 }
 
+.react-calendar__month-view__weekdays__weekday abbr {
+  text-decoration: none;
+}
+
+/* Day tiles — quiet, rounded, warm hover fill */
 .react-calendar__tile {
   position: relative;
   max-width: 100%;
-  padding: 0.75rem 0.5rem;
+  padding: 0.7rem 0.5rem;
   background: none;
   border: none;
   text-align: center;
   cursor: pointer;
   font-size: 0.875rem;
-  color: #374151;
-  border-radius: 0.5rem;
-  margin: 1px;
-  transition: all 0.2s ease;
+  font-weight: 500;
+  font-family: inherit;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .react-calendar__tile:hover {
-  background-color: #f1f5f9;
-  color: #1d4ed8;
+  background-color: var(--row-hover);
+  color: var(--text-primary);
 }
 
+.react-calendar__tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Selected day — solid terracotta, white text */
 .react-calendar__tile--active {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-  color: white !important;
+  background: var(--accent) !important;
+  color: #fff !important;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+/* Today — clay tint */
+.react-calendar__tile--now {
+  background-color: var(--accent-soft);
+  color: var(--accent-deep);
   font-weight: 700;
 }
 
-.react-calendar__tile--now {
-  background-color: #fef3c7;
-  color: #d97706;
-  font-weight: 600;
+.react-calendar__month-view__days__day--neighboringMonth {
+  color: var(--text-tertiary);
 }
 
+/* Days with events — carry weight; the marker signals count */
 .react-calendar__tile.has-events {
-  background-color: #dbeafe;
-  color: #1d4ed8;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .react-calendar__tile.has-events:hover {
-  background-color: #bfdbfe;
+  background-color: var(--row-hover);
+  color: var(--text-primary);
 }
 
-/* Calendar Tile Content */
+/* Tile event marker — top-right corner */
 .calendar-tile-content {
   position: absolute;
   top: 2px;
@@ -359,57 +471,67 @@
   pointer-events: none;
 }
 
+/* Small clay count marker (informational, not a status color) */
 .event-indicator {
-  background: #ef4444;
-  color: white;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
   border-radius: 50%;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.05rem;
+  height: 1.05rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.66rem;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  box-shadow: none;
 }
 
-/* Events Section */
+/* Events list panel — warm paper card */
 .events-section {
-  background: white;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  box-shadow: none;
+  border: 1px solid var(--border);
   max-height: 600px;
   overflow-y: auto;
 }
 
+/* Section title — display face, no clay dash */
 .events-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0 0 1.5rem 0;
-  text-align: center;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e2e8f0;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  margin: 0;
+  text-align: right;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .events-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
+  padding: 1.5rem;
 }
 
+/* Event card — quiet hairline row */
 .event-card {
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.75rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
-  transition: all 0.2s ease;
+  box-shadow: none;
+  transition: border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
 }
 
 .event-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .event-header {
@@ -420,50 +542,69 @@
 }
 
 .event-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   margin: 0;
   flex: 1;
 }
 
 .event-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 
+/* Row action buttons — icon-only, neutral at rest */
 .action-btn {
-  border: none;
-  border-radius: 0.375rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  color: white;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+
+.action-btn:hover {
+  background: var(--gray-soft);
+  color: var(--text-primary);
+}
+
+.action-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .action-btn.edit {
-  background: #f59e0b;
+  background: transparent;
+  color: var(--text-tertiary);
 }
 
 .action-btn.edit:hover {
-  background: #d97706;
-  transform: scale(1.05);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
 }
 
 .action-btn.delete {
-  background: #ef4444;
+  background: transparent;
+  color: var(--text-tertiary);
 }
 
 .action-btn.delete:hover {
-  background: #dc2626;
-  transform: scale(1.05);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .action-btn svg {
-  width: 0.875rem;
-  height: 0.875rem;
+  width: 1rem;
+  height: 1rem;
 }
 
 .event-details {
@@ -476,36 +617,41 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: #3b82f6;
+  color: var(--text-primary);
   font-weight: 600;
   font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .event-time .icon {
   width: 1rem;
   height: 1rem;
+  color: var(--text-tertiary);
 }
 
 .event-note {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.875rem;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .event-note p {
   margin: 0;
 }
 
+/* Reminder confirmation — soft olive pill */
 .reminder-sent {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #10b981;
-  font-size: 0.75rem;
+  gap: 0.35rem;
+  padding: 0.22rem 0.6rem;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success-text);
+  border: none;
+  font-size: 0.72rem;
   font-weight: 600;
-  background: #d1fae5;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
+  line-height: 1.4;
   width: fit-content;
 }
 
@@ -514,132 +660,169 @@
   height: 0.875rem;
 }
 
-/* No Events */
+/* Empty state */
 .no-events {
+  margin: 1.5rem;
+  padding: 2.5rem 1.5rem;
   text-align: center;
-  padding: 3rem 1rem;
-  color: #64748b;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  background: transparent;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
 }
 
 .no-events p {
-  font-size: 1.125rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  margin: 0 0 0.375rem 0;
 }
 
 .no-events span {
-  font-size: 0.875rem;
-  color: #9ca3af;
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--text-tertiary);
 }
 
-/* Modal Styles */
+/* Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(34, 28, 21, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
+/* Bare rule = shared dialog skin only; sizing is page-scoped so
+   same-named rules on other pages can't clash in the global bundle */
 .modal-content {
-  background: white;
-  border-radius: 1rem;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+}
+
+.calendar-container .modal-content {
   max-width: 500px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  animation: ed-fade 0.18s var(--ease-out);
 }
 
 .modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid #e2e8f0;
+  justify-content: space-between;
+  padding: 1.1rem 1.4rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .modal-header h2 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1e293b;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
   margin: 0;
 }
 
+/* Close button — neutral icon button */
 .close-btn {
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  background: #f1f5f9;
-  border-radius: 0.375rem;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
-  color: #64748b;
-  transition: all 0.2s ease;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .close-btn:hover {
-  background: #e2e8f0;
-  color: #374151;
+  background: var(--gray-soft);
+  color: var(--text-primary);
 }
 
-/* Form Styles */
+.close-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Form */
 .event-form {
-  padding: 2rem;
+  padding: 1.4rem;
 }
 
 .form-group {
-  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-bottom: 1.25rem;
 }
 
 .form-group label {
   display: block;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #374151;
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 0;
 }
 
 .selected-date {
-  background: #f1f5f9;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  color: #1e293b;
+  padding: 0.55rem 0.8rem;
+  background: var(--gray-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
   font-weight: 600;
-  border: 2px solid #e2e8f0;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 0.75rem 1rem;
-  border: 2px solid #d1d5db;
-  border-radius: 0.5rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  color: #374151;
-  background: white;
-  transition: all 0.2s ease;
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
   box-sizing: border-box;
 }
 
 .form-group input:hover,
 .form-group textarea:hover {
-  border-color: #9ca3af;
+  border-color: var(--border-strong);
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: var(--accent);
+  box-shadow: var(--ring);
+  background: var(--bg-surface);
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: var(--text-tertiary);
 }
 
 .form-group textarea {
@@ -649,46 +832,82 @@
 
 .form-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.625rem;
   justify-content: flex-end;
-  margin-top: 2rem;
+  margin-top: 1.75rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
 }
 
+/* Primary */
 .submit-btn {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--accent);
+  color: #fff;
   border: none;
-  border-radius: 0.5rem;
-  color: white;
+  border-radius: var(--radius);
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
   font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out);
 }
 
 .submit-btn:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
-  transform: translateY(-1px);
+  background: var(--accent-hover);
 }
 
+.submit-btn:active {
+  background: var(--accent-deep);
+}
+
+.submit-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Secondary */
 .cancel-btn {
-  padding: 0.75rem 1.5rem;
-  background: #f1f5f9;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  color: #64748b;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.1rem;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-weight: 500;
   font-size: 0.875rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+  transition: background 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out);
 }
 
 .cancel-btn:hover {
-  background: #e2e8f0;
-  color: #374151;
+  background: var(--row-hover);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
 }
 
-/* Loading Spinner */
+.cancel-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Loading spinner */
 .loading-spinner {
   display: flex;
   flex-direction: column;
@@ -699,28 +918,23 @@
 }
 
 .spinner {
-  width: 3rem;
-  height: 3rem;
-  border: 3px solid #e2e8f0;
-  border-top: 3px solid #3b82f6;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 1s linear infinite;
+  animation: spin 0.8s linear infinite;
   margin-bottom: 1rem;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .loading-spinner p {
-  color: #64748b;
-  font-size: 1.125rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 0.95rem;
   margin: 0;
 }
 
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 1024px) {
   .calendar-content {
     grid-template-columns: 1fr;
@@ -730,11 +944,11 @@
 
 @media (max-width: 768px) {
   .calendar-container {
-    padding: 1rem;
+    padding: 1.25rem;
   }
 
   .calendar-title {
-    font-size: 2rem;
+    font-size: 1.3rem;
   }
 
   .calendar-header {
@@ -778,22 +992,23 @@
     max-height: none;
   }
 
-  .modal-content {
+  .calendar-container .modal-content {
     margin: 1rem;
     max-width: none;
     width: calc(100% - 2rem);
   }
 
   .modal-header {
-    padding: 1rem 1.5rem;
+    padding: 1rem 1.25rem;
   }
 
   .event-form {
-    padding: 1.5rem;
+    padding: 1.25rem;
   }
 
   .form-actions {
     flex-direction: column;
+    padding-inline: 0;
   }
 
   .submit-btn,
@@ -803,6 +1018,14 @@
 }
 
 @media (max-width: 640px) {
+  .calendar-container {
+    padding: 1rem;
+  }
+
+  .calendar-section {
+    padding: 1rem;
+  }
+
   .event-header {
     flex-direction: column;
     gap: 0.75rem;
@@ -819,8 +1042,8 @@
   }
 
   .event-indicator {
-    width: 1rem;
-    height: 1rem;
-    font-size: 0.625rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    font-size: 0.6rem;
   }
 }

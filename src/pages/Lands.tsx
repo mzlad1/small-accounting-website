@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   MapPin,
   Ruler,
@@ -14,10 +14,15 @@ import {
   Mountain,
   Upload,
   X,
+  CheckCircle,
 } from "lucide-react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { LocationValue } from "../components/LocationValue";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, DocumentData, QuerySnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 import { useNavigate } from "react-router-dom";
 import "./Lands.css";
 
@@ -62,26 +67,50 @@ export function Lands() {
     ownerEmail: "",
   });
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several lands can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchData();
+    if (showAddModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
+
+  useEffect(() => {
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [collection(db, "lands")],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const landsSnapshot = await getDocs(collection(db, "lands"));
-      const landsData: Land[] = [];
-      landsSnapshot.forEach((doc) => {
-        landsData.push({ id: doc.id, ...doc.data() } as Land);
-      });
-      setLands(landsData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      alert("حدث خطأ أثناء تحميل البيانات");
-    } finally {
-      setLoading(false);
-    }
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [landsSnapshot] = snapshots;
+
+    const landsData: Land[] = [];
+    landsSnapshot.forEach((doc) => {
+      landsData.push({ id: doc.id, ...doc.data() } as Land);
+    });
+    setLands(landsData);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -130,15 +159,19 @@ export function Lands() {
       if (editingLand) {
         await updateDoc(doc(db, "lands", editingLand.id), landData);
         alert("تم تحديث الأرض بنجاح");
+        setShowAddModal(false);
+        setEditingLand(null);
+        resetForm();
       } else {
         await addDoc(collection(db, "lands"), landData);
-        alert("تمت إضافة الأرض بنجاح");
+        // Stay open for the next entry: reset the form, confirm inline,
+        // and put the cursor back in the first field.
+        resetForm();
+        setAddSuccess(true);
+        focusFirstField();
+        setTimeout(() => setAddSuccess(false), 2500);
       }
-
-      setShowAddModal(false);
-      setEditingLand(null);
-      resetForm();
-      fetchData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error saving land:", error);
       alert("حدث خطأ أثناء حفظ البيانات");
@@ -169,7 +202,7 @@ export function Lands() {
     try {
       await deleteDoc(doc(db, "lands", id));
       alert("تم حذف الأرض بنجاح");
-      fetchData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error deleting land:", error);
       alert("حدث خطأ أثناء الحذف");
@@ -192,12 +225,8 @@ export function Lands() {
     });
   };
 
-  const filteredLands = lands.filter(
-    (land) =>
-      land.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      land.basinName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      land.plotNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      land.ownerName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredLands = lands.filter((land) =>
+    matchesSearch(land, searchTerm)
   );
 
   // Pagination
@@ -256,16 +285,27 @@ export function Lands() {
       </div>
 
       {/* Search */}
-      <div className="lands-search-section">
-        <div className="lands-search-box">
-          <Search className="lands-search-icon" />
-          <input
-            type="text"
-            placeholder="بحث عن أرض..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="بحث عن أرض..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => setSearchTerm("")}
+        >
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Lands Grid */}
@@ -293,7 +333,7 @@ export function Lands() {
               <div className="lands-card-details">
                 <div className="lands-detail-item">
                   <MapPin className="lands-detail-icon" />
-                  <span>{land.location}</span>
+                  <LocationValue value={land.location} />
                 </div>
                 <div className="lands-detail-item">
                   <Mountain className="lands-detail-icon" />
@@ -405,9 +445,19 @@ export function Lands() {
       {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="lands-modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="lands-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="lands-modal-content"
+            ref={addModalRef}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>{editingLand ? "تعديل أرض" : "إضافة أرض جديدة"}</h2>
             <form onSubmit={handleSubmit}>
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="lands-form-grid">
                 <div className="lands-form-group">
                   <label>الموقع *</label>

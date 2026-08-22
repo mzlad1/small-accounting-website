@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Search,
@@ -14,10 +14,12 @@ import {
   Printer,
   Eye,
   RefreshCw,
+  CheckCircle,
 } from "lucide-react";
 import {
   collection,
   getDocs,
+  writeBatch,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -25,8 +27,13 @@ import {
   query,
   where,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 
 import { useNavigate } from "react-router-dom";
 import "./Suppliers.css";
@@ -87,110 +94,157 @@ export function Suppliers() {
     notes: "",
   });
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several suppliers can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchData();
+    if (showAddModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
+
+  // Cascade-delete flow: typed "موافق" confirmation required
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [supplierToDelete, setSupplierToDelete] = useState<Supplier | null>(
+    null
+  );
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const closeDeleteModal = () => {
+    if (deleting) return;
+    setShowDeleteModal(false);
+    setSupplierToDelete(null);
+    setDeleteConfirmText("");
+  };
+
+  useEffect(() => {
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        query(collection(db, "suppliers"), orderBy("createdAt", "desc")),
+        collection(db, "orderItems"),
+        collection(db, "orders"),
+        collection(db, "customers"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     applyFiltersAndSort();
   }, [suppliers, searchTerm, sortBy]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  // Runs once from the local cache (instant paint) and again with the
+  // server result. Must fully replace state, never append.
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [
+      suppliersSnapshot,
+      orderItemsSnapshot,
+      ordersSnapshot,
+      customersSnapshot,
+    ] = snapshots;
 
-      // Fetch suppliers
-      const suppliersSnapshot = await getDocs(
-        query(collection(db, "suppliers"), orderBy("createdAt", "desc"))
+    // Fetch suppliers
+    const suppliersData: Supplier[] = [];
+    suppliersSnapshot.forEach((doc) => {
+      suppliersData.push({ id: doc.id, ...doc.data() } as Supplier);
+    });
+
+    // Fetch supplier elements from orderItems collection
+    const elementsData: SupplierElement[] = [];
+
+    // Also fetch orders to get order titles and customer IDs
+    const ordersMap: { [key: string]: any } = {};
+    ordersSnapshot.forEach((orderDoc) => {
+      ordersMap[orderDoc.id] = orderDoc.data();
+    });
+
+    // Also fetch customers to get customer names
+    const customersMap: { [key: string]: any } = {};
+    customersSnapshot.forEach((customerDoc) => {
+      customersMap[customerDoc.id] = customerDoc.data();
+    });
+
+    orderItemsSnapshot.forEach((itemDoc) => {
+      const itemData = itemDoc.data();
+      if (itemData.supplierId && itemData.supplierName) {
+        const orderId = itemData.orderId;
+        const orderData = ordersMap[orderId];
+        const customerId = orderData?.customerId;
+        const customerData = customersMap[customerId];
+
+        elementsData.push({
+          id: itemDoc.id,
+          supplierId: itemData.supplierId,
+          supplierName: itemData.supplierName,
+          orderId: orderId,
+          orderTitle: orderData?.title || "طلب بدون عنوان",
+          customerId: customerId || "",
+          customerName: customerData?.name || "عميل غير معروف",
+          elementName: itemData.name,
+          elementType: itemData.type,
+          quantity: itemData.quantity,
+          unit: itemData.unit,
+          unitPrice: itemData.unitPrice,
+          totalPrice: itemData.total,
+          orderDate: orderData?.date || itemData.createdAt,
+          notes: itemData.notes,
+        });
+      }
+    });
+
+    setSupplierElements(elementsData);
+
+    // Calculate supplier statistics
+    const suppliersWithStats = suppliersData.map((supplier) => {
+      const supplierElementsList = elementsData.filter(
+        (element) => element.supplierId === supplier.id
       );
-      const suppliersData: Supplier[] = [];
-      suppliersSnapshot.forEach((doc) => {
-        suppliersData.push({ id: doc.id, ...doc.data() } as Supplier);
-      });
 
-      // Fetch supplier elements from orderItems collection
-      const orderItemsSnapshot = await getDocs(collection(db, "orderItems"));
-      const elementsData: SupplierElement[] = [];
+      const totalElements = supplierElementsList.length;
+      const totalValue = supplierElementsList.reduce(
+        (sum, element) => sum + (element.totalPrice || 0),
+        0
+      );
 
-      // Also fetch orders to get order titles and customer IDs
-      const ordersSnapshot = await getDocs(collection(db, "orders"));
-      const ordersMap: { [key: string]: any } = {};
-      ordersSnapshot.forEach((orderDoc) => {
-        ordersMap[orderDoc.id] = orderDoc.data();
-      });
+      const lastOrderDate =
+        supplierElementsList.length > 0
+          ? supplierElementsList.sort(
+              (a, b) =>
+                new Date(b.orderDate).getTime() -
+                new Date(a.orderDate).getTime()
+            )[0].orderDate
+          : undefined;
 
-      // Also fetch customers to get customer names
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersMap: { [key: string]: any } = {};
-      customersSnapshot.forEach((customerDoc) => {
-        customersMap[customerDoc.id] = customerDoc.data();
-      });
+      return {
+        ...supplier,
+        totalElements,
+        totalValue,
+        lastOrderDate,
+      };
+    });
 
-      orderItemsSnapshot.forEach((itemDoc) => {
-        const itemData = itemDoc.data();
-        if (itemData.supplierId && itemData.supplierName) {
-          const orderId = itemData.orderId;
-          const orderData = ordersMap[orderId];
-          const customerId = orderData?.customerId;
-          const customerData = customersMap[customerId];
-
-          elementsData.push({
-            id: itemDoc.id,
-            supplierId: itemData.supplierId,
-            supplierName: itemData.supplierName,
-            orderId: orderId,
-            orderTitle: orderData?.title || "طلب بدون عنوان",
-            customerId: customerId || "",
-            customerName: customerData?.name || "عميل غير معروف",
-            elementName: itemData.name,
-            elementType: itemData.type,
-            quantity: itemData.quantity,
-            unit: itemData.unit,
-            unitPrice: itemData.unitPrice,
-            totalPrice: itemData.total,
-            orderDate: orderData?.date || itemData.createdAt,
-            notes: itemData.notes,
-          });
-        }
-      });
-
-      setSupplierElements(elementsData);
-
-      // Calculate supplier statistics
-      const suppliersWithStats = suppliersData.map((supplier) => {
-        const supplierElementsList = elementsData.filter(
-          (element) => element.supplierId === supplier.id
-        );
-
-        const totalElements = supplierElementsList.length;
-        const totalValue = supplierElementsList.reduce(
-          (sum, element) => sum + (element.totalPrice || 0),
-          0
-        );
-
-        const lastOrderDate =
-          supplierElementsList.length > 0
-            ? supplierElementsList.sort(
-                (a, b) =>
-                  new Date(b.orderDate).getTime() -
-                  new Date(a.orderDate).getTime()
-              )[0].orderDate
-            : undefined;
-
-        return {
-          ...supplier,
-          totalElements,
-          totalValue,
-          lastOrderDate,
-        };
-      });
-
-      setSuppliers(suppliersWithStats);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    setSuppliers(suppliersWithStats);
   };
 
   const applyFiltersAndSort = () => {
@@ -198,11 +252,8 @@ export function Suppliers() {
 
     // Apply search
     if (searchTerm) {
-      filtered = filtered.filter(
-        (supplier) =>
-          supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          supplier.phone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          supplier.email?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter((supplier) =>
+        matchesSearch(supplier, searchTerm)
       );
     }
 
@@ -235,14 +286,11 @@ export function Suppliers() {
         createdAt: new Date().toISOString(),
       };
 
-      const docRef = await addDoc(collection(db, "suppliers"), newSupplier);
-      const newSupplierWithId = {
-        id: docRef.id,
-        ...newSupplier,
-      };
+      await addDoc(collection(db, "suppliers"), newSupplier);
+      // The live subscription picks up the change automatically.
 
-      alert("تم إضافة المورد بنجاح!");
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setSupplierForm({
         name: "",
         phone: "",
@@ -250,6 +298,9 @@ export function Suppliers() {
         address: "",
         notes: "",
       });
+      setAddSuccess(true);
+      focusFirstField();
+      setTimeout(() => setAddSuccess(false), 2500);
     } catch (error) {
       console.error("Error adding supplier:", error);
     }
@@ -281,11 +332,7 @@ export function Suppliers() {
         updatedSupplier
       );
 
-      // Update cache
-      const updatedSupplierWithId = {
-        ...editingSupplier,
-        ...updatedSupplier,
-      };
+      // The live subscription picks up the change automatically.
 
       alert("تم تحديث المورد بنجاح!");
       setShowEditModal(false);
@@ -302,15 +349,66 @@ export function Suppliers() {
     }
   };
 
-  const handleDeleteSupplier = async (supplier: Supplier) => {
-    if (!confirm("هل أنت متأكد من حذف هذا المورد؟")) return;
+  const handleDeleteSupplier = (supplier: Supplier) => {
+    setSupplierToDelete(supplier);
+    setDeleteConfirmText("");
+    setShowDeleteModal(true);
+  };
 
+  // Cascade delete: removes the supplier AND all their payments, and
+  // UNLINKS the supplier from order elements (customers' order data —
+  // items, totals, balances — must stay intact). The supplier doc goes
+  // in the LAST batch so a mid-failure stays safely retryable.
+  const confirmDeleteSupplier = async () => {
+    if (!supplierToDelete || deleting) return;
+
+    setDeleting(true);
     try {
-      await deleteDoc(doc(db, "suppliers", supplier.id));
+      const supplierId = supplierToDelete.id;
 
-      alert("تم حذف المورد بنجاح!");
+      const [paymentsSnap, itemsSnap] = await Promise.all([
+        getDocs(
+          query(
+            collection(db, "supplierPayments"),
+            where("supplierId", "==", supplierId)
+          )
+        ),
+        getDocs(
+          query(
+            collection(db, "orderItems"),
+            where("supplierId", "==", supplierId)
+          )
+        ),
+      ]);
+
+      const ops = [
+        ...itemsSnap.docs.map((d) => ({ ref: d.ref, del: false })),
+        ...paymentsSnap.docs.map((d) => ({ ref: d.ref, del: true })),
+        { ref: doc(db, "suppliers", supplierId), del: true },
+      ];
+
+      // Firestore batches cap at 500 operations — commit in chunks
+      for (let i = 0; i < ops.length; i += 450) {
+        const batch = writeBatch(db);
+        ops.slice(i, i + 450).forEach((op) => {
+          if (op.del) {
+            batch.delete(op.ref);
+          } else {
+            batch.update(op.ref, { supplierId: "", supplierName: "" });
+          }
+        });
+        await batch.commit();
+      }
+
+      setShowDeleteModal(false);
+      setSupplierToDelete(null);
+      setDeleteConfirmText("");
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error deleting supplier:", error);
+      alert("حدث خطأ أثناء حذف المورد وبياناته — لم يتم حذف المورد، حاول مجدداً");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -342,11 +440,7 @@ export function Suppliers() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const printSuppliers = () => {
@@ -361,20 +455,18 @@ export function Suppliers() {
             <title>قائمة الموردين</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2b241c; padding-bottom: 20px; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
-              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #faf6ee; border-radius: 8px; }
               @media print { body { margin: 0; } }
             </style>
           </head>
           <body>
             <div class="header">
               <h1>قائمة الموردين</h1>
-              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
-                "en-US"
-              )}</p>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             <table>
               <thead>
@@ -473,34 +565,12 @@ export function Suppliers() {
             طباعة
           </button>
           <button
-            className="suppliers-refresh-btn"
-            onClick={() => fetchData()}
-            title="تحديث البيانات"
-          >
-            <RefreshCw className="suppliers-btn-icon" />
-            تحديث
-          </button>
-          <button
             className="suppliers-add-supplier-btn"
             onClick={() => setShowAddModal(true)}
           >
             <Plus className="suppliers-btn-icon" />
             إضافة مورد جديد
           </button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="suppliers-search-section">
-        <div className="suppliers-search-box">
-          <Search className="suppliers-search-icon" />
-          <input
-            type="text"
-            placeholder="البحث بالاسم أو الهاتف أو البريد الإلكتروني..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="suppliers-search-input"
-          />
         </div>
       </div>
 
@@ -547,6 +617,23 @@ export function Suppliers() {
                 )}
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="بحث..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
       </div>
@@ -716,7 +803,7 @@ export function Suppliers() {
       {/* Add Supplier Modal */}
       {showAddModal && (
         <div className="suppliers-modal-overlay">
-          <div className="suppliers-modal">
+          <div className="suppliers-modal" ref={addModalRef}>
             <div className="suppliers-modal-header">
               <h3>إضافة مورد جديد</h3>
               <button
@@ -727,6 +814,12 @@ export function Suppliers() {
               </button>
             </div>
             <div className="suppliers-modal-body">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="suppliers-form-group">
                 <label>اسم المورد *</label>
                 <input
@@ -923,6 +1016,57 @@ export function Suppliers() {
                 disabled={!supplierForm.name.trim()}
               >
                 تحديث المورد
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal — typed "موافق" required */}
+      {showDeleteModal && supplierToDelete && (
+        <div className="modal-overlay">
+          <div className="modal delete-modal">
+            <div className="modal-header">
+              <h3>تأكيد الحذف</h3>
+              <button className="close-btn" onClick={closeDeleteModal}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>
+                هل أنت متأكد من حذف المورد{" "}
+                <strong>{supplierToDelete.name}</strong>؟
+              </p>
+              <p className="warning-text">
+                سيتم حذف جميع دفعات المورد نهائياً، وسيتم إلغاء ربط المورد من
+                عناصر الطلبات المرتبطة به — لا يمكن التراجع عن هذا الإجراء!
+              </p>
+              <div className="form-group">
+                <label>اكتب "موافق" لتأكيد الحذف</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="موافق"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                className="btn-secondary"
+                onClick={closeDeleteModal}
+                disabled={deleting}
+              >
+                إلغاء
+              </button>
+              <button
+                className="btn-danger"
+                onClick={confirmDeleteSupplier}
+                disabled={deleting || deleteConfirmText.trim() !== "موافق"}
+              >
+                {deleting ? "جاري الحذف..." : "حذف المورد وجميع بياناته"}
               </button>
             </div>
           </div>

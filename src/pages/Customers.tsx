@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -14,8 +14,8 @@ import {
   Package,
   SortAsc,
   SortDesc,
-  RefreshCw,
   Printer,
+  CheckCircle,
 } from "lucide-react";
 import {
   collection,
@@ -23,12 +23,17 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   doc,
   query,
   where,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 
 import "./Customers.css";
 
@@ -90,6 +95,8 @@ export function Customers() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
@@ -100,6 +107,28 @@ export function Customers() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several customers can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
+  useEffect(() => {
+    if (showAddModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
 
   // State for order items
   const [orderItems, setOrderItems] = useState<{ [orderId: string]: any[] }>(
@@ -114,19 +143,33 @@ export function Customers() {
 
   // Fetch customers and related data from Firebase
   useEffect(() => {
-    fetchAllData();
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        query(collection(db, "customers"), orderBy("createdAt", "desc")),
+        collection(db, "orders"),
+        collection(db, "orderItems"),
+        collection(db, "payments"),
+        collection(db, "customerChecks"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching customers data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Apply filters and sorting
   useEffect(() => {
     let filtered = [...customers];
 
-    // Apply search filter
+    // Apply search filter (any field)
     if (searchTerm) {
-      filtered = filtered.filter(
-        (customer) =>
-          customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          customer.phone.includes(searchTerm)
+      filtered = filtered.filter((customer) =>
+        matchesSearch(customer, searchTerm)
       );
     }
 
@@ -181,162 +224,142 @@ export function Customers() {
     setCurrentPage(1); // Reset to first page when filters change
   }, [customers, searchTerm, balanceFilter, sortBy, sortOrder]);
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [
+      customersSnapshot,
+      ordersSnapshot,
+      orderItemsSnapshot,
+      paymentsSnapshot,
+      customerChecksSnapshot,
+    ] = snapshots;
 
-      // Fetch customers
-      const customersRef = collection(db, "customers");
-      const customersQuery = query(customersRef, orderBy("createdAt", "desc"));
-      const customersSnapshot = await getDocs(customersQuery);
-
-      // Fetch orders
-      const ordersRef = collection(db, "orders");
-      const ordersSnapshot = await getDocs(ordersRef);
-
-      // Fetch order items for all orders
-      const orderItemsData: { [orderId: string]: any[] } = {};
-      for (const orderDoc of ordersSnapshot.docs) {
-        const orderId = orderDoc.id;
-        const itemsQuery = query(
-          collection(db, "orderItems"),
-          where("orderId", "==", orderId)
-        );
-        const itemsSnapshot = await getDocs(itemsQuery);
-        const items: any[] = [];
-        itemsSnapshot.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() });
-        });
-        orderItemsData[orderId] = items;
+    // Group all order items by orderId in memory
+    // (replaces the per-order query loop — one read instead of N)
+    const orderItemsData: { [orderId: string]: any[] } = {};
+    ordersSnapshot.forEach((orderDoc) => {
+      orderItemsData[orderDoc.id] = [];
+    });
+    orderItemsSnapshot.forEach((doc) => {
+      const item = { id: doc.id, ...doc.data() } as any;
+      if (orderItemsData[item.orderId]) {
+        orderItemsData[item.orderId].push(item);
       }
-      setOrderItems(orderItemsData);
+    });
+    setOrderItems(orderItemsData);
 
-      // Fetch payments
-      const paymentsRef = collection(db, "payments");
-      const paymentsSnapshot = await getDocs(paymentsRef);
-
-      // Fetch customer checks
-      const customerChecksRef = collection(db, "customerChecks");
-      const customerChecksSnapshot = await getDocs(customerChecksRef);
-
-      // Process orders data
-      const ordersData: Order[] = [];
-      ordersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        ordersData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          title: data.title,
-          date: data.date,
-          status: data.status,
-          total: data.total,
-          items: data.items || [],
-          notes: data.notes,
-        });
+    // Process orders data
+    const ordersData: Order[] = [];
+    ordersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      ordersData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        title: data.title,
+        date: data.date,
+        status: data.status,
+        total: data.total,
+        items: data.items || [],
+        notes: data.notes,
       });
+    });
 
-      // Process payments data
-      const paymentsData: Payment[] = [];
-      paymentsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        paymentsData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          date: data.date,
-          type: data.type,
-          amount: data.amount,
-          notes: data.notes,
-          checkId: data.checkId,
-        });
+    // Process payments data
+    const paymentsData: Payment[] = [];
+    paymentsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      paymentsData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        date: data.date,
+        type: data.type,
+        amount: data.amount,
+        notes: data.notes,
+        checkId: data.checkId,
       });
+    });
 
-      // Process customer checks data
-      const customerChecksData: CustomerCheck[] = [];
-      customerChecksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        customerChecksData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          checkNumber: data.checkNumber,
-          bank: data.bank,
-          amount: data.amount,
-          dueDate: data.dueDate,
-          status: data.status,
-          notes: data.notes,
-        });
+    // Process customer checks data
+    const customerChecksData: CustomerCheck[] = [];
+    customerChecksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      customerChecksData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        checkNumber: data.checkNumber,
+        bank: data.bank,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        status: data.status,
+        notes: data.notes,
       });
+    });
 
-      // Process customers with calculated data
-      const customersData: Customer[] = [];
-      customersSnapshot.forEach((doc) => {
-        const customerData = doc.data();
-        const customerId = doc.id;
+    // Process customers with calculated data
+    const customersData: Customer[] = [];
+    customersSnapshot.forEach((doc) => {
+      const customerData = doc.data();
+      const customerId = doc.id;
 
-        // Get customer orders
-        const customerOrders = ordersData.filter(
-          (order) => order.customerId === customerId
-        );
+      // Get customer orders
+      const customerOrders = ordersData.filter(
+        (order) => order.customerId === customerId
+      );
 
-        // Get customer payments
-        const customerPayments = paymentsData.filter(
-          (payment) => payment.customerId === customerId
-        );
+      // Get customer payments
+      const customerPayments = paymentsData.filter(
+        (payment) => payment.customerId === customerId
+      );
 
-        // Get customer checks
-        const customerChecks = customerChecksData.filter(
-          (check) => check.customerId === customerId
-        );
+      // Get customer checks
+      const customerChecks = customerChecksData.filter(
+        (check) => check.customerId === customerId
+      );
 
-        // Calculate numberOfOrders
-        const numberOfOrders = customerOrders.length;
+      // Calculate numberOfOrders
+      const numberOfOrders = customerOrders.length;
 
-        // Calculate currentBalance using orderItemsData directly
-        const totalOrders = customerOrders.reduce((sum, order) => {
-          const items = orderItemsData[order.id] || [];
-          const orderTotal = items.reduce(
-            (itemSum, item) => itemSum + (item.total || 0),
-            0
-          );
-          return sum + orderTotal;
-        }, 0);
-        const totalPayments = customerPayments.reduce(
-          (sum, payment) => sum + payment.amount,
+      // Calculate currentBalance using orderItemsData directly
+      const totalOrders = customerOrders.reduce((sum, order) => {
+        const items = orderItemsData[order.id] || [];
+        const orderTotal = items.reduce(
+          (itemSum, item) => itemSum + (item.total || 0),
           0
         );
-        const currentBalance = totalOrders - totalPayments;
+        return sum + orderTotal;
+      }, 0);
+      const totalPayments = customerPayments.reduce(
+        (sum, payment) => sum + payment.amount,
+        0
+      );
+      const currentBalance = totalOrders - totalPayments;
 
-        // Calculate lastActivity
-        const allDates = [
-          ...customerOrders.map((order) => new Date(order.date)),
-          ...customerPayments.map((payment) => new Date(payment.date)),
-          ...customerChecks.map((check) => new Date(check.dueDate)),
-        ];
-        const lastActivity =
-          allDates.length > 0
-            ? new Date(Math.max(...allDates.map((date) => date.getTime())))
-            : new Date(customerData.createdAt || new Date());
+      // Calculate lastActivity
+      const allDates = [
+        ...customerOrders.map((order) => new Date(order.date)),
+        ...customerPayments.map((payment) => new Date(payment.date)),
+        ...customerChecks.map((check) => new Date(check.dueDate)),
+      ];
+      const lastActivity =
+        allDates.length > 0
+          ? new Date(Math.max(...allDates.map((date) => date.getTime())))
+          : new Date(customerData.createdAt || new Date());
 
-        customersData.push({
-          id: doc.id,
-          name: customerData.name,
-          phone: customerData.phone,
-          notes: customerData.notes || "",
-          numberOfOrders,
-          currentBalance,
-          lastActivity: lastActivity.toISOString(),
-          createdAt: customerData.createdAt || new Date().toISOString(),
-        });
+      customersData.push({
+        id: doc.id,
+        name: customerData.name,
+        phone: customerData.phone,
+        notes: customerData.notes || "",
+        numberOfOrders,
+        currentBalance,
+        lastActivity: lastActivity.toISOString(),
+        createdAt: customerData.createdAt || new Date().toISOString(),
       });
+    });
 
-      setCustomers(customersData);
-    } catch (error) {
-      console.error("Error fetching customers data:", error);
-    } finally {
-      setLoading(false);
-    }
+    setCustomers(customersData);
   };
 
   const handleAddCustomer = async () => {
@@ -355,9 +378,13 @@ export function Customers() {
         lastActivity: newCustomer.createdAt,
       };
 
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setFormData({ name: "", phone: "", notes: "" });
-      fetchAllData(); // Refresh to recalculate balances
+      setAddSuccess(true);
+      focusFirstField();
+      setTimeout(() => setAddSuccess(false), 2500);
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding customer:", error);
     }
@@ -390,16 +417,68 @@ export function Customers() {
     }
   };
 
+  // Cascade delete: removes the customer AND everything that belongs
+  // to them — orders, those orders' items, payments, and checks.
+  // The customer doc goes in the LAST batch, so a failure mid-way
+  // leaves the customer visible and the delete safely retryable.
   const handleDeleteCustomer = async () => {
-    if (!selectedCustomer) return;
+    if (!selectedCustomer || deleting) return;
 
+    setDeleting(true);
     try {
-      await deleteDoc(doc(db, "customers", selectedCustomer.id));
+      const customerId = selectedCustomer.id;
+
+      const [ordersSnap, paymentsSnap, checksSnap] = await Promise.all([
+        getDocs(
+          query(collection(db, "orders"), where("customerId", "==", customerId))
+        ),
+        getDocs(
+          query(
+            collection(db, "payments"),
+            where("customerId", "==", customerId)
+          )
+        ),
+        getDocs(
+          query(
+            collection(db, "customerChecks"),
+            where("customerId", "==", customerId)
+          )
+        ),
+      ]);
+
+      const itemSnaps = await Promise.all(
+        ordersSnap.docs.map((orderDoc) =>
+          getDocs(
+            query(
+              collection(db, "orderItems"),
+              where("orderId", "==", orderDoc.id)
+            )
+          )
+        )
+      );
+
+      const refs = [
+        ...itemSnaps.flatMap((snap) => snap.docs.map((d) => d.ref)),
+        ...ordersSnap.docs.map((d) => d.ref),
+        ...paymentsSnap.docs.map((d) => d.ref),
+        ...checksSnap.docs.map((d) => d.ref),
+        doc(db, "customers", customerId),
+      ];
+
+      // Firestore batches cap at 500 operations — commit in chunks
+      for (let i = 0; i < refs.length; i += 450) {
+        const batch = writeBatch(db);
+        refs.slice(i, i + 450).forEach((ref) => batch.delete(ref));
+        await batch.commit();
+      }
 
       setShowDeleteModal(false);
       setSelectedCustomer(null);
     } catch (error) {
       console.error("Error deleting customer:", error);
+      alert("حدث خطأ أثناء حذف العميل وبياناته — لم يتم حذف العميل، حاول مجدداً");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -415,6 +494,7 @@ export function Customers() {
 
   const openDeleteModal = (customer: Customer) => {
     setSelectedCustomer(customer);
+    setDeleteConfirmText("");
     setShowDeleteModal(true);
   };
 
@@ -430,11 +510,7 @@ export function Customers() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const getBalanceClass = (balance: number) => {
@@ -465,10 +541,7 @@ export function Customers() {
       const printWindow = window.open("", "_blank");
       if (printWindow) {
         const filteredCustomers = customers.filter((customer) => {
-          const matchesSearch =
-            !searchTerm ||
-            customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            customer.phone.includes(searchTerm);
+          const matchesTerm = matchesSearch(customer, searchTerm);
 
           const matchesBalance =
             balanceFilter === "all" ||
@@ -476,7 +549,7 @@ export function Customers() {
             (balanceFilter === "creditor" && customer.currentBalance < 0) ||
             (balanceFilter === "zero" && customer.currentBalance === 0);
 
-          return matchesSearch && matchesBalance;
+          return matchesTerm && matchesBalance;
         });
 
         printWindow.document.write(`
@@ -487,23 +560,21 @@ export function Customers() {
             <title>قائمة العملاء</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2b241c; padding-bottom: 20px; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
-              .balance-positive { color: #dc2626; }
-              .balance-negative { color: #16a34a; }
-              .balance-zero { color: #6b7280; }
-              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
+              .balance-positive { color: #b23b2e; }
+              .balance-negative { color: #4a7c59; }
+              .balance-zero { color: #6f6459; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #faf6ee; border-radius: 8px; }
               @media print { body { margin: 0; } }
             </style>
           </head>
           <body>
             <div class="header">
               <h1>قائمة العملاء</h1>
-              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
-                "en-US"
-              )}</p>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             <table>
               <thead>
@@ -619,14 +690,7 @@ export function Customers() {
             <Printer className="btn-icon" />
             طباعة
           </button>
-          <button
-            className="refresh-btn"
-            onClick={() => fetchAllData()}
-            title="تحديث البيانات"
-          >
-            <RefreshCw className="btn-icon" />
-            تحديث
-          </button>
+          {/* The live subscription picks up the change automatically. */}
           <button
             className="add-customer-btn"
             onClick={() => setShowAddModal(true)}
@@ -634,60 +698,6 @@ export function Customers() {
             <Plus className="btn-icon" />
             إضافة عميل
           </button>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="search-filters-section">
-        <div className="search-box">
-          <Search className="search-icon" />
-          <input
-            type="text"
-            placeholder="البحث بالاسم أو رقم الهاتف..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        <div className="filters-section">
-          <div className="filter-group">
-            <label className="filter-label">فلترة الرصيد:</label>
-            <select
-              value={balanceFilter}
-              onChange={(e) => setBalanceFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">جميع العملاء</option>
-              <option value="positive">مدين</option>
-              <option value="negative">دائن</option>
-              <option value="zero">متساوي</option>
-            </select>
-          </div>
-
-          <div className="sorting-section">
-            <span className="sort-label">ترتيب حسب:</span>
-            <button
-              className={`sort-btn ${sortBy === "name" ? "active" : ""}`}
-              onClick={() => handleSort("name")}
-            >
-              الاسم {getSortIcon("name")}
-            </button>
-            <button
-              className={`sort-btn ${sortBy === "balance" ? "active" : ""}`}
-              onClick={() => handleSort("balance")}
-            >
-              الرصيد {getSortIcon("balance")}
-            </button>
-            <button
-              className={`sort-btn ${
-                sortBy === "lastActivity" ? "active" : ""
-              }`}
-              onClick={() => handleSort("lastActivity")}
-            >
-              آخر نشاط {getSortIcon("lastActivity")}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -738,6 +748,74 @@ export function Customers() {
             <span className="stat-label">عملاء نشطون</span>
           </div>
         </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              placeholder="بحث..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        </div>
+
+        <div className="filter-field">
+          <label>الرصيد</label>
+          <select
+            value={balanceFilter}
+            onChange={(e) => setBalanceFilter(e.target.value)}
+          >
+            <option value="all">جميع العملاء</option>
+            <option value="positive">مدين</option>
+            <option value="negative">دائن</option>
+            <option value="zero">متساوي</option>
+          </select>
+        </div>
+
+        <div className="filter-field" style={{ flex: "2 1 300px" }}>
+          <label>ترتيب</label>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            <button
+              type="button"
+              className="sort-toggle-btn"
+              onClick={() => handleSort("name")}
+            >
+              الاسم {getSortIcon("name")}
+            </button>
+            <button
+              type="button"
+              className="sort-toggle-btn"
+              onClick={() => handleSort("balance")}
+            >
+              الرصيد {getSortIcon("balance")}
+            </button>
+            <button
+              type="button"
+              className="sort-toggle-btn"
+              onClick={() => handleSort("lastActivity")}
+            >
+              آخر نشاط {getSortIcon("lastActivity")}
+            </button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setBalanceFilter("all");
+          }}
+        >
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Customers Table */}
@@ -895,7 +973,7 @@ export function Customers() {
       {/* Add Customer Modal */}
       {showAddModal && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal" ref={addModalRef}>
             <div className="modal-header">
               <h3>إضافة عميل جديد</h3>
               <button
@@ -906,6 +984,12 @@ export function Customers() {
               </button>
             </div>
             <div className="modal-body">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="form-group">
                 <label>اسم العميل *</label>
                 <input
@@ -1050,17 +1134,36 @@ export function Customers() {
                 هل أنت متأكد من حذف العميل{" "}
                 <strong>{selectedCustomer.name}</strong>؟
               </p>
-              <p className="warning-text">لا يمكن التراجع عن هذا الإجراء!</p>
+              <p className="warning-text">
+                سيتم حذف جميع بيانات العميل نهائياً: الطلبات وعناصرها،
+                والدفعات، والشيكات — لا يمكن التراجع عن هذا الإجراء!
+              </p>
+              <div className="form-group">
+                <label>اكتب "موافق" لتأكيد الحذف</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="موافق"
+                  autoFocus
+                />
+              </div>
             </div>
             <div className="modal-footer">
               <button
                 className="btn-secondary"
                 onClick={() => setShowDeleteModal(false)}
+                disabled={deleting}
               >
                 إلغاء
               </button>
-              <button className="btn-danger" onClick={handleDeleteCustomer}>
-                حذف العميل
+              <button
+                className="btn-danger"
+                onClick={handleDeleteCustomer}
+                disabled={deleting || deleteConfirmText.trim() !== "موافق"}
+              >
+                {deleting ? "جاري الحذف..." : "حذف العميل وجميع بياناته"}
               </button>
             </div>
           </div>

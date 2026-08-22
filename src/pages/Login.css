@@ -1,153 +1,176 @@
+/* Login — "Warm Studio" design system */
+/* ============================================================
+   Standalone auth page (no sidebar): alabaster paper canvas,
+   ONE centered warm-white card holding the masthead, the form
+   and the footer link. Alexandria 800 title with the clay dash,
+   canonical inputs, terracotta primary button.
+   ============================================================ */
+
 .login-container {
+  min-height: 100vh;
   height: 100%;
-  background: linear-gradient(135deg, #f8fafc 0%, #e0e7ff 50%, #c7d2fe 100%);
+  background: var(--bg-primary);
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   padding: 3rem 1.5rem;
   position: relative;
   direction: rtl; /* Arabic text direction */
 }
 
+/* Decorative field removed — flat paper, selectors kept inert */
 .login-background {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  pointer-events: none;
 }
 
-.login-bg-circle-1 {
-  position: absolute;
-  top: -10rem;
-  right: -10rem;
-  width: 20rem;
-  height: 20rem;
-  background: linear-gradient(
-    135deg,
-    rgba(96, 165, 250, 0.2) 0%,
-    rgba(168, 85, 247, 0.2) 100%
-  );
-  border-radius: 50%;
-  filter: blur(3rem);
-}
-
-.login-bg-circle-2 {
-  position: absolute;
-  bottom: -10rem;
-  left: -10rem;
-  width: 20rem;
-  height: 20rem;
-  background: linear-gradient(
-    45deg,
-    rgba(99, 102, 241, 0.2) 0%,
-    rgba(96, 165, 250, 0.2) 100%
-  );
-  border-radius: 50%;
-  filter: blur(3rem);
-}
-
+.login-bg-circle-1,
+.login-bg-circle-2,
 .login-bg-circle-3 {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 24rem;
-  height: 24rem;
-  background: linear-gradient(
-    90deg,
-    rgba(96, 165, 250, 0.1) 0%,
-    rgba(99, 102, 241, 0.1) 100%
-  );
-  border-radius: 50%;
-  filter: blur(3rem);
+  display: none;
 }
 
+/* Retained inert for selector-union compatibility (no ambient motion) */
+@keyframes login-drift {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes login-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* The auth card — the single warm-white panel on the paper */
 .login-content {
   position: relative;
-  z-index: 10;
+  z-index: 1;
   margin: 0 auto;
-  max-width: 28rem;
+  max-width: 420px;
   width: 100%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 1.75rem 1.25rem;
+  animation: ed-fade 0.2s var(--ease-out);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 2.5rem;
+  margin-bottom: 1.75rem;
 }
 
+/* Logo mark — clay-tint icon chip */
 .login-logo {
-  height: 5rem;
-  width: 5rem;
-  background: linear-gradient(135deg, #2563eb 0%, #4338ca 100%);
-  border-radius: 1rem;
+  height: 48px;
+  width: 48px;
+  background: var(--accent-soft);
+  border: none;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto;
-  box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.25);
+  margin: 0 auto 1rem;
+  box-shadow: none;
 }
 
 .login-logo svg {
-  height: 2.5rem;
-  width: 2.5rem;
-  color: white;
+  height: 1.5rem;
+  width: 1.5rem;
+  color: var(--accent);
 }
 
+/* Page title — Alexandria display face */
 .login-title {
-  margin-top: 2rem;
-  font-size: 2.5rem;
-  font-weight: 700;
-  background: linear-gradient(90deg, #1e293b 0%, #1e40af 50%, #3730a3 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+/* Signature: the clay dash, centred under the masthead */
+.login-title::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  margin: 0.5rem auto 0;
 }
 
 .login-subtitle {
   margin-top: 0.75rem;
-  font-size: 1.125rem;
-  color: #4b5563;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.6;
 }
 
+/* Form well — sits inside the card, no second frame */
 .login-form-container {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  padding: 2.5rem 1.5rem;
-  border-radius: 1.5rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  overflow: hidden; /* Prevent content from overflowing */
+  position: relative;
+  background: transparent;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible; /* focus rings must not be clipped */
+  animation: ed-fade 0.18s var(--ease-out) both;
+}
+
+.login-form-container::before {
+  content: none;
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.25rem;
 }
 
+/* Error message — brick tint with an RTL ink edge */
 .login-error {
-  background: linear-gradient(90deg, #fef2f2 0%, #fce7f3 100%);
-  border: 1px solid #fecaca;
-  border-radius: 1rem;
-  padding: 1rem;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  background: var(--danger-soft);
+  border-right: 3px solid var(--danger); /* RTL accent edge */
+  border-radius: var(--radius);
+  padding: 0.75rem 0.875rem;
+  animation: ed-fade 0.15s var(--ease-out);
 }
 
 .login-error p {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #dc2626;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--danger-text);
+  margin: 0;
 }
 
 .login-field {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .login-label {
-  font-size: 0.875rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .login-input-wrapper {
@@ -157,113 +180,146 @@
 
 .login-input-icon {
   position: absolute;
-  right: 1rem; /* Changed from left for RTL */
-  top: 50%;
-  transform: translateY(-50%);
-  color: #9ca3af;
+  right: 0.875rem; /* RTL: icon on the right */
+  top: calc(50% - 0.55rem);
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--text-tertiary);
   pointer-events: none;
   z-index: 2;
+  transition: color 0.15s var(--ease-out);
 }
 
+.login-input-wrapper:focus-within .login-input-icon {
+  color: var(--accent);
+}
+
+/* Canonical form control */
 .login-input {
   width: 100%;
-  padding: 1rem 3rem 1rem 1rem; /* Changed padding order for RTL */
-  border: 2px solid #e5e7eb;
-  border-radius: 1rem;
+  padding: 0.6rem 2.6rem 0.6rem 0.8rem; /* RTL padding order */
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   font-size: 0.875rem;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-  box-sizing: border-box; /* Ensure padding is included in width */
-  max-width: 100%; /* Prevent overflow */
+  font-family: inherit;
+  color: var(--text-primary);
+  transition: border-color 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.login-input::placeholder {
+  color: var(--text-tertiary);
 }
 
 .login-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+  border-color: var(--accent);
+  box-shadow: var(--ring);
 }
 
 .login-input:hover:not(:focus) {
-  border-color: #d1d5db;
+  border-color: var(--text-tertiary);
 }
 
 .login-input.error {
-  border-color: #f87171;
-  background-color: rgba(254, 242, 242, 0.5);
+  border-color: var(--danger);
+  background-color: var(--bg-surface);
 }
 
 .login-input.error:focus {
-  border-color: #f87171;
-  box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.2);
+  border-color: var(--danger);
+  box-shadow: none;
 }
 
+/* Password visibility toggle — neutral icon button */
 .login-password-toggle {
   position: absolute;
-  left: 1rem; /* Changed from right for RTL */
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
+  left: 0.5rem; /* RTL: toggle on the left */
+  top: calc(50% - 1rem);
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
   border: none;
-  color: #9ca3af;
+  color: var(--text-tertiary);
   cursor: pointer;
   padding: 0.25rem;
-  border-radius: 0.25rem;
-  transition: color 0.2s ease;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
   z-index: 2;
 }
 
 .login-password-toggle:hover {
-  color: #6b7280;
+  color: var(--text-primary);
+  background: var(--gray-soft);
 }
 
+.login-password-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Inline validation text */
 .login-error-text {
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-  color: #dc2626;
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--danger-text);
   font-weight: 500;
 }
 
+/* Primary action — the single terracotta accent */
 .login-button {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
   width: 100%;
-  padding: 1rem;
+  padding: 0.65rem 1rem;
   border: none;
-  border-radius: 1rem;
-  font-size: 0.875rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
   font-weight: 600;
-  color: white;
-  background: linear-gradient(90deg, #2563eb 0%, #4338ca 100%);
+  font-family: inherit;
+  color: #fff;
+  background: var(--accent);
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  transform: translateY(0);
-  box-sizing: border-box; /* Ensure padding is included in width */
+  transition: background 0.15s var(--ease-out);
+  box-shadow: var(--shadow-xs);
+  box-sizing: border-box;
 }
 
 .login-button:hover:not(:disabled) {
-  background: linear-gradient(90deg, #1d4ed8 0%, #3730a3 100%);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  background: var(--accent-hover);
+}
+
+.login-button:active:not(:disabled) {
+  background: var(--accent-deep);
 }
 
 .login-button:focus {
-  outline: none;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .login-button:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
-  transform: none;
+  box-shadow: none;
 }
 
+/* Kept selector — inert overlay, flat and invisible */
 .login-button-hover-bg {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, #1d4ed8 0%, #3730a3 100%);
-  border-radius: 1rem;
+  background: transparent;
+  border-radius: var(--radius);
   opacity: 0;
-  transition: opacity 0.2s ease;
+  pointer-events: none;
+  transition: opacity 0.15s var(--ease-out);
 }
 
 .login-button:hover .login-button-hover-bg {
@@ -284,52 +340,60 @@
 .login-spinner {
   width: 1.25rem;
   height: 1.25rem;
-  border: 2px solid transparent;
-  border-top: 2px solid white;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top: 2px solid #fff;
   border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-left: 0.75rem; /* Changed from margin-right for RTL */
+  animation: ed-spin 0.8s linear infinite;
+  margin-left: 0.75rem; /* RTL */
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
+/* Footer — separated by a warm hairline, like a ruled page */
 .login-footer {
   position: relative;
-  z-index: 10;
-  margin-top: 1.5rem;
+  z-index: 1;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
   text-align: center;
 }
 
+/* Clay link */
 .forgot-password-link {
   background: none;
   border: none;
-  color: #3b82f6;
+  color: var(--accent);
   font-size: 0.875rem;
   font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
+  transition: color 0.15s var(--ease-out);
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius-sm);
 }
 
 .forgot-password-link:hover {
-  color: #2563eb;
-  background: #eff6ff;
+  color: var(--accent-deep);
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.forgot-password-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* Responsive Design */
 @media (min-width: 640px) {
+  .login-content {
+    padding: 2.25rem 2rem;
+  }
+
   .login-form-container {
-    padding: 2.5rem 3rem;
+    padding: 0;
   }
 
   .login-title {
-    font-size: 3rem;
+    font-size: 1.55rem;
   }
 }
 

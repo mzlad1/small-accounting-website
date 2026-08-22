@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -26,6 +26,8 @@ import {
   query,
   where,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import {
   ref,
@@ -34,6 +36,8 @@ import {
   deleteObject,
 } from "firebase/storage";
 import { db, storage } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
 
 import "./OrderDetails.css";
 
@@ -123,10 +127,51 @@ export function OrderDetails() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageLoading, setImageLoading] = useState(true);
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several items can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    if (orderId) {
-      fetchOrderData();
+    if (showAddItemModal) {
+      setAddSuccess(false);
+      focusFirstField();
     }
+  }, [showAddItemModal]);
+
+  useEffect(() => {
+    if (!orderId) return;
+
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        query(collection(db, "orders"), where("__name__", "==", orderId)),
+        collection(db, "suppliers"),
+        query(
+          collection(db, "orderItems"),
+          where("orderId", "==", orderId),
+          orderBy("createdAt", "asc")
+        ),
+        collection(db, "orderItems"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching order data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
   useEffect(() => {
@@ -135,63 +180,46 @@ export function OrderDetails() {
     }
   }, [order]);
 
-  const fetchOrderData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [orderDoc, suppliersSnapshot, itemsSnapshot, allItemsSnapshot] =
+      snapshots;
 
-      // Fetch order details
-      const orderDoc = await getDocs(
-        query(collection(db, "orders"), where("__name__", "==", orderId))
-      );
-      if (!orderDoc.empty) {
-        const orderData = {
-          id: orderDoc.docs[0].id,
-          ...orderDoc.docs[0].data(),
-        } as Order;
-        setOrder(orderData);
-        setOrderStatus(orderData.status);
-      }
-
-      // Fetch suppliers
-      const suppliersSnapshot = await getDocs(collection(db, "suppliers"));
-      const suppliersData: { id: string; name: string }[] = [];
-      suppliersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        suppliersData.push({ id: doc.id, name: data.name });
-      });
-      setSuppliers(suppliersData);
-
-      // Fetch order items
-      const itemsSnapshot = await getDocs(
-        query(
-          collection(db, "orderItems"),
-          where("orderId", "==", orderId),
-          orderBy("createdAt", "asc")
-        )
-      );
-      const itemsData: OrderItem[] = [];
-      itemsSnapshot.forEach((doc) => {
-        itemsData.push({ id: doc.id, ...doc.data() } as OrderItem);
-      });
-      setItems(itemsData);
-
-      // Fetch all order items to get existing element names for suggestions
-      const allItemsSnapshot = await getDocs(collection(db, "orderItems"));
-      const allItemsData: any[] = [];
-      allItemsSnapshot.forEach((doc) => {
-        allItemsData.push({ id: doc.id, ...doc.data() });
-      });
-
-      // Extract unique element names from all order items
-      const uniqueElementNames = [
-        ...new Set(allItemsData.map((item) => item.name)),
-      ].filter((name) => name && name.trim() !== "");
-      setExistingElementNames(uniqueElementNames);
-    } catch (error) {
-      console.error("Error fetching order data:", error);
-    } finally {
-      setLoading(false);
+    // Fetch order details
+    if (!orderDoc.empty) {
+      const orderData = {
+        id: orderDoc.docs[0].id,
+        ...orderDoc.docs[0].data(),
+      } as Order;
+      setOrder(orderData);
+      setOrderStatus(orderData.status);
     }
+
+    // Fetch suppliers
+    const suppliersData: { id: string; name: string }[] = [];
+    suppliersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      suppliersData.push({ id: doc.id, name: data.name });
+    });
+    setSuppliers(suppliersData);
+
+    // Fetch order items
+    const itemsData: OrderItem[] = [];
+    itemsSnapshot.forEach((doc) => {
+      itemsData.push({ id: doc.id, ...doc.data() } as OrderItem);
+    });
+    setItems(itemsData);
+
+    // Fetch all order items to get existing element names for suggestions
+    const allItemsData: any[] = [];
+    allItemsSnapshot.forEach((doc) => {
+      allItemsData.push({ id: doc.id, ...doc.data() });
+    });
+
+    // Extract unique element names from all order items
+    const uniqueElementNames = [
+      ...new Set(allItemsData.map((item) => item.name)),
+    ].filter((name) => name && name.trim() !== "");
+    setExistingElementNames(uniqueElementNames);
   };
 
   const handleImageUpload = async (files: File[]): Promise<string[]> => {
@@ -234,8 +262,8 @@ export function OrderDetails() {
 
       await addDoc(collection(db, "orderItems"), newItem);
 
-      // Show success message and clear form without closing modal
-      alert("تم إضافة العنصر بنجاح! يمكنك إضافة عنصر آخر.");
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setItemForm({
         name: "",
         type: "",
@@ -248,7 +276,12 @@ export function OrderDetails() {
         images: [],
       });
       setSelectedFiles([]);
-      fetchOrderData(); // Refresh to update data
+      setShowElementNameSuggestions(false);
+      setSelectedElementNameIndex(-1);
+      setAddSuccess(true);
+      focusFirstField();
+      setTimeout(() => setAddSuccess(false), 2500);
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding item:", error);
       alert("حدث خطأ أثناء إضافة العنصر");
@@ -295,7 +328,7 @@ export function OrderDetails() {
         images: [],
       });
       setSelectedFiles([]);
-      fetchOrderData(); // Refresh to update data
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error updating item:", error);
     } finally {
@@ -311,7 +344,7 @@ export function OrderDetails() {
 
       setShowDeleteItemModal(false);
       setSelectedItem(null);
-      fetchOrderData(); // Refresh to update data
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error deleting item:", error);
     }
@@ -323,7 +356,7 @@ export function OrderDetails() {
     try {
       await updateDoc(doc(db, "orders", order.id), { status: newStatus });
       setOrderStatus(newStatus);
-      fetchOrderData(); // Refresh to update data
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error updating order status:", error);
     }
@@ -343,18 +376,18 @@ export function OrderDetails() {
             <title>تفاصيل الطلب - ${order?.title}</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2b241c; padding-bottom: 20px; }
               .order-info { margin-bottom: 20px; }
               .order-info p { margin: 5px 0; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
               .total { font-weight: bold; font-size: 1.2em; margin-top: 20px; }
               .status { display: inline-block; padding: 4px 8px; border-radius: 4px; color: white; }
-              .status.pending { background-color: #f59e0b; }
-              .status.in-progress { background-color: #3b82f6; }
-              .status.completed { background-color: #10b981; }
-              .status.cancelled { background-color: #ef4444; }
+              .status.pending { background-color: #a9741f; }
+              .status.in-progress { background-color: #bc5727; }
+              .status.completed { background-color: #4a7c59; }
+              .status.cancelled { background-color: #b23b2e; }
               @media print { body { margin: 0; } }
             </style>
           </head>
@@ -412,7 +445,7 @@ export function OrderDetails() {
             </div>
             <div style="margin-top: 30px; text-align: center; color: #666;">
               <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
-                "ar-SA"
+                "EN-GB"
               )}</p>
             </div>
           </body>
@@ -525,11 +558,7 @@ export function OrderDetails() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const calculateOrderTotal = () => {
@@ -769,13 +798,12 @@ export function OrderDetails() {
         </div>
 
         {/* Filters and Sorting */}
-        <div className="od-filters-section">
-          <div className="od-filter-group">
-            <label>النوع:</label>
+        <div className="filters-bar">
+          <div className="filter-field">
+            <label>النوع</label>
             <select
               value={filters.type}
               onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-              className="od-filter-select"
             >
               {getUniqueTypes().map((type) => (
                 <option key={type} value={type}>
@@ -785,12 +813,11 @@ export function OrderDetails() {
             </select>
           </div>
 
-          <div className="od-sort-group">
-            <label>ترتيب حسب:</label>
+          <div className="filter-field">
+            <label>ترتيب حسب</label>
             <select
               value={sortBy.field}
               onChange={(e) => setSortBy({ ...sortBy, field: e.target.value })}
-              className="od-sort-select"
             >
               <option value="name">الاسم</option>
               <option value="type">النوع</option>
@@ -798,8 +825,13 @@ export function OrderDetails() {
               <option value="unitPrice">السعر</option>
               <option value="total">الإجمالي</option>
             </select>
+          </div>
+
+          <div className="filter-field">
+            <label>ترتيب</label>
             <button
-              className="od-sort-direction-btn"
+              type="button"
+              className="sort-toggle-btn"
               onClick={() =>
                 setSortBy({
                   ...sortBy,
@@ -810,6 +842,17 @@ export function OrderDetails() {
               {sortBy.order === "asc" ? "↑" : "↓"}
             </button>
           </div>
+
+          <button
+            type="button"
+            className="filters-clear-btn"
+            onClick={() => {
+              setFilters({ type: "all" });
+              setSortBy({ field: "name", order: "asc" });
+            }}
+          >
+            مسح الفلاتر
+          </button>
         </div>
 
         {/* Items Table */}
@@ -929,7 +972,7 @@ export function OrderDetails() {
       {/* Add Item Modal */}
       {showAddItemModal && (
         <div className="od-modal-overlay">
-          <div className="od-modal">
+          <div className="od-modal" ref={addModalRef}>
             <div className="od-modal-header">
               <h3>إضافة عنصر جديد</h3>
               <button
@@ -940,6 +983,12 @@ export function OrderDetails() {
               </button>
             </div>
             <div className="od-modal-body">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="od-form-group">
                 <label>اسم العنصر *</label>
                 <div className="autocomplete-container">

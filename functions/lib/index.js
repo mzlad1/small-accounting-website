@@ -370,6 +370,58 @@ async function performBackup(type, triggeredBy) {
         size: JSON.stringify(backupData).length,
         triggeredBy,
     });
+    // Retention: only AFTER the new backup is safely stored, keep the
+    // newest 5 backups (this one + last 4) and delete the rest.
+    // A cleanup failure must never fail the backup itself.
+    try {
+        await cleanupOldBackups(5);
+    }
+    catch (cleanupError) {
+        console.warn("Backup retention cleanup failed:", cleanupError);
+    }
     return { filename, totalDocuments: totalDocs };
+}
+/**
+ * Retention: keep only the newest `keep` backup files in Storage and
+ * prune the backupHistory records to match.
+ */
+async function cleanupOldBackups(keep) {
+    const bucket = admin.storage().bucket();
+    const [files] = await bucket.getFiles({ prefix: "backups/" });
+    const sorted = files
+        .filter((f) => f.name.endsWith(".json"))
+        .map((f) => ({
+        file: f,
+        created: new Date(String(f.metadata.timeCreated || 0)).getTime(),
+    }))
+        .sort((a, b) => b.created - a.created); // newest first
+    const toDelete = sorted.slice(keep);
+    const deletedNames = new Set();
+    for (const entry of toDelete) {
+        try {
+            await entry.file.delete();
+            deletedNames.add(entry.file.name);
+            console.log(`Retention: deleted old backup ${entry.file.name}`);
+        }
+        catch (err) {
+            console.warn(`Retention: failed to delete ${entry.file.name}`, err);
+        }
+    }
+    // Prune history records: keep the newest `keep`, drop the rest and
+    // any record pointing at a file that was just deleted
+    const historySnap = await db
+        .collection("backupHistory")
+        .orderBy("date", "desc")
+        .get();
+    const historyDocs = historySnap.docs;
+    for (let i = 0; i < historyDocs.length; i++) {
+        const data = historyDocs[i].data();
+        if (i >= keep || deletedNames.has(data.filename)) {
+            await historyDocs[i].ref.delete();
+        }
+    }
+    if (toDelete.length > 0) {
+        console.log(`Retention: removed ${toDelete.length} old backup(s)`);
+    }
 }
 //# sourceMappingURL=index.js.map

@@ -8,8 +8,15 @@ import {
   DollarSign,
   X,
 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  DocumentData,
+  DocumentSnapshot,
+} from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchDocsCacheFirst } from "../utils/cacheFirst";
+import { subscribeDocs } from "../utils/live";
 import { useParams, useNavigate } from "react-router-dom";
 import "./ApartmentGallery.css";
 
@@ -36,27 +43,30 @@ export function ApartmentGallery() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchApartment();
+    if (!apartmentId) return;
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeDocs(
+      [doc(db, "apartments", apartmentId)],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching apartment:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apartmentId]);
 
-  const fetchApartment = async () => {
-    try {
-      setLoading(true);
-
-      if (!apartmentId) return;
-
-      const apartmentDoc = await getDoc(doc(db, "apartments", apartmentId));
-      if (apartmentDoc.exists()) {
-        setApartment({
-          id: apartmentDoc.id,
-          ...apartmentDoc.data(),
-        } as Apartment);
-      }
-    } catch (error) {
-      console.error("Error fetching apartment:", error);
-      alert("حدث خطأ أثناء تحميل البيانات");
-    } finally {
-      setLoading(false);
+  // Runs once from the local cache (instant paint) and again with the
+  // server result. Must fully replace state, never append.
+  const applySnapshots = ([apartmentDoc]: Array<
+    DocumentSnapshot<DocumentData>
+  >) => {
+    if (apartmentDoc.exists()) {
+      setApartment({
+        id: apartmentDoc.id,
+        ...apartmentDoc.data(),
+      } as Apartment);
     }
   };
 

@@ -18,6 +18,7 @@ import { Suppliers } from "./pages/Suppliers";
 import { SupplierDetails } from "./pages/SupplierDetails";
 import { SupplierPayments } from "./pages/SupplierPayments";
 import { Reports } from "./pages/Reports";
+import { Receipts } from "./pages/Receipts";
 import Backup from "./pages/Backup";
 import { CalendarPage } from "./pages/Calendar";
 import { Tasks } from "./pages/Tasks";
@@ -41,6 +42,16 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <Dashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/receipts"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Receipts />
                 </Layout>
               </ProtectedRoute>
             }

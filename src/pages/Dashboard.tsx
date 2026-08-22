@@ -23,15 +23,15 @@ import {
 } from "lucide-react";
 import {
   collection,
-  getDocs,
-  query,
-  where,
   orderBy,
   Timestamp,
   updateDoc,
   doc,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { subscribeAll } from "../utils/live";
 import "./Dashboard.css";
 
 interface Customer {
@@ -141,7 +141,25 @@ export function Dashboard() {
   });
 
   useEffect(() => {
-    fetchData();
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        collection(db, "customers"),
+        collection(db, "orders"),
+        collection(db, "orderItems"),
+        collection(db, "payments"),
+        collection(db, "customerChecks"),
+        collection(db, "personalChecks"),
+        collection(db, "tasks"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching dashboard data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -184,139 +202,121 @@ export function Dashboard() {
     };
   }, [showFilters]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [
+      customersSnapshot,
+      ordersSnapshot,
+      orderItemsSnapshot,
+      paymentsSnapshot,
+      customerChecksSnapshot,
+      personalChecksSnapshot,
+      tasksSnapshot,
+    ] = snapshots;
 
-      // Fetch customers
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersData: Customer[] = [];
-      customersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        customersData.push({
-          id: doc.id,
-          name: data.name,
-          phone: data.phone,
-          notes: data.notes,
-        });
+    const customersData: Customer[] = [];
+    customersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      customersData.push({
+        id: doc.id,
+        name: data.name,
+        phone: data.phone,
+        notes: data.notes,
       });
-      setCustomers(customersData);
+    });
+    setCustomers(customersData);
 
-      // Fetch orders
-      const ordersSnapshot = await getDocs(collection(db, "orders"));
-      const ordersData: Order[] = [];
-      ordersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        ordersData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          title: data.title,
-          date: data.date,
-          status: data.status,
-          total: data.total,
-          items: data.items || [],
-          notes: data.notes,
-        });
+    const ordersData: Order[] = [];
+    ordersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      ordersData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        title: data.title,
+        date: data.date,
+        status: data.status,
+        total: data.total,
+        items: data.items || [],
+        notes: data.notes,
       });
-      setOrders(ordersData);
+    });
+    setOrders(ordersData);
 
-      // Fetch order items for all orders
-      const orderItemsData: { [orderId: string]: any[] } = {};
-      for (const order of ordersData) {
-        const itemsQuery = query(
-          collection(db, "orderItems"),
-          where("orderId", "==", order.id)
-        );
-        const itemsSnapshot = await getDocs(itemsQuery);
-        const items: any[] = [];
-        itemsSnapshot.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() });
-        });
-        orderItemsData[order.id] = items;
+    // Group all order items by orderId in memory
+    // (replaces the per-order query loop — one read instead of N)
+    const orderItemsData: { [orderId: string]: any[] } = {};
+    orderItemsSnapshot.forEach((doc) => {
+      const item = { id: doc.id, ...doc.data() } as any;
+      if (!orderItemsData[item.orderId]) {
+        orderItemsData[item.orderId] = [];
       }
-      setOrderItems(orderItemsData);
+      orderItemsData[item.orderId].push(item);
+    });
+    setOrderItems(orderItemsData);
 
-      // Fetch payments
-      const paymentsSnapshot = await getDocs(collection(db, "payments"));
-      const paymentsData: Payment[] = [];
-      paymentsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        paymentsData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          date: data.date,
-          type: data.type,
-          amount: data.amount,
-          notes: data.notes,
-          checkId: data.checkId,
-        });
+    const paymentsData: Payment[] = [];
+    paymentsSnapshot.forEach((doc) => {
+      const data = doc.data();
+      paymentsData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        date: data.date,
+        type: data.type,
+        amount: data.amount,
+        notes: data.notes,
+        checkId: data.checkId,
       });
-      setPayments(paymentsData);
+    });
+    setPayments(paymentsData);
 
-      // Fetch customer checks
-      const customerChecksSnapshot = await getDocs(
-        collection(db, "customerChecks")
-      );
-      const customerChecksData: CustomerCheck[] = [];
-      customerChecksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        customerChecksData.push({
-          id: doc.id,
-          customerId: data.customerId,
-          customerName: data.customerName,
-          checkNumber: data.checkNumber,
-          bank: data.bank,
-          amount: data.amount,
-          dueDate: data.dueDate,
-          status: data.status,
-          notes: data.notes,
-        });
+    const customerChecksData: CustomerCheck[] = [];
+    customerChecksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      customerChecksData.push({
+        id: doc.id,
+        customerId: data.customerId,
+        customerName: data.customerName,
+        checkNumber: data.checkNumber,
+        bank: data.bank,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        status: data.status,
+        notes: data.notes,
       });
-      setCustomerChecks(customerChecksData);
+    });
+    setCustomerChecks(customerChecksData);
 
-      // Fetch personal checks
-      const personalChecksSnapshot = await getDocs(
-        collection(db, "personalChecks")
-      );
-      const personalChecksData: PersonalCheck[] = [];
-      personalChecksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        personalChecksData.push({
-          id: doc.id,
-          payee: data.payee,
-          checkNumber: data.checkNumber,
-          bank: data.bank,
-          amount: data.amount,
-          dueDate: data.dueDate,
-          status: data.status,
-          notes: data.notes,
-        });
+    const personalChecksData: PersonalCheck[] = [];
+    personalChecksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      personalChecksData.push({
+        id: doc.id,
+        payee: data.payee,
+        checkNumber: data.checkNumber,
+        bank: data.bank,
+        amount: data.amount,
+        dueDate: data.dueDate,
+        status: data.status,
+        notes: data.notes,
       });
-      setPersonalChecks(personalChecksData);
+    });
+    setPersonalChecks(personalChecksData);
 
-      // Fetch tasks
-      const tasksSnapshot = await getDocs(collection(db, "tasks"));
-      const tasksData: Task[] = [];
-      tasksSnapshot.forEach((doc) => {
-        const data = doc.data();
-        tasksData.push({
-          id: doc.id,
-          name: data.name,
-          description: data.description,
-          date: data.date,
-          notes: data.notes || "",
-          completed: data.completed || false,
-          createdAt: data.createdAt,
-        });
+    const tasksData: Task[] = [];
+    tasksSnapshot.forEach((doc) => {
+      const data = doc.data();
+      tasksData.push({
+        id: doc.id,
+        name: data.name,
+        description: data.description,
+        date: data.date,
+        notes: data.notes || "",
+        completed: data.completed || false,
+        createdAt: data.createdAt,
       });
-      setTasks(tasksData);
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
+    });
+    setTasks(tasksData);
   };
 
   // Helper functions to calculate order totals from order items
@@ -532,8 +532,7 @@ export function Dashboard() {
       await updateDoc(doc(db, "tasks", task.id), {
         completed: !task.completed,
       });
-      // Refresh data
-      fetchData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error updating task status:", error);
       alert("حدث خطأ أثناء تحديث حالة المهمة");
@@ -628,11 +627,7 @@ export function Dashboard() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const getDaysUntilDue = (dueDate: string) => {

@@ -1,147 +1,207 @@
+/* ============================================================
+   Layout — "Warm Studio"
+   A floating cream studio panel instead of a boxed sidebar:
+   detached card over the paper canvas, grouped navigation with
+   section labels, raised white pill for the active page,
+   user chip + logout at the foot. On mobile it becomes a top
+   app bar with an RTL slide-in drawer.
+   ============================================================ */
+
 .layout-container {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: row;
   direction: rtl; /* Arabic text direction */
-  background: ghostwhite;
+  background: var(--bg-primary);
 }
 
-/* Sidebar */
+/* ------------------------------------------------------------
+   Studio panel (desktop)
+   ------------------------------------------------------------ */
 .sidebar {
-  width: 280px;
-  background: white;
-  border-left: 1px solid #e2e8f0; /* Changed from border-right for RTL */
+  width: 268px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  box-shadow: -2px 0 4px -1px rgba(0, 0, 0, 0.1); /* Changed shadow direction */
-  position: relative;
-  overflow: overlay;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  margin: 14px 14px 14px 0; /* RTL: detached from the right edge */
+  height: calc(100vh - 28px);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
   z-index: 10;
-  transition: width 0.3s ease;
+  transition: width 0.25s var(--ease-out);
 }
 
-/* Collapsed Sidebar */
 .sidebar.collapsed {
-  width: 80px;
+  width: 86px;
 }
 
-/* Sidebar Toggle Button */
-.sidebar-toggle {
-  width: 32px;
-  height: 32px;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 50%;
+/* Brand block */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 1rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.brand-mark {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  z-index: 1000;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow-xs);
 }
 
-/* Adjust toggle button position when sidebar is collapsed */
-.sidebar-collapsed .sidebar-toggle {
-  right: 80px;
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.brand-text strong {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-text span {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+/* Collapse toggle — quiet ghost button in the brand row */
+.sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
+}
+
+.sidebar.collapsed .sidebar-toggle {
+  margin-inline-start: 0;
+}
+
+.sidebar.collapsed .sidebar-brand {
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 0.5rem;
 }
 
 .sidebar-toggle:hover {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  background: var(--bg-sidebar-hover);
+  color: var(--text-primary);
 }
 
-.sidebar-toggle svg {
-  color: #64748b;
-  transition: color 0.2s ease;
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-.sidebar-toggle:hover svg {
-  color: #475569;
-}
-
-/* Blue Top Section */
-.sidebar-header {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  color: white;
-  padding: 2rem 1.5rem;
-  text-align: center;
-}
-
-.sidebar-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0 0 1rem 0;
-  color: white;
-}
-
-.user-info {
-  display: flex;
+/* Drawer close — mobile only */
+.drawer-close-btn {
+  display: none;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  width: 32px;
+  height: 32px;
+  margin-inline-start: auto;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
-.user-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgba(255, 255, 255, 0.9);
+.drawer-close-btn:hover {
+  background: var(--bg-sidebar-hover);
+  color: var(--text-primary);
 }
 
-.user-email {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* Collapsed State Elements */
-.sidebar-title.collapsed {
-  font-size: 1.25rem;
-  margin-bottom: 0.5rem;
-}
-
-.user-info.collapsed {
-  justify-content: center;
-}
-
-.nav-text {
-  transition: opacity 0.3s ease;
-}
-
-.sidebar.collapsed .nav-text {
-  opacity: 0;
-  width: 0;
-  overflow: hidden;
-}
-
-.logout-section.collapsed {
-  padding: 1rem 0.5rem;
-}
-
-.logout-section.collapsed .logout-btn {
-  justify-content: center;
-  padding: 0.75rem 0.5rem;
-}
-
-/* White Bottom Section */
-.sidebar-content {
-  flex: 1;
-  background: white;
-  display: flex;
-  flex-direction: column;
-}
-
+/* ------------------------------------------------------------
+   Grouped navigation
+   ------------------------------------------------------------ */
 .sidebar-nav {
   flex: 1;
-  padding: 1.5rem 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0.75rem 0.75rem 0.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+
+.nav-group {
+  margin-bottom: 0.875rem;
+}
+
+.nav-group:last-child {
+  margin-bottom: 0;
+}
+
+.nav-group-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  letter-spacing: 0.07em;
+  padding: 0 0.625rem;
+  margin: 0 0 0.375rem 0;
+}
+
+/* Collapsed rail: groups separated by a short centered hairline */
+.nav-group-divider {
+  width: 26px;
+  height: 1px;
+  background: var(--border-strong);
+  margin: 0 auto 0.5rem;
+}
+
+.nav-group:first-child .nav-group-divider {
+  display: none;
 }
 
 .nav-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .nav-list li {
@@ -149,82 +209,254 @@
 }
 
 .nav-link {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  color: #475569;
+  gap: 0.625rem;
+  padding: 0.55rem 0.625rem;
+  border-radius: var(--radius);
+  color: var(--text-secondary);
   text-decoration: none;
   font-weight: 500;
-  font-size: 0.875rem;
-  transition: all 0.2s ease;
-  border-right: 4px solid transparent; /* Changed from border-left for RTL */
+  font-size: 0.85rem;
+  transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out),
+    box-shadow 0.15s var(--ease-out);
 }
 
 .nav-link:hover {
-  background-color: #f8fafc;
-  color: #1e293b;
+  background-color: var(--bg-sidebar-hover);
+  color: var(--text-primary);
 }
 
+.nav-link:hover .nav-icon {
+  color: var(--text-primary);
+}
+
+.nav-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Active page — a raised warm-white pill with terracotta ink
+   and a small clay dot at its far edge */
 .nav-link.active {
-  background-color: #f0fdf4;
-  color: #16a34a;
-  border-right-color: #16a34a; /* Changed from border-left-color for RTL */
-  font-weight: 600;
+  background: var(--bg-surface);
+  color: var(--accent-deep);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
 }
 
-.nav-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+.nav-link.active::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-inline-start: auto;
   flex-shrink: 0;
 }
 
-/* Logout Section */
-.logout-section {
-  padding: 1.5rem;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
+.nav-link.active .nav-icon {
+  color: var(--accent);
+}
+
+.nav-icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  transition: color 0.15s var(--ease-out);
+}
+
+.nav-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Collapsed rail hides labels via CSS so the mobile drawer
+   (which overrides this) always keeps its full labels */
+.sidebar.collapsed .nav-text,
+.sidebar.collapsed .brand-text,
+.sidebar.collapsed .user-email {
+  display: none;
+}
+
+.sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 0.55rem 0.5rem;
+}
+
+.sidebar.collapsed .nav-link.active::after {
+  position: absolute;
+  top: 6px;
+  left: 6px; /* RTL: far corner of the pill */
+  margin-inline-start: 0;
+}
+
+/* ------------------------------------------------------------
+   Footer — user chip + logout
+   ------------------------------------------------------------ */
+.sidebar-footer {
+  padding: 0.75rem;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.user-email {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .logout-btn {
-  width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 0.5rem;
-  color: #64748b;
-  font-weight: 500;
-  font-size: 0.875rem;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.15s var(--ease-out), color 0.15s var(--ease-out);
 }
 
 .logout-btn:hover {
-  border-color: #ef4444;
-  color: #dc2626;
-  background-color: #fef2f2;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.logout-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .logout-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1rem;
+  height: 1rem;
 }
 
-/* Main Content */
+.sidebar-footer.collapsed .user-chip {
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.45rem 0.25rem;
+}
+
+/* ------------------------------------------------------------
+   Mobile top bar + backdrop (hidden on desktop)
+   ------------------------------------------------------------ */
+.mobile-topbar {
+  display: none;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  z-index: 90;
+}
+
+.menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: var(--shadow-xs);
+}
+
+.menu-btn:active {
+  background: var(--gray-soft);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.topbar-brand .brand-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+
+.topbar-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(34, 28, 21, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s var(--ease-out);
+  z-index: 150;
+}
+
+/* ------------------------------------------------------------
+   Main content
+   ------------------------------------------------------------ */
 .main-content {
   flex: 1;
-  background: #f8fafc;
+  background: var(--bg-primary);
   overflow-y: auto;
   overflow-x: hidden;
-  transition: margin-right 0.3s ease; /* Changed from margin-left for RTL */
   min-width: 0; /* Allow flex item to shrink below content size */
   display: flex;
   flex-direction: column;
   scrollbar-width: thin;
-  scrollbar-color: #3b82f6 #f1f5f9;
+  scrollbar-color: var(--border-strong) transparent;
 }
 
 .main-content::-webkit-scrollbar {
@@ -232,162 +464,154 @@
 }
 
 .main-content::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 3px;
+  background: transparent;
 }
 
 .main-content::-webkit-scrollbar-thumb {
-  background: #3b82f6;
-  border-radius: 3px;
+  background: var(--border-strong);
+  border-radius: 4px;
 }
 
 .main-content::-webkit-scrollbar-thumb:hover {
-  background: #2563eb;
+  background: var(--text-tertiary);
 }
 
-/* Expanded Main Content when Sidebar is Collapsed */
 .main-content.expanded {
-  margin-right: 0; /* Changed from margin-left for RTL */
+  margin-right: 0; /* RTL */
 }
 
 .content-wrapper {
   max-width: 100%;
   box-sizing: border-box;
   flex: 1;
-
   overflow: visible;
 }
 
-/* Responsive Design */
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
 @media (max-width: 1024px) {
   .sidebar {
-    width: 240px;
+    width: 244px;
+    margin: 10px 10px 10px 0;
+    height: calc(100vh - 20px);
+    border-radius: 16px;
   }
 
   .sidebar.collapsed {
-    width: 70px;
+    width: 78px;
   }
 
-  .sidebar-toggle {
-    right: 240px;
-  }
-
-  .sidebar-collapsed .sidebar-toggle {
-    right: 70px;
-  }
-
-  .sidebar-header {
-    padding: 1.5rem 1rem;
-  }
-
-  .sidebar-title {
-    font-size: 1.25rem;
-  }
-
-  .nav-link {
-    padding: 0.875rem 1.25rem;
-  }
-
-  .logout-section {
-    padding: 1.25rem;
+  .sidebar-brand {
+    padding: 0.875rem 0.75rem;
   }
 }
 
 @media (max-width: 768px) {
   .layout-container {
     flex-direction: column;
-    min-height: 100vh;
+    height: 100dvh;
   }
 
-  .sidebar {
-    width: 100%;
-    border-left: none; /* Changed from border-right for RTL */
-    border-bottom: 1px solid #e2e8f0;
-    flex-shrink: 0;
+  .mobile-topbar {
+    display: flex;
   }
 
-  /* Hide toggle button on mobile since sidebar becomes horizontal */
+  /* The panel becomes an RTL slide-in drawer */
+  .sidebar,
+  .sidebar.collapsed {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: min(300px, 84vw);
+    height: 100dvh;
+    margin: 0;
+    border-radius: 20px 0 0 20px;
+    border: none;
+    border-left: 1px solid var(--border);
+    box-shadow: none;
+    transform: translateX(100%);
+    transition: transform 0.28s var(--ease-out);
+    z-index: 200;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .sidebar-backdrop {
+    display: block;
+  }
+
+  .sidebar-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Drawer always shows full labels; desktop-only controls hide */
   .sidebar-toggle {
     display: none;
   }
 
-  .sidebar-header {
-    padding: 1rem;
-  }
-
-  .sidebar-title {
-    font-size: 1.125rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .sidebar-nav {
-    padding: 1rem 0;
-  }
-
-  .nav-list {
+  .drawer-close-btn {
     display: flex;
-    overflow-x: auto;
-    padding: 0 1rem;
-    -webkit-overflow-scrolling: touch;
   }
 
-  .nav-list li {
-    flex-shrink: 0;
+  .sidebar.collapsed .sidebar-brand {
+    flex-direction: row;
+    gap: 0.625rem;
+    padding: 1rem 0.875rem;
   }
 
-  .nav-link {
-    padding: 0.75rem 1rem;
-    border-right: none; /* Changed from border-left for RTL */
-    border-bottom: 3px solid transparent;
-    white-space: nowrap;
+  .sidebar.collapsed .nav-text,
+  .sidebar.collapsed .user-email {
+    display: block;
   }
 
-  .nav-link.active {
-    border-right-color: transparent; /* Changed from border-left-color for RTL */
-    border-bottom-color: #16a34a;
+  .sidebar.collapsed .brand-text {
+    display: flex;
   }
 
-  .logout-section {
-    padding: 1rem;
+  .sidebar.collapsed .nav-link {
+    justify-content: flex-start;
+    padding: 0.55rem 0.625rem;
   }
 
-  .logout-btn {
-    justify-content: center;
+  .sidebar.collapsed .nav-link.active::after {
+    position: static;
+    margin-inline-start: auto;
   }
 
-  .content-wrapper {
-    padding: 1.5rem;
-    width: 100%;
-    max-width: 100%;
-    overflow: visible;
-    flex: 1;
+  .sidebar-footer.collapsed .user-chip {
+    flex-direction: row;
+    gap: 0.5rem;
+    padding: 0.45rem;
   }
 
   .main-content {
     width: 100%;
     max-width: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
     flex: 1;
-    display: flex;
-    flex-direction: column;
+    min-height: 0;
+  }
+
+  .content-wrapper {
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow: visible;
+    flex: 1;
   }
 }
 
 @media (max-width: 640px) {
-  .sidebar-header {
-    padding: 0.875rem;
+  .mobile-topbar {
+    padding: 0.5rem 0.875rem;
   }
 
-  .sidebar-title {
-    font-size: 1rem;
-  }
-
-  .user-info {
-    font-size: 0.75rem;
-  }
-
-  .content-wrapper {
-    padding: 1rem;
+  .topbar-title {
+    font-size: 0.9rem;
   }
 }

@@ -275,11 +275,54 @@ export class FirebaseBackupService {
       console.log(`☁️ Backup uploaded successfully: ${filename}`);
       console.log(`📊 Size: ${(blob.size / 1024).toFixed(2)} KB`);
 
+      // Retention: only AFTER the new backup is confirmed uploaded,
+      // prune old ones so at most 5 (the new + last 4) remain.
+      // A cleanup failure must never fail the backup itself.
+      try {
+        await this.cleanupOldBackups(5);
+      } catch (cleanupError) {
+        console.warn("⚠️ Backup retention cleanup failed:", cleanupError);
+      }
+
       return cloudBackup;
     } catch (error) {
       console.error("❌ Cloud backup failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * Retention: keep only the newest `keep` cloud backups, delete the rest.
+   * Called after a successful backup upload.
+   */
+  async cleanupOldBackups(keep: number = 5): Promise<number> {
+    const backupsRef = ref(storage, "backups/");
+    const result = await listAll(backupsRef);
+
+    // Collect creation times so we delete strictly the oldest files
+    const files = await Promise.all(
+      result.items.map(async (itemRef) => {
+        const metadata = await getMetadata(itemRef);
+        return { itemRef, created: new Date(metadata.timeCreated).getTime() };
+      })
+    );
+
+    files.sort((a, b) => b.created - a.created); // newest first
+    const toDelete = files.slice(keep);
+
+    for (const file of toDelete) {
+      try {
+        await deleteObject(file.itemRef);
+        console.log(`🧹 Deleted old backup: ${file.itemRef.name}`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to delete ${file.itemRef.name}:`, error);
+      }
+    }
+
+    if (toDelete.length > 0) {
+      console.log(`🧹 Retention: removed ${toDelete.length} old backup(s)`);
+    }
+    return toDelete.length;
   }
 
   /**

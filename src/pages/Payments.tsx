@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Search,
@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
   Printer,
+  CheckCircle,
 } from "lucide-react";
 import {
   collection,
@@ -25,8 +26,12 @@ import {
   query,
   where,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 
 import "./Payments.css";
 
@@ -101,8 +106,43 @@ export function Payments() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several payments can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchData();
+    if (showAddModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
+
+  useEffect(() => {
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        collection(db, "customers"),
+        query(collection(db, "payments"), orderBy("createdAt", "desc")),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -125,54 +165,39 @@ export function Payments() {
     };
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [customersSnapshot, paymentsSnapshot] = snapshots;
 
-      // Fetch customers
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersData: Customer[] = [];
-      customersSnapshot.forEach((doc) => {
-        customersData.push({ id: doc.id, ...doc.data() } as Customer);
-      });
-      setCustomers(customersData);
+    const customersData: Customer[] = [];
+    customersSnapshot.forEach((doc) => {
+      customersData.push({ id: doc.id, ...doc.data() } as Customer);
+    });
+    setCustomers(customersData);
 
-      // Fetch payments with customer names
-      const paymentsSnapshot = await getDocs(
-        query(collection(db, "payments"), orderBy("createdAt", "desc"))
+    // Map payments with customer names
+    const paymentsData: Payment[] = [];
+    paymentsSnapshot.forEach((doc) => {
+      const paymentData = doc.data();
+      const customer = customersData.find(
+        (c) => c.id === paymentData.customerId
       );
-      const paymentsData: Payment[] = [];
-      paymentsSnapshot.forEach((doc) => {
-        const paymentData = doc.data();
-        const customer = customersData.find(
-          (c) => c.id === paymentData.customerId
-        );
-        paymentsData.push({
-          id: doc.id,
-          ...paymentData,
-          customerName: customer?.name || "Unknown Customer",
-        } as Payment);
-      });
+      paymentsData.push({
+        id: doc.id,
+        ...paymentData,
+        customerName: customer?.name || "Unknown Customer",
+      } as Payment);
+    });
 
-      setPayments(paymentsData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    setPayments(paymentsData);
   };
 
   const applyFiltersAndSort = () => {
     let filtered = [...payments];
 
-    // Apply search
+    // Apply search (any field)
     if (searchTerm) {
-      filtered = filtered.filter(
-        (payment) =>
-          payment.customerName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          payment.notes?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter((payment) =>
+        matchesSearch(payment, searchTerm)
       );
     }
 
@@ -429,12 +454,8 @@ export function Payments() {
         console.log("Check created with ID:", checkRef.id);
       }
 
-      // Show success message
-      if (paymentForm.type === "check") {
-        alert("تم إضافة الدفعة والشيك بنجاح!");
-      }
-
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setPaymentForm({
         customerId: "",
         date: new Date().toISOString().split("T")[0],
@@ -449,6 +470,9 @@ export function Payments() {
       setCustomerSearchTerm("");
       setIsCustomerDropdownOpen(false);
       setSelectedCustomerIndex(-1);
+      setAddSuccess(true);
+      focusFirstField();
+      setTimeout(() => setAddSuccess(false), 2500);
     } catch (error) {
       console.error("Error adding payment:", error);
     }
@@ -629,11 +653,7 @@ export function Payments() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const printPayments = () => {
@@ -648,24 +668,22 @@ export function Payments() {
             <title>قائمة المدفوعات</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2b241c; padding-bottom: 20px; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
               .type-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
-              .type-badge.cash { background-color: #10b981; }
-              .type-badge.check { background-color: #3b82f6; }
-              .grouped-indicator { color: #6b7280; font-size: 11px; }
-              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              .type-badge.cash { background-color: #4a7c59; }
+              .type-badge.check { background-color: #bc5727; }
+              .grouped-indicator { color: #6f6459; font-size: 11px; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #faf6ee; border-radius: 8px; }
               @media print { body { margin: 0; } }
             </style>
           </head>
           <body>
             <div class="header">
               <h1>قائمة المدفوعات</h1>
-              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
-                "en-US"
-              )}</p>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             <table>
               <thead>
@@ -802,77 +820,6 @@ export function Payments() {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="search-filters-section">
-        <div className="search-box">
-          <Search className="search-icon" />
-          <input
-            type="text"
-            placeholder="البحث بالعميل أو الملاحظات..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        <div className="filters-row">
-          <div className="filter-group">
-            <label>العميل:</label>
-            <select
-              value={filters.customer}
-              onChange={(e) =>
-                setFilters({ ...filters, customer: e.target.value })
-              }
-              className="filter-select"
-            >
-              <option value="all">جميع العملاء</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>النوع:</label>
-            <select
-              value={filters.type}
-              onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-              className="filter-select"
-            >
-              <option value="all">جميع الأنواع</option>
-              <option value="cash">نقدي</option>
-              <option value="check">شيك</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>من تاريخ:</label>
-            <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) =>
-                setFilters({ ...filters, dateFrom: e.target.value })
-              }
-              className="filter-input"
-            />
-          </div>
-
-          <div className="filter-group">
-            <label>إلى تاريخ:</label>
-            <input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) =>
-                setFilters({ ...filters, dateTo: e.target.value })
-              }
-              className="filter-input"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Summary Section */}
       <div className="summary-section">
         <div className="summary-cards">
@@ -932,6 +879,88 @@ export function Payments() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              placeholder="بحث..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        </div>
+
+        <div className="filter-field">
+          <label>العميل</label>
+          <select
+            value={filters.customer}
+            onChange={(e) =>
+              setFilters({ ...filters, customer: e.target.value })
+            }
+          >
+            <option value="all">جميع العملاء</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>النوع</label>
+          <select
+            value={filters.type}
+            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+          >
+            <option value="all">جميع الأنواع</option>
+            <option value="cash">نقدي</option>
+            <option value="check">شيك</option>
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>من تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateFrom}
+            onChange={(e) =>
+              setFilters({ ...filters, dateFrom: e.target.value })
+            }
+          />
+        </div>
+
+        <div className="filter-field">
+          <label>إلى تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateTo}
+            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+          />
+        </div>
+
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setFilters({
+              customer: "all",
+              type: "all",
+              dateFrom: "",
+              dateTo: "",
+            });
+          }}
+        >
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Payments Table */}
@@ -1135,7 +1164,7 @@ export function Payments() {
       {/* Add Payment Modal */}
       {showAddModal && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal" ref={addModalRef}>
             <div className="modal-header">
               <h3>إضافة دفعة جديدة</h3>
               <button
@@ -1146,6 +1175,12 @@ export function Payments() {
               </button>
             </div>
             <div className="modal-body">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="form-group">
                 <label>العميل *</label>
                 <div className="custom-dropdown">

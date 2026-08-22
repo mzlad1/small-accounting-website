@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Building2,
   MapPin,
@@ -16,10 +16,15 @@ import {
   Eye,
   Upload,
   X,
+  CheckCircle,
 } from "lucide-react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { LocationValue } from "../components/LocationValue";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, DocumentData, QuerySnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 import { useNavigate } from "react-router-dom";
 import "./Apartments.css";
 
@@ -64,26 +69,50 @@ export function Apartments() {
     ownerEmail: "",
   });
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several apartments can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchData();
+    if (showAddModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
+
+  useEffect(() => {
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [collection(db, "apartments")],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      const apartmentsSnapshot = await getDocs(collection(db, "apartments"));
-      const apartmentsData: Apartment[] = [];
-      apartmentsSnapshot.forEach((doc) => {
-        apartmentsData.push({ id: doc.id, ...doc.data() } as Apartment);
-      });
-      setApartments(apartmentsData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      alert("حدث خطأ أثناء تحميل البيانات");
-    } finally {
-      setLoading(false);
-    }
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [apartmentsSnapshot] = snapshots;
+
+    const apartmentsData: Apartment[] = [];
+    apartmentsSnapshot.forEach((doc) => {
+      apartmentsData.push({ id: doc.id, ...doc.data() } as Apartment);
+    });
+    setApartments(apartmentsData);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,15 +161,19 @@ export function Apartments() {
       if (editingApartment) {
         await updateDoc(doc(db, "apartments", editingApartment.id), apartmentData);
         alert("تم تحديث الشقة بنجاح");
+        setShowAddModal(false);
+        setEditingApartment(null);
+        resetForm();
       } else {
         await addDoc(collection(db, "apartments"), apartmentData);
-        alert("تمت إضافة الشقة بنجاح");
+        // Stay open for the next entry: reset the form, confirm inline,
+        // and put the cursor back in the first field.
+        resetForm();
+        setAddSuccess(true);
+        focusFirstField();
+        setTimeout(() => setAddSuccess(false), 2500);
       }
-
-      setShowAddModal(false);
-      setEditingApartment(null);
-      resetForm();
-      fetchData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error saving apartment:", error);
       alert("حدث خطأ أثناء حفظ البيانات");
@@ -171,7 +204,7 @@ export function Apartments() {
     try {
       await deleteDoc(doc(db, "apartments", id));
       alert("تم حذف الشقة بنجاح");
-      fetchData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error deleting apartment:", error);
       alert("حدث خطأ أثناء الحذف");
@@ -194,11 +227,8 @@ export function Apartments() {
     });
   };
 
-  const filteredApartments = apartments.filter(
-    (apartment) =>
-      apartment.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apartment.buildingName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      apartment.ownerName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredApartments = apartments.filter((apartment) =>
+    matchesSearch(apartment, searchTerm)
   );
 
   // Pagination
@@ -257,16 +287,27 @@ export function Apartments() {
       </div>
 
       {/* Search */}
-      <div className="apartments-search-section">
-        <div className="apartments-search-box">
-          <Search className="apartments-search-icon" />
-          <input
-            type="text"
-            placeholder="بحث عن شقة..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="بحث عن شقة..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
         </div>
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => setSearchTerm("")}
+        >
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Apartments Grid */}
@@ -292,7 +333,7 @@ export function Apartments() {
               <div className="apartments-card-details">
                 <div className="apartments-detail-item">
                   <MapPin className="apartments-detail-icon" />
-                  <span>{apartment.location}</span>
+                  <LocationValue value={apartment.location} />
                 </div>
                 <div className="apartments-detail-item">
                   <Layers className="apartments-detail-icon" />
@@ -408,9 +449,19 @@ export function Apartments() {
       {/* Add/Edit Modal */}
       {showAddModal && (
         <div className="apartments-modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="apartments-modal-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="apartments-modal-content"
+            ref={addModalRef}
+            onClick={(e) => e.stopPropagation()}
+          >
             <h2>{editingApartment ? "تعديل شقة" : "إضافة شقة جديدة"}</h2>
             <form onSubmit={handleSubmit}>
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="apartments-form-grid">
                 <div className="apartments-form-group">
                   <label>الموقع *</label>

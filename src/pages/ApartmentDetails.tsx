@@ -12,8 +12,17 @@ import {
   Mail,
   ArrowLeft,
 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
+import { LocationValue } from "../components/LocationValue";
+import { ImageViewer } from "../components/ImageViewer";
+import {
+  doc,
+  getDoc,
+  DocumentData,
+  DocumentSnapshot,
+} from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchDocsCacheFirst } from "../utils/cacheFirst";
+import { subscribeDocs } from "../utils/live";
 import { useParams, useNavigate } from "react-router-dom";
 import "./ApartmentDetails.css";
 
@@ -37,29 +46,32 @@ export function ApartmentDetails() {
   const { apartmentId } = useParams<{ apartmentId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [apartment, setApartment] = useState<Apartment | null>(null);
 
   useEffect(() => {
-    fetchData();
+    if (!apartmentId) return;
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeDocs(
+      [doc(db, "apartments", apartmentId)],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apartmentId]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-
-      if (!apartmentId) return;
-
-      // Fetch apartment
-      const apartmentDoc = await getDoc(doc(db, "apartments", apartmentId));
-      if (apartmentDoc.exists()) {
-        const apartmentData = { id: apartmentDoc.id, ...apartmentDoc.data() } as Apartment;
-        setApartment(apartmentData);
-      }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-      alert("حدث خطأ أثناء تحميل البيانات");
-    } finally {
-      setLoading(false);
+  // Runs once from the local cache (instant paint) and again with the
+  // server result. Must fully replace state, never append.
+  const applySnapshots = ([apartmentDoc]: Array<
+    DocumentSnapshot<DocumentData>
+  >) => {
+    if (apartmentDoc.exists()) {
+      const apartmentData = { id: apartmentDoc.id, ...apartmentDoc.data() } as Apartment;
+      setApartment(apartmentData);
     }
   };
 
@@ -127,7 +139,9 @@ export function ApartmentDetails() {
                 <MapPin className="detail-icon" />
                 <span>الموقع</span>
               </div>
-              <div className="detail-value">{apartment.location}</div>
+              <div className="detail-value">
+                <LocationValue value={apartment.location} />
+              </div>
             </div>
 
             <div className="detail-row">
@@ -237,12 +251,24 @@ export function ApartmentDetails() {
           <h2>صور الشقة</h2>
           <div className="images-grid">
             {apartment.images.map((image, index) => (
-              <div key={index} className="image-item">
+              <div
+                key={index}
+                className="image-item"
+                onClick={() => setViewerIndex(index)}
+              >
                 <img src={image} alt={`صورة ${index + 1}`} />
               </div>
             ))}
           </div>
         </div>
+      )}
+
+      {viewerIndex !== null && (
+        <ImageViewer
+          images={apartment.images}
+          index={viewerIndex}
+          onClose={() => setViewerIndex(null)}
+        />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Plus,
@@ -28,9 +28,14 @@ import {
   query,
   where,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 
 import "./Orders.css";
 
@@ -114,106 +119,152 @@ export function Orders() {
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(-1);
   const [selectedElementNameIndex, setSelectedElementNameIndex] = useState(-1);
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several orders can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchData();
+    if (showAddModal) {
+      setAddSuccess(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
+
+  const addElementModalRef = useRef<HTMLDivElement | null>(null);
+  const [elementAddSuccess, setElementAddSuccess] = useState(false);
+
+  const focusFirstElementField = () => {
+    setTimeout(() => {
+      addElementModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
+  useEffect(() => {
+    if (showAddElementModal) {
+      setElementAddSuccess(false);
+      focusFirstElementField();
+    }
+  }, [showAddElementModal]);
+
+  useEffect(() => {
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        collection(db, "customers"),
+        collection(db, "suppliers"),
+        query(collection(db, "orders"), orderBy("createdAt", "desc")),
+        collection(db, "orderItems"),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     applyFiltersAndSort();
   }, [orders, searchTerm, filters, sortBy]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [
+      customersSnapshot,
+      suppliersSnapshot,
+      ordersSnapshot,
+      orderItemsSnapshot,
+    ] = snapshots;
 
-      // Fetch customers first
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersData: Customer[] = [];
-      customersSnapshot.forEach((doc) => {
-        customersData.push({ id: doc.id, ...doc.data() } as Customer);
-      });
-      setCustomers(customersData);
+    // Fetch customers first
+    const customersData: Customer[] = [];
+    customersSnapshot.forEach((doc) => {
+      customersData.push({ id: doc.id, ...doc.data() } as Customer);
+    });
+    setCustomers(customersData);
 
-      // Fetch suppliers
-      const suppliersSnapshot = await getDocs(collection(db, "suppliers"));
-      const suppliersData: { id: string; name: string }[] = [];
-      suppliersSnapshot.forEach((doc) => {
-        const data = doc.data();
-        suppliersData.push({ id: doc.id, name: data.name });
-      });
-      setSuppliers(suppliersData);
+    // Fetch suppliers
+    const suppliersData: { id: string; name: string }[] = [];
+    suppliersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      suppliersData.push({ id: doc.id, name: data.name });
+    });
+    setSuppliers(suppliersData);
 
-      // Fetch orders with customer names
-      const ordersSnapshot = await getDocs(
-        query(collection(db, "orders"), orderBy("createdAt", "desc"))
+    // Fetch orders with customer names
+    const ordersData: Order[] = [];
+
+    // Fetch all order items to calculate totals
+    const orderItemsData: any[] = [];
+    orderItemsSnapshot.forEach((doc) => {
+      orderItemsData.push({ id: doc.id, ...doc.data() });
+    });
+
+    ordersSnapshot.forEach((doc) => {
+      const orderData = doc.data();
+      // Use customerName from order data if available, otherwise find from customers
+      const customerName =
+        orderData.customerName ||
+        customersData.find((c) => c.id === orderData.customerId)?.name ||
+        "Unknown Customer";
+
+      // Calculate actual total and number of items from order items
+      const orderItems = orderItemsData.filter(
+        (item) => item.orderId === doc.id
       );
-      const ordersData: Order[] = [];
+      const calculatedTotal = orderItems.reduce(
+        (sum, item) => sum + (item.total || 0),
+        0
+      );
+      const actualNumberOfItems = orderItems.length;
 
-      // Fetch all order items to calculate totals
-      const orderItemsSnapshot = await getDocs(collection(db, "orderItems"));
-      const orderItemsData: any[] = [];
-      orderItemsSnapshot.forEach((doc) => {
-        orderItemsData.push({ id: doc.id, ...doc.data() });
-      });
+      ordersData.push({
+        id: doc.id,
+        ...orderData,
+        customerName,
+        total: calculatedTotal, // Use calculated total instead of stored total
+        numberOfItems: actualNumberOfItems, // Use actual count instead of stored count
+      } as Order);
+    });
+    setOrders(ordersData);
 
-      ordersSnapshot.forEach((doc) => {
-        const orderData = doc.data();
-        // Use customerName from order data if available, otherwise find from customers
-        const customerName =
-          orderData.customerName ||
-          customersData.find((c) => c.id === orderData.customerId)?.name ||
-          "Unknown Customer";
+    // Extract unique order titles for autocomplete
+    const uniqueTitles = [
+      ...new Set(ordersData.map((order) => order.title)),
+    ].filter((title) => title.trim() !== "");
+    console.log("📝 Extracted order titles:", uniqueTitles);
+    setExistingTitles(uniqueTitles);
 
-        // Calculate actual total and number of items from order items
-        const orderItems = orderItemsData.filter(
-          (item) => item.orderId === doc.id
-        );
-        const calculatedTotal = orderItems.reduce(
-          (sum, item) => sum + (item.total || 0),
-          0
-        );
-        const actualNumberOfItems = orderItems.length;
-
-        ordersData.push({
-          id: doc.id,
-          ...orderData,
-          customerName,
-          total: calculatedTotal, // Use calculated total instead of stored total
-          numberOfItems: actualNumberOfItems, // Use actual count instead of stored count
-        } as Order);
-      });
-      setOrders(ordersData);
-
-      // Extract unique order titles for autocomplete
-      const uniqueTitles = [
-        ...new Set(ordersData.map((order) => order.title)),
-      ].filter((title) => title.trim() !== "");
-      console.log("📝 Extracted order titles:", uniqueTitles);
-      setExistingTitles(uniqueTitles);
-
-      // Extract unique element names from all order items
-      const uniqueElementNames = [
-        ...new Set(orderItemsData.map((item) => item.name)),
-      ].filter((name) => name.trim() !== "");
-      console.log("📦 Extracted element names:", uniqueElementNames);
-      setExistingElementNames(uniqueElementNames);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    // Extract unique element names from all order items
+    const uniqueElementNames = [
+      ...new Set(orderItemsData.map((item) => item.name)),
+    ].filter((name) => name.trim() !== "");
+    console.log("📦 Extracted element names:", uniqueElementNames);
+    setExistingElementNames(uniqueElementNames);
   };
 
   const applyFiltersAndSort = () => {
     let filtered = [...orders];
 
-    // Apply search
+    // Apply search (matches any field of the order)
     if (searchTerm) {
-      filtered = filtered.filter(
-        (order) =>
-          order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          order.title.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter((order) => matchesSearch(order, searchTerm));
     }
 
     // Apply status filter
@@ -281,7 +332,8 @@ export function Orders() {
         total: 0,
       };
 
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setOrderForm({
         customerId: "",
         title: "",
@@ -290,6 +342,12 @@ export function Orders() {
         total: 0, // This will be calculated from order items later
         notes: "",
       });
+      setShowTitleSuggestions(false);
+      setSelectedTitleIndex(-1);
+      setAddSuccess(true);
+      focusFirstField();
+      setTimeout(() => setAddSuccess(false), 2500);
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding order:", error);
     }
@@ -590,8 +648,7 @@ export function Orders() {
 
       await addDoc(collection(db, "orderItems"), newElement);
 
-      // Show success message and clear form without closing modal
-      alert("تم إضافة العنصر بنجاح! يمكنك إضافة عنصر آخر.");
+      // Success banner + reset, dialog stays open for the next element
       setElementForm({
         name: "",
         type: "",
@@ -605,7 +662,10 @@ export function Orders() {
       });
       setSelectedFiles([]);
       setShowElementNameSuggestions(false);
-      fetchData(); // Refresh to update totals and element names
+      setElementAddSuccess(true);
+      focusFirstElementField();
+      setTimeout(() => setElementAddSuccess(false), 2500);
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding element:", error);
       alert("حدث خطأ أثناء إضافة العنصر");
@@ -643,17 +703,14 @@ export function Orders() {
       const printWindow = window.open("", "_blank");
       if (printWindow) {
         const filteredOrders = orders.filter((order) => {
-          const matchesSearch =
-            !searchTerm ||
-            order.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchesSearchTerm = matchesSearch(order, searchTerm);
 
           const matchesStatus =
             filters.status === "all" || order.status === filters.status;
           const matchesCustomer =
             filters.customer === "all" || order.customerId === filters.customer;
 
-          return matchesSearch && matchesStatus && matchesCustomer;
+          return matchesSearchTerm && matchesStatus && matchesCustomer;
         });
 
         printWindow.document.write(`
@@ -664,25 +721,23 @@ export function Orders() {
             <title>قائمة الطلبات</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2b241c; padding-bottom: 20px; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
               .status { display: inline-block; padding: 4px 8px; border-radius: 4px; color: white; font-size: 12px; }
-              .status.pending { background-color: #f59e0b; }
-              .status.in-progress { background-color: #3b82f6; }
-              .status.completed { background-color: #10b981; }
-              .status.cancelled { background-color: #ef4444; }
-              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              .status.pending { background-color: #a9741f; }
+              .status.in-progress { background-color: #bc5727; }
+              .status.completed { background-color: #4a7c59; }
+              .status.cancelled { background-color: #b23b2e; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #faf6ee; border-radius: 8px; }
               @media print { body { margin: 0; } }
             </style>
           </head>
           <body>
             <div class="header">
               <h1>قائمة الطلبات</h1>
-              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
-                "en-US"
-              )}</p>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             <table>
               <thead>
@@ -783,11 +838,7 @@ export function Orders() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   if (loading) {
@@ -874,78 +925,87 @@ export function Orders() {
       </div>
 
       {/* Search and Filters */}
-      <div className="search-filters-section">
-        <div className="search-box">
-          <Search className="search-icon" />
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              placeholder="بحث..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        </div>
+
+        <div className="filter-field">
+          <label>الحالة</label>
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          >
+            <option value="all">جميع الحالات</option>
+            <option value="pending">في الانتظار</option>
+            <option value="in-progress">قيد التنفيذ</option>
+            <option value="completed">مكتمل</option>
+            <option value="cancelled">ملغي</option>
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>العميل</label>
+          <select
+            value={filters.customer}
+            onChange={(e) =>
+              setFilters({ ...filters, customer: e.target.value })
+            }
+          >
+            <option value="all">جميع العملاء</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>من تاريخ</label>
           <input
-            type="text"
-            placeholder="البحث بالعميل أو عنوان الطلب..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
+            type="date"
+            value={filters.dateFrom}
+            onChange={(e) =>
+              setFilters({ ...filters, dateFrom: e.target.value })
+            }
           />
         </div>
 
-        <div className="filters-row">
-          <div className="filter-group">
-            <label>الحالة:</label>
-            <select
-              value={filters.status}
-              onChange={(e) =>
-                setFilters({ ...filters, status: e.target.value })
-              }
-              className="filter-select"
-            >
-              <option value="all">جميع الحالات</option>
-              <option value="pending">في الانتظار</option>
-              <option value="in-progress">قيد التنفيذ</option>
-              <option value="completed">مكتمل</option>
-              <option value="cancelled">ملغي</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>العميل:</label>
-            <select
-              value={filters.customer}
-              onChange={(e) =>
-                setFilters({ ...filters, customer: e.target.value })
-              }
-              className="filter-select"
-            >
-              <option value="all">جميع العملاء</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>من تاريخ:</label>
-            <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) =>
-                setFilters({ ...filters, dateFrom: e.target.value })
-              }
-              className="filter-input"
-            />
-          </div>
-
-          <div className="filter-group">
-            <label>إلى تاريخ:</label>
-            <input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) =>
-                setFilters({ ...filters, dateTo: e.target.value })
-              }
-              className="filter-input"
-            />
-          </div>
+        <div className="filter-field">
+          <label>إلى تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateTo}
+            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+          />
         </div>
+
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setFilters({
+              status: "all",
+              customer: "all",
+              dateFrom: "",
+              dateTo: "",
+            });
+          }}
+        >
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Orders Table */}
@@ -1086,7 +1146,7 @@ export function Orders() {
       {/* Add Order Modal */}
       {showAddModal && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal" ref={addModalRef}>
             <div className="modal-header">
               <h3>إضافة طلب جديد</h3>
               <button
@@ -1097,6 +1157,12 @@ export function Orders() {
               </button>
             </div>
             <div className="modal-body">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="form-group">
                 <label>العميل *</label>
                 <select
@@ -1380,7 +1446,7 @@ export function Orders() {
       {/* Add Element Modal */}
       {showAddElementModal && selectedOrderForElement && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal" ref={addElementModalRef}>
             <div className="modal-header">
               <h3>إضافة عنصر جديد - {selectedOrderForElement.title}</h3>
               <button
@@ -1391,6 +1457,11 @@ export function Orders() {
               </button>
             </div>
             <div className="modal-body">
+              {elementAddSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle /> تمت الإضافة بنجاح
+                </div>
+              )}
               <div className="form-group">
                 <label>اسم العنصر *</label>
                 <div className="autocomplete-container">

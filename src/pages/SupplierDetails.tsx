@@ -21,8 +21,14 @@ import {
   query,
   where,
   orderBy,
+  DocumentData,
+  DocumentSnapshot,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchCacheFirst, fetchDocsCacheFirst } from "../utils/cacheFirst";
+import { subscribeAll, subscribeDocs } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 
 import "./SupplierDetails.css";
 
@@ -75,85 +81,127 @@ export function SupplierDetails() {
   });
 
   useEffect(() => {
-    if (supplierId) {
-      fetchSupplierData();
-    }
+    if (!supplierId) return;
+    setLoading(true);
+
+    // Live subscriptions: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    // The supplier doc and the collections both depend only on the route
+    // param, so they are subscribed to concurrently. The spinner is only
+    // cleared once BOTH have painted — clearing it after the elements
+    // alone would flash the "supplier not found" screen while the
+    // supplier doc is still in flight.
+    let supplierPainted = false;
+    let elementsPainted = false;
+    const onFirstPaint = () => {
+      if (supplierPainted && elementsPainted) {
+        setLoading(false);
+      }
+    };
+
+    const unsubscribeSupplier = subscribeDocs(
+      [doc(db, "suppliers", supplierId)],
+      applySupplierSnapshot,
+      () => {
+        supplierPainted = true;
+        onFirstPaint();
+      },
+      (error) => console.error("Error fetching supplier data:", error)
+    );
+
+    const unsubscribeElements = subscribeAll(
+      [
+        collection(db, "orderItems"),
+        collection(db, "orders"),
+        collection(db, "customers"),
+      ],
+      applyElementSnapshots,
+      () => {
+        elementsPainted = true;
+        onFirstPaint();
+      },
+      (error) => console.error("Error fetching supplier data:", error)
+    );
+
+    return () => {
+      unsubscribeSupplier();
+      unsubscribeElements();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierId]);
 
   useEffect(() => {
     applyFiltersAndSort();
   }, [elements, searchTerm, filters, sortBy]);
 
-  const fetchSupplierData = async () => {
-    try {
-      setLoading(true);
-
-      // Fetch supplier details
-      const supplierDoc = await getDoc(doc(db, "suppliers", supplierId!));
-      if (supplierDoc.exists()) {
-        const supplierData = {
-          id: supplierDoc.id,
-          ...supplierDoc.data(),
-        } as Supplier;
-        setSupplier(supplierData);
-      } else {
-        alert("المورد غير موجود");
-        navigate("/suppliers");
-        return;
-      }
-
-      // Fetch supplier elements from orderItems collection
-      const orderItemsSnapshot = await getDocs(collection(db, "orderItems"));
-      const elementsData: SupplierElement[] = [];
-
-      // Also fetch orders to get order titles and customer IDs
-      const ordersSnapshot = await getDocs(collection(db, "orders"));
-      const ordersMap: { [key: string]: any } = {};
-      ordersSnapshot.forEach((orderDoc) => {
-        ordersMap[orderDoc.id] = orderDoc.data();
-      });
-
-      // Also fetch customers to get customer names
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersMap: { [key: string]: any } = {};
-      customersSnapshot.forEach((customerDoc) => {
-        customersMap[customerDoc.id] = customerDoc.data();
-      });
-
-      orderItemsSnapshot.forEach((itemDoc) => {
-        const itemData = itemDoc.data();
-        if (itemData.supplierId === supplierId) {
-          const orderId = itemData.orderId;
-          const orderData = ordersMap[orderId];
-          const customerId = orderData?.customerId;
-          const customerData = customersMap[customerId];
-
-          elementsData.push({
-            id: itemDoc.id,
-            supplierId: itemData.supplierId,
-            supplierName: itemData.supplierName,
-            orderId: orderId,
-            orderTitle: orderData?.title || "طلب بدون عنوان",
-            customerId: customerId || "",
-            customerName: customerData?.name || "عميل غير معروف",
-            elementName: itemData.name,
-            elementType: itemData.type,
-            quantity: itemData.quantity,
-            unit: itemData.unit,
-            unitPrice: itemData.unitPrice,
-            totalPrice: itemData.total,
-            orderDate: orderData?.date || itemData.createdAt,
-            notes: itemData.notes,
-          });
-        }
-      });
-
-      setElements(elementsData);
-    } catch (error) {
-      console.error("Error fetching supplier data:", error);
-    } finally {
-      setLoading(false);
+  // Both apply functions run once from the local cache (instant paint) and
+  // again with the server result. They must fully replace state, never append.
+  const applySupplierSnapshot = ([
+    supplierDoc,
+  ]: Array<DocumentSnapshot<DocumentData>>) => {
+    // Fetch supplier details
+    if (supplierDoc.exists()) {
+      const supplierData = {
+        id: supplierDoc.id,
+        ...supplierDoc.data(),
+      } as Supplier;
+      setSupplier(supplierData);
+    } else {
+      alert("المورد غير موجود");
+      navigate("/suppliers");
+      return;
     }
+  };
+
+  const applyElementSnapshots = (
+    snapshots: Array<QuerySnapshot<DocumentData>>
+  ) => {
+    const [orderItemsSnapshot, ordersSnapshot, customersSnapshot] = snapshots;
+
+    // Fetch supplier elements from orderItems collection
+    const elementsData: SupplierElement[] = [];
+
+    // Also fetch orders to get order titles and customer IDs
+    const ordersMap: { [key: string]: any } = {};
+    ordersSnapshot.forEach((orderDoc) => {
+      ordersMap[orderDoc.id] = orderDoc.data();
+    });
+
+    // Also fetch customers to get customer names
+    const customersMap: { [key: string]: any } = {};
+    customersSnapshot.forEach((customerDoc) => {
+      customersMap[customerDoc.id] = customerDoc.data();
+    });
+
+    orderItemsSnapshot.forEach((itemDoc) => {
+      const itemData = itemDoc.data();
+      if (itemData.supplierId === supplierId) {
+        const orderId = itemData.orderId;
+        const orderData = ordersMap[orderId];
+        const customerId = orderData?.customerId;
+        const customerData = customersMap[customerId];
+
+        elementsData.push({
+          id: itemDoc.id,
+          supplierId: itemData.supplierId,
+          supplierName: itemData.supplierName,
+          orderId: orderId,
+          orderTitle: orderData?.title || "طلب بدون عنوان",
+          customerId: customerId || "",
+          customerName: customerData?.name || "عميل غير معروف",
+          elementName: itemData.name,
+          elementType: itemData.type,
+          quantity: itemData.quantity,
+          unit: itemData.unit,
+          unitPrice: itemData.unitPrice,
+          totalPrice: itemData.total,
+          orderDate: orderData?.date || itemData.createdAt,
+          notes: itemData.notes,
+        });
+      }
+    });
+
+    setElements(elementsData);
   };
 
   const applyFiltersAndSort = () => {
@@ -161,16 +209,8 @@ export function SupplierDetails() {
 
     // Apply search
     if (searchTerm) {
-      filtered = filtered.filter(
-        (element) =>
-          element.elementName
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          element.elementType
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          element.orderTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          element.customerName.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter((element) =>
+        matchesSearch(element, searchTerm)
       );
     }
 
@@ -237,11 +277,7 @@ export function SupplierDetails() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const printSupplierElements = () => {
@@ -256,21 +292,19 @@ export function SupplierDetails() {
             <title>تفاصيل المورد - ${supplier?.name}</title>
             <style>
               body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
-              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-              .supplier-info { background-color: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+              .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #2b241c; padding-bottom: 20px; }
+              .supplier-info { background-color: #faf6ee; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
-              .summary { margin-top: 20px; padding: 15px; background-color: #f9fafb; border-radius: 8px; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
+              .summary { margin-top: 20px; padding: 15px; background-color: #faf6ee; border-radius: 8px; }
               @media print { body { margin: 0; } }
             </style>
           </head>
           <body>
             <div class="header">
               <h1>تفاصيل المورد: ${supplier?.name}</h1>
-              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString(
-                "en-US"
-              )}</p>
+              <p>تم طباعة هذا التقرير في: ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             <div class="supplier-info">
               <h3>معلومات المورد</h3>
@@ -506,61 +540,68 @@ export function SupplierDetails() {
       </div>
 
       {/* Search and Filters */}
-      <div className="supplier-details-search-filters-section">
-        <div className="supplier-details-search-box">
-          <Search className="supplier-details-search-icon" />
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              className="search-input"
+              placeholder="بحث..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="filter-field">
+          <label>النوع</label>
+          <select
+            value={filters.type}
+            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
+          >
+            <option value="all">جميع الأنواع</option>
+            {Array.from(new Set(elements.map((e) => e.elementType))).map(
+              (type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              )
+            )}
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>من تاريخ</label>
           <input
-            type="text"
-            placeholder="البحث بالعنصر أو النوع أو الطلب أو العميل..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="supplier-details-search-input"
+            type="date"
+            value={filters.dateFrom}
+            onChange={(e) =>
+              setFilters({ ...filters, dateFrom: e.target.value })
+            }
           />
         </div>
 
-        <div className="supplier-details-filters-row">
-          <div className="supplier-details-filter-group">
-            <label>النوع:</label>
-            <select
-              value={filters.type}
-              onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-              className="supplier-details-filter-select"
-            >
-              <option value="all">جميع الأنواع</option>
-              {Array.from(new Set(elements.map((e) => e.elementType))).map(
-                (type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                )
-              )}
-            </select>
-          </div>
-
-          <div className="supplier-details-filter-group">
-            <label>من تاريخ:</label>
-            <input
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) =>
-                setFilters({ ...filters, dateFrom: e.target.value })
-              }
-              className="supplier-details-filter-input"
-            />
-          </div>
-
-          <div className="supplier-details-filter-group">
-            <label>إلى تاريخ:</label>
-            <input
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) =>
-                setFilters({ ...filters, dateTo: e.target.value })
-              }
-              className="supplier-details-filter-input"
-            />
-          </div>
+        <div className="filter-field">
+          <label>إلى تاريخ</label>
+          <input
+            type="date"
+            value={filters.dateTo}
+            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+          />
         </div>
+
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setFilters({ type: "all", dateFrom: "", dateTo: "" });
+          }}
+        >
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Elements Table */}

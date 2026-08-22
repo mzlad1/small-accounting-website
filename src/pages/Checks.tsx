@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Plus,
   Search,
@@ -25,12 +25,22 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   doc,
   query,
   where,
   orderBy,
+  DocumentData,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { fetchCacheFirst } from "../utils/cacheFirst";
+import {
+  buildCheckSeries,
+  SeriesInterval,
+} from "../utils/checkSeries";
+import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
 
 import "./Checks.css";
 
@@ -119,8 +129,103 @@ export function Checks() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
 
+  // Add-modal: focus the first field on open, and keep the dialog open
+  // after a successful add so several checks can be entered in a row.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
+  const [seriesEnabled, setSeriesEnabled] = useState(false);
+  const [seriesCount, setSeriesCount] = useState(6);
+  const [seriesInterval, setSeriesInterval] = useState<SeriesInterval>("month");
+  const [addSuccessCount, setAddSuccessCount] = useState(1);
+  const [seriesEntries, setSeriesEntries] = useState<
+    Array<{ checkNumber: string; dueDate: string; amount: number }>
+  >([]);
+
+  const focusFirstField = () => {
+    setTimeout(() => {
+      addModalRef.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
   useEffect(() => {
-    fetchData();
+    if (showAddModal) {
+      setAddSuccess(false);
+      setSeriesEnabled(false);
+      focusFirstField();
+    }
+  }, [showAddModal]);
+
+  // Regenerate the editable series whenever the template inputs change
+  // (manual per-row edits below survive until a template input changes)
+  useEffect(() => {
+    if (
+      !seriesEnabled ||
+      !checkForm.checkNumber ||
+      !checkForm.dueDate ||
+      !/\d/.test(checkForm.checkNumber)
+    ) {
+      setSeriesEntries([]);
+      return;
+    }
+    setSeriesEntries(
+      buildCheckSeries(
+        checkForm.checkNumber,
+        checkForm.dueDate,
+        seriesCount,
+        seriesInterval
+      ).map((entry) => ({ ...entry, amount: checkForm.amount }))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    seriesEnabled,
+    seriesCount,
+    seriesInterval,
+    checkForm.checkNumber,
+    checkForm.dueDate,
+    checkForm.amount,
+  ]);
+
+  const updateSeriesEntry = (
+    index: number,
+    field: "checkNumber" | "dueDate" | "amount",
+    value: string
+  ) => {
+    setSeriesEntries((prev) =>
+      prev.map((entry, i) =>
+        i === index
+          ? {
+              ...entry,
+              [field]: field === "amount" ? parseFloat(value) || 0 : value,
+            }
+          : entry
+      )
+    );
+  };
+
+  const removeSeriesEntry = (index: number) => {
+    setSeriesEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+
+  useEffect(() => {
+    setLoading(true);
+    // Live subscription: instant paint from the persistent cache, then
+    // the server, then every later change (own writes appear at once).
+    const unsubscribe = subscribeAll(
+      [
+        collection(db, "customers"),
+        query(collection(db, "customerChecks"), orderBy("dueDate", "asc")),
+      ],
+      applySnapshots,
+      () => setLoading(false),
+      (error) => console.error("Error fetching data:", error)
+    );
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -144,51 +249,48 @@ export function Checks() {
     };
   }, []);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
+  const applySnapshots = (
+    snapshots: Array<QuerySnapshot<DocumentData>>,
+    fromCache = false
+  ) => {
+    const [customersSnapshot, checksSnapshot] = snapshots;
 
-      // Fetch customers
-      const customersSnapshot = await getDocs(collection(db, "customers"));
-      const customersData: Customer[] = [];
-      customersSnapshot.forEach((doc) => {
-        customersData.push({ id: doc.id, ...doc.data() } as Customer);
-      });
-      setCustomers(customersData);
+    const customersData: Customer[] = [];
+    customersSnapshot.forEach((doc) => {
+      customersData.push({ id: doc.id, ...doc.data() } as Customer);
+    });
+    setCustomers(customersData);
 
-      // Fetch customer checks with customer names
-      const checksSnapshot = await getDocs(
-        query(collection(db, "customerChecks"), orderBy("dueDate", "asc"))
-      );
-      const checksData: CustomerCheck[] = [];
-      checksSnapshot.forEach((checkDoc) => {
-        const checkData = checkDoc.data();
-        const customer = customersData.find(
-          (c) => c.id === checkData.customerId
-        );
-        const check: CustomerCheck = {
-          id: checkDoc.id,
-          customerId: checkData.customerId,
-          checkNumber: checkData.checkNumber,
-          bank: checkData.bank,
-          amount: checkData.amount,
-          dueDate: checkData.dueDate,
-          status: checkData.status,
-          notes: checkData.notes,
-          nameOnCheck: checkData.nameOnCheck,
-          autoCollected: checkData.autoCollected,
-          autoCollectedAt: checkData.autoCollectedAt,
-          createdAt: checkData.createdAt,
-          customerName: customer?.name || "Unknown Customer",
-        };
+    // Map customer checks with customer names
+    const checksData: CustomerCheck[] = [];
+    checksSnapshot.forEach((checkDoc) => {
+      const checkData = checkDoc.data();
+      const customer = customersData.find((c) => c.id === checkData.customerId);
+      const check: CustomerCheck = {
+        id: checkDoc.id,
+        customerId: checkData.customerId,
+        checkNumber: checkData.checkNumber,
+        bank: checkData.bank,
+        amount: checkData.amount,
+        dueDate: checkData.dueDate,
+        status: checkData.status,
+        notes: checkData.notes,
+        nameOnCheck: checkData.nameOnCheck,
+        autoCollected: checkData.autoCollected,
+        autoCollectedAt: checkData.autoCollectedAt,
+        createdAt: checkData.createdAt,
+        customerName: customer?.name || "Unknown Customer",
+      };
 
-        // Auto-mark as collected if due date has passed
-        if (
-          (check.status === "pending" || check.status === "غير محدد") &&
-          new Date(check.dueDate) < new Date()
-        ) {
-          check.status = "collected";
-          // Update the status in the database
+      // Auto-mark as collected if due date has passed
+      if (
+        (check.status === "pending" || check.status === "غير محدد") &&
+        new Date(check.dueDate) < new Date()
+      ) {
+        check.status = "collected";
+        // Update the status in the database — server pass only, so the
+        // write doesn't fire twice per load (apply runs cache + server)
+        if (!fromCache) {
           updateDoc(doc(db, "customerChecks", check.id), {
             status: "collected",
             autoCollected: true,
@@ -197,16 +299,12 @@ export function Checks() {
             console.error("Error auto-updating check status:", error);
           });
         }
+      }
 
-        checksData.push(check);
-      });
+      checksData.push(check);
+    });
 
-      setChecks(checksData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
+    setChecks(checksData);
   };
 
   const applyFiltersAndSort = () => {
@@ -214,13 +312,7 @@ export function Checks() {
 
     // Apply search
     if (searchTerm) {
-      filtered = filtered.filter(
-        (check) =>
-          check.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          check.checkNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          check.bank.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          check.notes?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter((check) => matchesSearch(check, searchTerm));
     }
 
     // Apply customer filter
@@ -449,6 +541,70 @@ export function Checks() {
 
   const handleAddCheck = async () => {
     try {
+      // Series mode: create every check (and its mirrored payment)
+      // in ONE atomic batch
+      if (seriesEnabled && seriesEntries.length >= 2) {
+        if (
+          seriesEntries.some((entry) => !entry.checkNumber || !entry.dueDate)
+        ) {
+          alert("أكمل رقم وتاريخ كل شيك في السلسلة");
+          return;
+        }
+        const customer = customers.find((c) => c.id === checkForm.customerId);
+        const entries = seriesEntries;
+        const batch = writeBatch(db);
+        const nowIso = new Date().toISOString();
+        const today = nowIso.split("T")[0];
+
+        entries.forEach((entry) => {
+          const checkRef = doc(collection(db, "customerChecks"));
+          batch.set(checkRef, {
+            ...checkForm,
+            checkNumber: entry.checkNumber,
+            dueDate: entry.dueDate,
+            amount: entry.amount,
+            status: "pending" as CustomerCheck["status"],
+            createdAt: nowIso,
+          });
+
+          const paymentRef = doc(collection(db, "payments"));
+          batch.set(paymentRef, {
+            customerId: checkForm.customerId,
+            customerName: customer?.name || "",
+            date: today,
+            type: "check" as "cash" | "check",
+            amount: entry.amount,
+            notes: checkForm.notes || `دفعة شيك - ${checkForm.notes || ""}`,
+            checkNumber: entry.checkNumber,
+            checkBank: checkForm.bank,
+            checkDate: entry.dueDate,
+            nameOnCheck: checkForm.nameOnCheck || customer?.name || "",
+            createdAt: nowIso,
+          });
+        });
+
+        await batch.commit();
+
+        setCheckForm({
+          customerId: "",
+          checkNumber: "",
+          bank: "",
+          amount: 0,
+          dueDate: new Date().toISOString().split("T")[0],
+          notes: "",
+          nameOnCheck: "",
+        });
+        setCustomerSearchTerm("");
+        setIsCustomerDropdownOpen(false);
+        setSelectedCustomerIndex(-1);
+        setSeriesEnabled(false);
+        setAddSuccessCount(entries.length);
+        setAddSuccess(true);
+        focusFirstField();
+        setTimeout(() => setAddSuccess(false), 2500);
+        return;
+      }
+
       const newCheck = {
         ...checkForm,
         status: "pending" as CustomerCheck["status"],
@@ -485,10 +641,8 @@ export function Checks() {
       const paymentRef = await addDoc(collection(db, "payments"), newPayment);
       console.log("Payment created with ID:", paymentRef.id);
 
-      // Show success message
-      alert("تم إضافة الشيك والدفعة بنجاح!");
-
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setCheckForm({
         customerId: "",
         checkNumber: "",
@@ -501,6 +655,10 @@ export function Checks() {
       setCustomerSearchTerm("");
       setIsCustomerDropdownOpen(false);
       setSelectedCustomerIndex(-1);
+      setAddSuccessCount(1);
+      setAddSuccess(true);
+      focusFirstField();
+      setTimeout(() => setAddSuccess(false), 2500);
     } catch (error) {
       console.error("Error adding check:", error);
     }
@@ -619,7 +777,7 @@ export function Checks() {
       await updateDoc(doc(db, "customerChecks", checkId), {
         status: newStatus,
       });
-      fetchData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error updating check status:", error);
     }
@@ -721,12 +879,12 @@ export function Checks() {
               body { font-family: Arial, sans-serif; margin: 20px; direction: rtl; }
               .header { text-align: center; margin-bottom: 30px; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
-              .status-pending { color: #f59e0b; }
-              .status-collected { color: #10b981; }
-              .status-returned { color: #ef4444; }
-              .status-overdue { color: #dc2626; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
+              .status-pending { color: #a9741f; }
+              .status-collected { color: #4a7c59; }
+              .status-returned { color: #b23b2e; }
+              .status-overdue { color: #b23b2e; }
               .summary { margin-top: 20px; font-weight: bold; }
               @media print { body { margin: 0; } }
             </style>
@@ -734,7 +892,7 @@ export function Checks() {
           <body>
             <div class="header">
               <h1>شيكات العملاء</h1>
-              <p>تاريخ الطباعة: ${new Date().toLocaleDateString("en-US")}</p>
+              <p>تاريخ الطباعة: ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             <table>
               <thead>
@@ -762,9 +920,7 @@ export function Checks() {
                       style: "currency",
                       currency: "ILS",
                     })}</td>
-                    <td>${new Date(check.dueDate).toLocaleDateString(
-                      "en-US"
-                    )}</td>
+                    <td>${new Date(check.dueDate).toLocaleDateString("en-GB")}</td>
                     <td class="status-${check.status}">${getStatusText(
                       check.status
                     )}</td>
@@ -939,7 +1095,7 @@ export function Checks() {
       setShowImportModal(false);
       setImportForm({ customerId: "", file: null });
       setImportPreview([]);
-      fetchData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error importing checks:", error);
       alert("حدث خطأ أثناء استيراد الشيكات");
@@ -956,11 +1112,7 @@ export function Checks() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const isOverdue = (dueDate: string) => {
@@ -1034,102 +1186,6 @@ export function Checks() {
         </div>
       </div>
 
-      {/* Search and Filters */}
-      <div className="search-filters-section">
-        <div className="search-box">
-          <Search className="search-icon" />
-          <input
-            type="text"
-            placeholder="البحث بالعميل أو رقم الشيك أو البنك..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
-          />
-        </div>
-
-        <div className="filters-row">
-          <div className="filter-group">
-            <label>العميل:</label>
-            <select
-              value={filters.customer}
-              onChange={(e) =>
-                setFilters({ ...filters, customer: e.target.value })
-              }
-              className="filter-select"
-            >
-              <option value="all">جميع العملاء</option>
-              {customers.map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>الحالة:</label>
-            <select
-              value={filters.status}
-              onChange={(e) =>
-                setFilters({ ...filters, status: e.target.value })
-              }
-              className="filter-select"
-            >
-              <option value="all">جميع الحالات</option>
-              <option value="pending">في الانتظار</option>
-              <option value="collected">محصّل</option>
-              <option value="returned">مرتجع</option>
-              <option value="overdue">متأخر</option>
-            </select>
-          </div>
-
-          <div className="filter-group">
-            <label>تاريخ الاستحقاق:</label>
-            <select
-              value={filters.dueDateFilter}
-              onChange={(e) =>
-                setFilters({ ...filters, dueDateFilter: e.target.value })
-              }
-              className="filter-select"
-            >
-              <option value="all">جميع التواريخ</option>
-              <option value="today">اليوم</option>
-              <option value="week">هذا الأسبوع</option>
-              <option value="month">هذا الشهر</option>
-              <option value="range">نطاق مخصص</option>
-            </select>
-          </div>
-
-          {filters.dueDateFilter === "range" && (
-            <>
-              <div className="filter-group">
-                <label>من تاريخ:</label>
-                <input
-                  type="date"
-                  value={filters.dateFrom}
-                  onChange={(e) =>
-                    setFilters({ ...filters, dateFrom: e.target.value })
-                  }
-                  className="filter-input"
-                />
-              </div>
-
-              <div className="filter-group">
-                <label>إلى تاريخ:</label>
-                <input
-                  type="date"
-                  value={filters.dateTo}
-                  onChange={(e) =>
-                    setFilters({ ...filters, dateTo: e.target.value })
-                  }
-                  className="filter-input"
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* Summary Section */}
       <div className="summary-section">
         <div className="summary-cards">
@@ -1186,6 +1242,118 @@ export function Checks() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="filters-bar">
+        <div className="filter-field filter-field-search">
+          <label>بحث</label>
+          <div className="search-box">
+            <Search className="search-icon" />
+            <input
+              type="text"
+              placeholder="بحث..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        </div>
+
+        <div className="filter-field">
+          <label>العميل</label>
+          <select
+            value={filters.customer}
+            onChange={(e) =>
+              setFilters({ ...filters, customer: e.target.value })
+            }
+            className="filter-select"
+          >
+            <option value="all">جميع العملاء</option>
+            {customers.map((customer) => (
+              <option key={customer.id} value={customer.id}>
+                {customer.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>الحالة</label>
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            className="filter-select"
+          >
+            <option value="all">جميع الحالات</option>
+            <option value="pending">في الانتظار</option>
+            <option value="collected">محصّل</option>
+            <option value="returned">مرتجع</option>
+            <option value="overdue">متأخر</option>
+          </select>
+        </div>
+
+        <div className="filter-field">
+          <label>تاريخ الاستحقاق</label>
+          <select
+            value={filters.dueDateFilter}
+            onChange={(e) =>
+              setFilters({ ...filters, dueDateFilter: e.target.value })
+            }
+            className="filter-select"
+          >
+            <option value="all">جميع التواريخ</option>
+            <option value="today">اليوم</option>
+            <option value="week">هذا الأسبوع</option>
+            <option value="month">هذا الشهر</option>
+            <option value="range">نطاق مخصص</option>
+          </select>
+        </div>
+
+        {filters.dueDateFilter === "range" && (
+          <>
+            <div className="filter-field">
+              <label>من تاريخ</label>
+              <input
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) =>
+                  setFilters({ ...filters, dateFrom: e.target.value })
+                }
+                className="filter-input"
+              />
+            </div>
+
+            <div className="filter-field">
+              <label>إلى تاريخ</label>
+              <input
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) =>
+                  setFilters({ ...filters, dateTo: e.target.value })
+                }
+                className="filter-input"
+              />
+            </div>
+          </>
+        )}
+
+        <button
+          type="button"
+          className="filters-clear-btn"
+          onClick={() => {
+            setSearchTerm("");
+            setFilters({
+              customer: "all",
+              status: "all",
+              dueDateFilter: "all",
+              dateFrom: "",
+              dateTo: "",
+            });
+          }}
+        >
+          مسح الفلاتر
+        </button>
       </div>
 
       {/* Checks Table */}
@@ -1404,7 +1572,7 @@ export function Checks() {
       {/* Add Check Modal */}
       {showAddModal && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal" ref={addModalRef}>
             <div className="modal-header">
               <h3>إضافة شيك جديد</h3>
               <button
@@ -1415,6 +1583,14 @@ export function Checks() {
               </button>
             </div>
             <div className="modal-body">
+              {addSuccess && (
+                <div className="modal-success-banner">
+                  <CheckCircle />
+                  {addSuccessCount > 1
+                    ? `تمت إضافة ${addSuccessCount} شيكات بنجاح`
+                    : "تمت الإضافة بنجاح"}
+                </div>
+              )}
               <div className="form-group">
                 <label>العميل *</label>
                 <div className="custom-dropdown">
@@ -1537,6 +1713,136 @@ export function Checks() {
                     className="form-input"
                   />
                 </div>
+              </div>
+
+              <div className="series-panel">
+                <label className="series-toggle">
+                  <input
+                    type="checkbox"
+                    checked={seriesEnabled}
+                    onChange={(e) => setSeriesEnabled(e.target.checked)}
+                  />
+                  <span>
+                    إضافة سلسلة شيكات (نفس البيانات بأرقام وتواريخ متتالية)
+                  </span>
+                </label>
+                {seriesEnabled && (
+                  <>
+                    <div className="series-fields">
+                      <div className="form-group">
+                        <label>عدد الشيكات</label>
+                        <input
+                          type="number"
+                          min={2}
+                          max={60}
+                          className="form-input"
+                          value={seriesCount}
+                          onChange={(e) =>
+                            setSeriesCount(
+                              Math.max(
+                                2,
+                                Math.min(60, parseInt(e.target.value) || 2)
+                              )
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>الفترة بين الشيكات</label>
+                        <select
+                          className="form-input"
+                          value={seriesInterval}
+                          onChange={(e) =>
+                            setSeriesInterval(e.target.value as SeriesInterval)
+                          }
+                        >
+                          <option value="month">شهر</option>
+                          <option value="two-weeks">أسبوعان</option>
+                          <option value="week">أسبوع</option>
+                        </select>
+                      </div>
+                    </div>
+                    {checkForm.checkNumber &&
+                      !/\d/.test(checkForm.checkNumber) && (
+                        <p className="series-warning">
+                          رقم الشيك يجب أن يحتوي على أرقام حتى يتم توليد أرقام
+                          السلسلة تلقائياً
+                        </p>
+                      )}
+                    {seriesEntries.length > 0 && (
+                      <div className="series-preview">
+                        <div className="series-preview-row series-preview-head">
+                          <span className="series-preview-index">#</span>
+                          <span className="series-preview-number">
+                            رقم الشيك
+                          </span>
+                          <span className="series-preview-date">التاريخ</span>
+                          <span className="series-preview-amount">المبلغ</span>
+                          <span className="series-remove-spacer" />
+                        </div>
+                        {seriesEntries.map((entry, i) => (
+                          <div key={i} className="series-preview-row">
+                            <span className="series-preview-index">
+                              {i + 1}.
+                            </span>
+                            <input
+                              type="text"
+                              className="series-input series-input-number"
+                              value={entry.checkNumber}
+                              onChange={(e) =>
+                                updateSeriesEntry(
+                                  i,
+                                  "checkNumber",
+                                  e.target.value
+                                )
+                              }
+                            />
+                            <input
+                              type="date"
+                              className="series-input series-input-date"
+                              value={entry.dueDate}
+                              onChange={(e) =>
+                                updateSeriesEntry(i, "dueDate", e.target.value)
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="series-input series-input-amount"
+                              value={entry.amount}
+                              onChange={(e) =>
+                                updateSeriesEntry(i, "amount", e.target.value)
+                              }
+                            />
+                            <button
+                              type="button"
+                              className="series-remove-btn"
+                              onClick={() => removeSeriesEntry(i)}
+                              title="إزالة هذا الشيك"
+                              disabled={seriesEntries.length <= 2}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                        <div className="series-preview-row series-preview-foot">
+                          <span>{seriesEntries.length} شيكات</span>
+                          <span className="series-total">
+                            المجموع:{" "}
+                            {seriesEntries
+                              .reduce((sum, e) => sum + (e.amount || 0), 0)
+                              .toLocaleString()}
+                          </span>
+                        </div>
+                        {new Set(seriesEntries.map((e) => e.checkNumber))
+                          .size !== seriesEntries.length && (
+                          <p className="series-warning">
+                            تنبيه: هناك أرقام شيكات مكررة في السلسلة
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="form-group">

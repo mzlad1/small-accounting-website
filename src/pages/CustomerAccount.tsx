@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Edit,
@@ -15,8 +15,9 @@ import {
   Clock,
   XCircle,
   ArrowLeft,
-  RefreshCw,
+  Search,
   Printer,
+  ReceiptText,
 } from "lucide-react";
 
 import {
@@ -26,12 +27,24 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   doc,
   query,
   where,
   orderBy,
+  DocumentData,
+  DocumentSnapshot,
+  QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
+import { subscribeAll, subscribeDocs } from "../utils/live";
+import { ReceiptDialog } from "../components/ReceiptDialog";
+import { buildPrintDocument } from "../utils/receiptTemplate";
+import {
+  buildCheckSeries,
+  SeriesInterval,
+} from "../utils/checkSeries";
+import { matchesSearch } from "../utils/search";
 
 import "./CustomerAccount.css";
 
@@ -99,6 +112,8 @@ export function CustomerAccount() {
   const { customerId } = useParams<{ customerId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("orders");
+  const [customerReceipts, setCustomerReceipts] = useState<any[]>([]);
+  const [showReceiptDialog, setShowReceiptDialog] = useState(false);
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderItems, setOrderItems] = useState<{ [orderId: string]: any[] }>(
@@ -118,6 +133,8 @@ export function CustomerAccount() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+  // Any-field search across the active tab's rows
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Filtered data states
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
@@ -160,6 +177,93 @@ export function CustomerAccount() {
     status: "pending" as CustomerCheck["status"],
     notes: "",
   });
+
+  // Add-dialog: focus the first field on open, and keep the dialog open after
+  // a successful add so several entries can be made in a row. The three add
+  // flows (order / payment / check) share one modal element, so they share the
+  // ref but each keeps its own inline confirmation flag.
+  const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [orderAddSuccess, setOrderAddSuccess] = useState(false);
+  const [paymentAddSuccess, setPaymentAddSuccess] = useState(false);
+  const [checkAddSuccess, setCheckAddSuccess] = useState(false);
+  const [seriesEnabled, setSeriesEnabled] = useState(false);
+  const [seriesCount, setSeriesCount] = useState(6);
+  const [seriesInterval, setSeriesInterval] = useState<SeriesInterval>("month");
+  const [addSuccessCount, setAddSuccessCount] = useState(1);
+  const [seriesEntries, setSeriesEntries] = useState<
+    Array<{ checkNumber: string; dueDate: string; amount: number }>
+  >([]);
+
+  const focusFirst = (ref: React.RefObject<HTMLDivElement | null>) => {
+    setTimeout(() => {
+      ref.current
+        ?.querySelector<HTMLElement>(
+          "input:not([type=hidden]):not([disabled]), select, textarea"
+        )
+        ?.focus();
+    }, 60);
+  };
+
+  useEffect(() => {
+    if (showAddModal) {
+      setOrderAddSuccess(false);
+      setPaymentAddSuccess(false);
+      setCheckAddSuccess(false);
+      setSeriesEnabled(false);
+      focusFirst(addModalRef);
+    }
+  }, [showAddModal, modalType]);
+
+  // Regenerate the editable series whenever the template inputs change
+  useEffect(() => {
+    if (
+      !seriesEnabled ||
+      !checkForm.checkNumber ||
+      !checkForm.dueDate ||
+      !/\d/.test(checkForm.checkNumber)
+    ) {
+      setSeriesEntries([]);
+      return;
+    }
+    setSeriesEntries(
+      buildCheckSeries(
+        checkForm.checkNumber,
+        checkForm.dueDate,
+        seriesCount,
+        seriesInterval
+      ).map((entry) => ({ ...entry, amount: checkForm.amount }))
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    seriesEnabled,
+    seriesCount,
+    seriesInterval,
+    checkForm.checkNumber,
+    checkForm.dueDate,
+    checkForm.amount,
+  ]);
+
+  const updateSeriesEntry = (
+    index: number,
+    field: "checkNumber" | "dueDate" | "amount",
+    value: string
+  ) => {
+    setSeriesEntries((prev) =>
+      prev.map((entry, i) =>
+        i === index
+          ? {
+              ...entry,
+              [field]: field === "amount" ? parseFloat(value) || 0 : value,
+            }
+          : entry
+      )
+    );
+  };
+
+  const removeSeriesEntry = (index: number) => {
+    setSeriesEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
 
   // Filters and sorting
   const [orderFilters, setOrderFilters] = useState({
@@ -216,22 +320,78 @@ export function CustomerAccount() {
   });
 
   useEffect(() => {
-    if (customerId) {
-      fetchCustomerData();
-    }
-  }, [customerId]);
+    if (!customerId) return;
 
-  // Refresh data when component comes into focus (e.g., returning from order details)
-  useEffect(() => {
-    const handleFocus = () => {
-      if (customerId) {
-        fetchCustomerData();
+    setLoading(true);
+
+    // Live subscriptions: instant paint from the persistent cache, then the
+    // server, then every later change (own writes appear at once). The customer
+    // document and the four collections stream in parallel, and loading only
+    // clears once BOTH have painted (otherwise the "customer not found" screen
+    // would flash before the document arrives).
+    let customerPainted = false;
+    let collectionsPainted = false;
+    const hideLoadingWhenPainted = () => {
+      if (customerPainted && collectionsPainted) {
+        setLoading(false);
       }
     };
 
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    const unsubscribeCustomer = subscribeDocs(
+      [doc(db, "customers", customerId)],
+      applyCustomerSnapshot,
+      () => {
+        customerPainted = true;
+        hideLoadingWhenPainted();
+      },
+      (error) => console.error("Error fetching customer data:", error)
+    );
+
+    const unsubscribeCollections = subscribeAll(
+      [
+        query(
+          collection(db, "orders"),
+          where("customerId", "==", customerId),
+          orderBy("createdAt", "desc")
+        ),
+        collection(db, "orderItems"),
+        query(
+          collection(db, "payments"),
+          where("customerId", "==", customerId),
+          orderBy("createdAt", "desc")
+        ),
+        query(
+          collection(db, "customerChecks"),
+          where("customerId", "==", customerId),
+          orderBy("createdAt", "desc")
+        ),
+        query(
+          collection(db, "receipts"),
+          where("customerId", "==", customerId)
+        ),
+      ],
+      applySnapshots,
+      () => {
+        collectionsPainted = true;
+        hideLoadingWhenPainted();
+      },
+      (error) => console.error("Error fetching customer data:", error)
+    );
+
+    return () => {
+      unsubscribeCustomer();
+      unsubscribeCollections();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customerId]);
+
+  // Reset every tab to its first page when the search term changes
+  useEffect(() => {
+    setOrdersPagination((prev) => ({ ...prev, currentPage: 1 }));
+    setPaymentsPagination((prev) => ({ ...prev, currentPage: 1 }));
+    setChecksPagination((prev) => ({ ...prev, currentPage: 1 }));
+    setStatementPagination((prev) => ({ ...prev, currentPage: 1 }));
+  }, [searchTerm]);
 
   // Apply filters to orders
   useEffect(() => {
@@ -255,6 +415,10 @@ export function CustomerAccount() {
       );
     }
 
+    if (searchTerm) {
+      filtered = filtered.filter((order) => matchesSearch(order, searchTerm));
+    }
+
     // Apply sorting
     filtered.sort((a, b) => {
       if (orderSort.field === "date") {
@@ -266,7 +430,7 @@ export function CustomerAccount() {
     });
 
     setFilteredOrders(filtered);
-  }, [orders, orderFilters, orderSort]);
+  }, [orders, orderFilters, orderSort, searchTerm]);
 
   // Apply filters to payments
   useEffect(() => {
@@ -346,8 +510,13 @@ export function CustomerAccount() {
     // Combine cash payments and grouped check payments
     const finalPayments = [...cashPayments, ...groupedPayments];
 
-    setFilteredPayments(finalPayments);
-  }, [payments, paymentFilters]);
+    // Search runs on the grouped rows — the ones actually rendered
+    setFilteredPayments(
+      searchTerm
+        ? finalPayments.filter((payment) => matchesSearch(payment, searchTerm))
+        : finalPayments
+    );
+  }, [payments, paymentFilters, searchTerm]);
 
   // Apply filters to checks
   useEffect(() => {
@@ -384,6 +553,10 @@ export function CustomerAccount() {
       console.log("After dateTo filtering:", filtered); // Debug log
     }
 
+    if (searchTerm) {
+      filtered = filtered.filter((check) => matchesSearch(check, searchTerm));
+    }
+
     console.log("Final filtered checks:", filtered); // Debug log
     console.log(
       "Original checks count:",
@@ -392,7 +565,7 @@ export function CustomerAccount() {
       filtered.length
     ); // Debug log
     setFilteredChecks(filtered);
-  }, [customerChecks, checkFilters]);
+  }, [customerChecks, checkFilters, searchTerm]);
 
   // Apply filters to statement
   useEffect(() => {
@@ -416,8 +589,12 @@ export function CustomerAccount() {
       );
     }
 
+    if (searchTerm) {
+      filtered = filtered.filter((entry) => matchesSearch(entry, searchTerm));
+    }
+
     setFilteredStatement(filtered);
-  }, [statement, statementFilters]);
+  }, [statement, statementFilters, searchTerm]);
 
   // Apply pagination to orders
   useEffect(() => {
@@ -479,88 +656,73 @@ export function CustomerAccount() {
     statementPagination.itemsPerPage,
   ]);
 
-  const fetchCustomerData = async () => {
-    try {
-      setLoading(true);
+  const applyCustomerSnapshot = (
+    snapshots: Array<DocumentSnapshot<DocumentData>>
+  ) => {
+    const [customerSnap] = snapshots;
 
-      // Fetch customer details
-      const customerRef = doc(db, "customers", customerId!);
-      const customerSnap = await getDoc(customerRef);
-      if (customerSnap.exists()) {
-        const customerData = {
-          id: customerSnap.id,
-          ...customerSnap.data(),
-        } as Customer;
-        setCustomer(customerData);
-      }
-
-      // Fetch orders
-      const ordersQuery = query(
-        collection(db, "orders"),
-        where("customerId", "==", customerId),
-        orderBy("createdAt", "desc")
-      );
-      const ordersSnapshot = await getDocs(ordersQuery);
-      const ordersData: Order[] = [];
-      ordersSnapshot.forEach((doc) => {
-        ordersData.push({ id: doc.id, ...doc.data() } as Order);
-      });
-      setOrders(ordersData);
-
-      // Fetch order items for all orders
-      const orderItemsData: { [orderId: string]: any[] } = {};
-      for (const order of ordersData) {
-        const itemsQuery = query(
-          collection(db, "orderItems"),
-          where("orderId", "==", order.id)
-        );
-        const itemsSnapshot = await getDocs(itemsQuery);
-        const items: any[] = [];
-        itemsSnapshot.forEach((doc) => {
-          items.push({ id: doc.id, ...doc.data() });
-        });
-        orderItemsData[order.id] = items;
-      }
-      setOrderItems(orderItemsData);
-
-      // Fetch payments
-      const paymentsQuery = query(
-        collection(db, "payments"),
-        where("customerId", "==", customerId),
-        orderBy("createdAt", "desc")
-      );
-      const paymentsSnapshot = await getDocs(paymentsQuery);
-      const paymentsData: Payment[] = [];
-      paymentsSnapshot.forEach((doc) => {
-        paymentsData.push({ id: doc.id, ...doc.data() } as Payment);
-      });
-      setPayments(paymentsData);
-
-      // Fetch customer checks
-      const checksQuery = query(
-        collection(db, "customerChecks"),
-        where("customerId", "==", customerId),
-        orderBy("createdAt", "desc")
-      );
-
-      const checksSnapshot = await getDocs(checksQuery);
-
-      const checksData: CustomerCheck[] = [];
-      checksSnapshot.forEach((doc) => {
-        const checkData = { id: doc.id, ...doc.data() } as CustomerCheck;
-
-        checksData.push(checkData);
-      });
-
-      setCustomerChecks(checksData);
-
-      // Generate statement
-      generateStatement(ordersData, paymentsData, checksData, orderItemsData);
-    } catch (error) {
-      console.error("Error fetching customer data:", error);
-    } finally {
-      setLoading(false);
+    if (customerSnap.exists()) {
+      const customerData = {
+        id: customerSnap.id,
+        ...customerSnap.data(),
+      } as Customer;
+      setCustomer(customerData);
     }
+  };
+
+  const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
+    const [
+      ordersSnapshot,
+      orderItemsSnapshot,
+      paymentsSnapshot,
+      checksSnapshot,
+      receiptsSnapshot,
+    ] = snapshots;
+
+    const receiptsData: any[] = [];
+    receiptsSnapshot.forEach((d) => {
+      receiptsData.push({ id: d.id, ...d.data() });
+    });
+    receiptsData.sort((a, b) => (b.receiptNumber || 0) - (a.receiptNumber || 0));
+    setCustomerReceipts(receiptsData);
+
+    const ordersData: Order[] = [];
+    ordersSnapshot.forEach((doc) => {
+      ordersData.push({ id: doc.id, ...doc.data() } as Order);
+    });
+    setOrders(ordersData);
+
+    // Group this customer's order items by orderId in memory
+    // (replaces the per-order query loop — one read instead of N)
+    const orderItemsData: { [orderId: string]: any[] } = {};
+    for (const order of ordersData) {
+      orderItemsData[order.id] = [];
+    }
+    orderItemsSnapshot.forEach((doc) => {
+      const item = { id: doc.id, ...doc.data() } as any;
+      if (orderItemsData[item.orderId]) {
+        orderItemsData[item.orderId].push(item);
+      }
+    });
+    setOrderItems(orderItemsData);
+
+    const paymentsData: Payment[] = [];
+    paymentsSnapshot.forEach((doc) => {
+      paymentsData.push({ id: doc.id, ...doc.data() } as Payment);
+    });
+    setPayments(paymentsData);
+
+    const checksData: CustomerCheck[] = [];
+    checksSnapshot.forEach((doc) => {
+      const checkData = { id: doc.id, ...doc.data() } as CustomerCheck;
+
+      checksData.push(checkData);
+    });
+
+    setCustomerChecks(checksData);
+
+    // Generate statement
+    generateStatement(ordersData, paymentsData, checksData, orderItemsData);
   };
 
   const generateStatement = (
@@ -650,14 +812,18 @@ export function CustomerAccount() {
       };
 
       await addDoc(collection(db, "orders"), newOrder);
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setOrderForm({
         title: "",
         date: new Date().toISOString().split("T")[0],
         status: "pending",
         notes: "",
       });
-      fetchCustomerData();
+      setOrderAddSuccess(true);
+      focusFirst(addModalRef);
+      setTimeout(() => setOrderAddSuccess(false), 2500);
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding order:", error);
     }
@@ -699,7 +865,8 @@ export function CustomerAccount() {
         console.log("Check created with ID:", checkRef.id); // Debug log
       }
 
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setPaymentForm({
         date: new Date().toISOString().split("T")[0],
         type: "cash",
@@ -708,14 +875,11 @@ export function CustomerAccount() {
         checkNumber: "",
         checkBank: "",
       });
+      setPaymentAddSuccess(true);
+      focusFirst(addModalRef);
+      setTimeout(() => setPaymentAddSuccess(false), 2500);
 
-      // Force refresh the data to ensure new check appears
-      await fetchCustomerData();
-
-      // Additional delay to ensure database sync
-      setTimeout(() => {
-        fetchCustomerData();
-      }, 1000);
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding payment:", error);
     }
@@ -723,6 +887,49 @@ export function CustomerAccount() {
 
   const handleAddCheck = async () => {
     try {
+      // Series mode: create every check in ONE atomic batch
+      if (seriesEnabled && seriesEntries.length >= 2) {
+        if (
+          seriesEntries.some((entry) => !entry.checkNumber || !entry.dueDate)
+        ) {
+          alert("أكمل رقم وتاريخ كل شيك في السلسلة");
+          return;
+        }
+        const entries = seriesEntries;
+        const batch = writeBatch(db);
+        const nowIso = new Date().toISOString();
+
+        entries.forEach((entry) => {
+          const checkRef = doc(collection(db, "customerChecks"));
+          batch.set(checkRef, {
+            ...checkForm,
+            checkNumber: entry.checkNumber,
+            dueDate: entry.dueDate,
+            amount: entry.amount,
+            customerId: customerId!,
+            customerName: customer?.name || "",
+            createdAt: nowIso,
+          });
+        });
+
+        await batch.commit();
+
+        setCheckForm({
+          checkNumber: "",
+          bank: "",
+          amount: 0,
+          dueDate: new Date().toISOString().split("T")[0],
+          status: "pending",
+          notes: "",
+        });
+        setSeriesEnabled(false);
+        setAddSuccessCount(entries.length);
+        setCheckAddSuccess(true);
+        focusFirst(addModalRef);
+        setTimeout(() => setCheckAddSuccess(false), 2500);
+        return;
+      }
+
       const newCheck = {
         ...checkForm,
         customerId: customerId!,
@@ -731,7 +938,8 @@ export function CustomerAccount() {
       };
 
       await addDoc(collection(db, "customerChecks"), newCheck);
-      setShowAddModal(false);
+      // Stay open for the next entry: reset the form, confirm inline,
+      // and put the cursor back in the first field.
       setCheckForm({
         checkNumber: "",
         bank: "",
@@ -740,7 +948,11 @@ export function CustomerAccount() {
         status: "pending",
         notes: "",
       });
-      fetchCustomerData();
+      setAddSuccessCount(1);
+      setCheckAddSuccess(true);
+      focusFirst(addModalRef);
+      setTimeout(() => setCheckAddSuccess(false), 2500);
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding check:", error);
     }
@@ -770,7 +982,7 @@ export function CustomerAccount() {
 
       setShowEditOrderModal(false);
       setEditingOrder(null);
-      fetchCustomerData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error updating order:", error);
     }
@@ -797,7 +1009,7 @@ export function CustomerAccount() {
 
       setShowDeleteConfirm(false);
       setOrderToDelete(null);
-      fetchCustomerData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error deleting order:", error);
     }
@@ -815,7 +1027,7 @@ export function CustomerAccount() {
     try {
       const checkRef = doc(db, "customerChecks", checkId);
       await updateDoc(checkRef, { status: newStatus });
-      fetchCustomerData();
+      // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error updating check status:", error);
     }
@@ -829,11 +1041,7 @@ export function CustomerAccount() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-GB");
   };
 
   const getStatusIcon = (status: string) => {
@@ -937,8 +1145,8 @@ export function CustomerAccount() {
               .header { text-align: center; margin-bottom: 30px; }
               .customer-info { margin-bottom: 20px; }
               table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-              th { background-color: #f2f2f2; font-weight: bold; }
+              th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+              th { background-color: #f0eae0; font-weight: bold; }
               .summary { margin-top: 20px; font-weight: bold; }
               @media print { body { margin: 0; } }
             </style>
@@ -950,9 +1158,7 @@ export function CustomerAccount() {
             <div class="customer-info">
               <p><strong>العميل:</strong> ${customer?.name}</p>
               <p><strong>الهاتف:</strong> ${customer?.phone}</p>
-              <p><strong>التاريخ:</strong> ${new Date().toLocaleDateString(
-                "en-US"
-              )}</p>
+              <p><strong>التاريخ:</strong> ${new Date().toLocaleDateString("en-GB")}</p>
             </div>
             <table>
               <thead>
@@ -1030,10 +1236,10 @@ export function CustomerAccount() {
                 .header { text-align: center; margin-bottom: 30px; }
                 .customer-info { margin-bottom: 20px; }
                 table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-                th { background-color: #f2f2f2; font-weight: bold; }
-                .debit { color: #d32f2f; }
-                .credit { color: #388e3c; }
+                th, td { border: 1px solid #d8cdbb; padding: 8px; text-align: right; }
+                th { background-color: #f0eae0; font-weight: bold; }
+                .debit { color: #b23b2e; }
+                .credit { color: #4a7c59; }
                 .summary { margin-top: 20px; font-weight: bold; }
                 @media print { body { margin: 0; } }
               </style>
@@ -1045,9 +1251,7 @@ export function CustomerAccount() {
               <div class="customer-info">
                 <p><strong>العميل:</strong> ${customer?.name}</p>
                 <p><strong>الهاتف:</strong> ${customer?.phone}</p>
-                <p><strong>التاريخ:</strong> ${new Date().toLocaleDateString(
-                  "en-US"
-                )}</p>
+                <p><strong>التاريخ:</strong> ${new Date().toLocaleDateString("en-GB")}</p>
               </div>
               <table>
                 <thead>
@@ -1432,6 +1636,15 @@ export function CustomerAccount() {
           </button>
           <button
             className={`ca-tab-btn ${
+              activeTab === "receipts" ? "active" : ""
+            }`}
+            onClick={() => setActiveTab("receipts")}
+          >
+            <ReceiptText className="ca-tab-icon" />
+            سندات القبض
+          </button>
+          <button
+            className={`ca-tab-btn ${
               activeTab === "statement" ? "active" : ""
             }`}
             onClick={() => setActiveTab("statement")}
@@ -1462,13 +1675,7 @@ export function CustomerAccount() {
                   >
                     ترتيب حسب التاريخ {orderSort.order === "asc" ? "↑" : "↓"}
                   </button>
-                  <button
-                    className="ca-refresh-btn"
-                    onClick={() => fetchCustomerData()}
-                    title="تحديث البيانات"
-                  >
-                    <RefreshCw className="ca-btn-icon" />
-                  </button>
+                  {/* The live subscription picks up the change automatically. */}
                   <button
                     className="ca-add-btn"
                     onClick={() => openAddModal("order")}
@@ -1480,9 +1687,22 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="ca-filters-section">
-                <div className="ca-filter-group">
-                  <label>الحالة:</label>
+              <div className="filters-bar">
+                <div className="filter-field filter-field-search">
+                  <label>بحث</label>
+                  <div className="search-box">
+                    <Search className="search-icon" />
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="بحث..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="filter-field">
+                  <label>الحالة</label>
                   <select
                     value={orderFilters.status}
                     onChange={(e) =>
@@ -1491,7 +1711,6 @@ export function CustomerAccount() {
                         status: e.target.value,
                       })
                     }
-                    className="ca-filter-select"
                   >
                     <option value="all">جميع الحالات</option>
                     <option value="pending">في الانتظار</option>
@@ -1500,8 +1719,8 @@ export function CustomerAccount() {
                     <option value="cancelled">ملغي</option>
                   </select>
                 </div>
-                <div className="ca-filter-group">
-                  <label>من تاريخ:</label>
+                <div className="filter-field">
+                  <label>من تاريخ</label>
                   <input
                     type="date"
                     value={orderFilters.dateFrom}
@@ -1511,11 +1730,10 @@ export function CustomerAccount() {
                         dateFrom: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
-                <div className="ca-filter-group">
-                  <label>إلى تاريخ:</label>
+                <div className="filter-field">
+                  <label>إلى تاريخ</label>
                   <input
                     type="date"
                     value={orderFilters.dateTo}
@@ -1525,9 +1743,22 @@ export function CustomerAccount() {
                         dateTo: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
+                <button
+                  type="button"
+                  className="filters-clear-btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setOrderFilters({
+                      status: "all",
+                      dateFrom: "",
+                      dateTo: "",
+                    });
+                  }}
+                >
+                  مسح الفلاتر
+                </button>
               </div>
 
               {/* Orders Table */}
@@ -1633,9 +1864,22 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="ca-filters-section">
-                <div className="ca-filter-group">
-                  <label>النوع:</label>
+              <div className="filters-bar">
+                <div className="filter-field filter-field-search">
+                  <label>بحث</label>
+                  <div className="search-box">
+                    <Search className="search-icon" />
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="بحث..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="filter-field">
+                  <label>النوع</label>
                   <select
                     value={paymentFilters.type}
                     onChange={(e) =>
@@ -1644,15 +1888,14 @@ export function CustomerAccount() {
                         type: e.target.value,
                       })
                     }
-                    className="ca-filter-select"
                   >
                     <option value="all">جميع الأنواع</option>
                     <option value="cash">نقداً</option>
                     <option value="check">شيك</option>
                   </select>
                 </div>
-                <div className="ca-filter-group">
-                  <label>من تاريخ:</label>
+                <div className="filter-field">
+                  <label>من تاريخ</label>
                   <input
                     type="date"
                     value={paymentFilters.dateFrom}
@@ -1662,11 +1905,10 @@ export function CustomerAccount() {
                         dateFrom: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
-                <div className="ca-filter-group">
-                  <label>إلى تاريخ:</label>
+                <div className="filter-field">
+                  <label>إلى تاريخ</label>
                   <input
                     type="date"
                     value={paymentFilters.dateTo}
@@ -1676,9 +1918,22 @@ export function CustomerAccount() {
                         dateTo: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
+                <button
+                  type="button"
+                  className="filters-clear-btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setPaymentFilters({
+                      type: "all",
+                      dateFrom: "",
+                      dateTo: "",
+                    });
+                  }}
+                >
+                  مسح الفلاتر
+                </button>
               </div>
 
               {/* Payments Table */}
@@ -1754,7 +2009,7 @@ export function CustomerAccount() {
                     style={{
                       margin: "0.5rem 0 0 0",
                       fontSize: "0.875rem",
-                      color: "#64748b",
+                      color: "#6f6459",
                     }}
                   >
                     الشيكات المضافة كمدفوعات ستظهر هنا تلقائياً
@@ -1763,7 +2018,7 @@ export function CustomerAccount() {
                     style={{
                       margin: "0.25rem 0 0 0",
                       fontSize: "0.75rem",
-                      color: "#9ca3af",
+                      color: "#a09384",
                     }}
                   >
                     إجمالي الشيكات: {customerChecks.length} | المعروضة:{" "}
@@ -1780,9 +2035,22 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="ca-filters-section">
-                <div className="ca-filter-group">
-                  <label>الحالة:</label>
+              <div className="filters-bar">
+                <div className="filter-field filter-field-search">
+                  <label>بحث</label>
+                  <div className="search-box">
+                    <Search className="search-icon" />
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="بحث..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="filter-field">
+                  <label>الحالة</label>
                   <select
                     value={checkFilters.status}
                     onChange={(e) =>
@@ -1791,7 +2059,6 @@ export function CustomerAccount() {
                         status: e.target.value,
                       })
                     }
-                    className="ca-filter-select"
                   >
                     <option value="all">جميع الحالات</option>
                     <option value="pending">في الانتظار</option>
@@ -1799,24 +2066,8 @@ export function CustomerAccount() {
                     <option value="returned">مرتجع</option>
                   </select>
                 </div>
-                <button
-                  onClick={() =>
-                    setCheckFilters({ status: "all", dateFrom: "", dateTo: "" })
-                  }
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "#f3f4f6",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "0.375rem",
-                    fontSize: "0.875rem",
-                    cursor: "pointer",
-                  }}
-                >
-                  مسح الفلاتر
-                </button>
-
-                <div className="ca-filter-group">
-                  <label>من تاريخ:</label>
+                <div className="filter-field">
+                  <label>من تاريخ</label>
                   <input
                     type="date"
                     value={checkFilters.dateFrom}
@@ -1826,11 +2077,10 @@ export function CustomerAccount() {
                         dateFrom: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
-                <div className="ca-filter-group">
-                  <label>إلى تاريخ:</label>
+                <div className="filter-field">
+                  <label>إلى تاريخ</label>
                   <input
                     type="date"
                     value={checkFilters.dateTo}
@@ -1840,9 +2090,22 @@ export function CustomerAccount() {
                         dateTo: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
+                <button
+                  type="button"
+                  className="filters-clear-btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setCheckFilters({
+                      status: "all",
+                      dateFrom: "",
+                      dateTo: "",
+                    });
+                  }}
+                >
+                  مسح الفلاتر
+                </button>
               </div>
 
               {/* Checks Table */}
@@ -1929,6 +2192,96 @@ export function CustomerAccount() {
           )}
 
           {/* Statement Tab */}
+          {activeTab === "receipts" && (
+            <div className="ca-tab-panel">
+              <div className="ca-tab-header">
+                <h2>سندات القبض</h2>
+                <button
+                  className="ca-btn-primary"
+                  onClick={() => setShowReceiptDialog(true)}
+                >
+                  <ReceiptText size={16} />
+                  سند قبض جديد
+                </button>
+              </div>
+              <div className="ca-table-container">
+                <table className="ca-data-table">
+                  <thead>
+                    <tr>
+                      <th>رقم السند</th>
+                      <th>المبلغ</th>
+                      <th>البيان</th>
+                      <th>التاريخ</th>
+                      <th>إجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerReceipts.filter((r) =>
+                      matchesSearch(r, searchTerm)
+                    ).length === 0 ? (
+                      <tr>
+                        <td colSpan={5} style={{ textAlign: "center" }}>
+                          لا توجد سندات قبض
+                        </td>
+                      </tr>
+                    ) : (
+                      customerReceipts
+                        .filter((r) => matchesSearch(r, searchTerm))
+                        .map((receipt) => (
+                          <tr key={receipt.id}>
+                            <td>#{receipt.receiptNumber}</td>
+                            <td>₪{(receipt.amount || 0).toLocaleString()}</td>
+                            <td>{receipt.values?.["البيان"] || "—"}</td>
+                            <td>
+                              {receipt.date
+                                ? new Date(receipt.date).toLocaleDateString(
+                                    "en-GB"
+                                  )
+                                : "—"}
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", gap: "0.25rem" }}>
+                                <button
+                                  className="ca-action-btn"
+                                  title="عرض"
+                                  onClick={() => {
+                                    const w = window.open("", "_blank");
+                                    if (!w) return;
+                                    w.document.write(
+                                      buildPrintDocument(receipt.renderedHtml)
+                                    );
+                                    w.document.close();
+                                  }}
+                                >
+                                  <Eye />
+                                </button>
+                                <button
+                                  className="ca-action-btn"
+                                  title="طباعة"
+                                  onClick={() => {
+                                    const w = window.open("", "_blank");
+                                    if (!w) return;
+                                    w.document.write(
+                                      buildPrintDocument(receipt.renderedHtml)
+                                    );
+                                    w.document.close();
+                                    w.focus();
+                                    setTimeout(() => w.print(), 300);
+                                  }}
+                                >
+                                  <Printer />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {activeTab === "statement" && (
             <div className="statement-tab">
               <div className="ca-tab-header">
@@ -1942,9 +2295,22 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="ca-filters-section">
-                <div className="ca-filter-group">
-                  <label>من تاريخ:</label>
+              <div className="filters-bar">
+                <div className="filter-field filter-field-search">
+                  <label>بحث</label>
+                  <div className="search-box">
+                    <Search className="search-icon" />
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder="بحث..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="filter-field">
+                  <label>من تاريخ</label>
                   <input
                     type="date"
                     value={statementFilters.dateFrom}
@@ -1954,11 +2320,10 @@ export function CustomerAccount() {
                         dateFrom: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
-                <div className="ca-filter-group">
-                  <label>إلى تاريخ:</label>
+                <div className="filter-field">
+                  <label>إلى تاريخ</label>
                   <input
                     type="date"
                     value={statementFilters.dateTo}
@@ -1968,11 +2333,10 @@ export function CustomerAccount() {
                         dateTo: e.target.value,
                       })
                     }
-                    className="ca-filter-input"
                   />
                 </div>
-                <div className="ca-filter-group">
-                  <label>نوع القيد:</label>
+                <div className="filter-field">
+                  <label>نوع القيد</label>
                   <select
                     value={statementFilters.entryType}
                     onChange={(e) =>
@@ -1981,7 +2345,6 @@ export function CustomerAccount() {
                         entryType: e.target.value,
                       })
                     }
-                    className="ca-filter-select"
                   >
                     <option value="all">جميع الأنواع</option>
                     <option value="order">طلبات</option>
@@ -1989,6 +2352,20 @@ export function CustomerAccount() {
                     <option value="check">شيكات</option>
                   </select>
                 </div>
+                <button
+                  type="button"
+                  className="filters-clear-btn"
+                  onClick={() => {
+                    setSearchTerm("");
+                    setStatementFilters({
+                      dateFrom: "",
+                      dateTo: "",
+                      entryType: "all",
+                    });
+                  }}
+                >
+                  مسح الفلاتر
+                </button>
               </div>
 
               {/* Statement Table */}
@@ -2059,7 +2436,7 @@ export function CustomerAccount() {
       {/* Add Modal */}
       {showAddModal && (
         <div className="ca-modal-overlay">
-          <div className="ca-modal">
+          <div className="ca-modal" ref={addModalRef}>
             <div className="ca-modal-header">
               <h3>
                 {modalType === "order" && "إضافة طلب جديد"}
@@ -2076,6 +2453,12 @@ export function CustomerAccount() {
             <div className="ca-modal-body">
               {modalType === "order" && (
                 <>
+                  {orderAddSuccess && (
+                    <div className="modal-success-banner">
+                      <CheckCircle />
+                      تمت الإضافة بنجاح
+                    </div>
+                  )}
                   <div className="ca-form-group">
                     <label>عنوان الطلب *</label>
                     <input
@@ -2143,6 +2526,12 @@ export function CustomerAccount() {
 
               {modalType === "payment" && (
                 <>
+                  {paymentAddSuccess && (
+                    <div className="modal-success-banner">
+                      <CheckCircle />
+                      تمت الإضافة بنجاح
+                    </div>
+                  )}
                   <div className="ca-form-row">
                     <div className="ca-form-group">
                       <label>التاريخ *</label>
@@ -2252,6 +2641,14 @@ export function CustomerAccount() {
 
               {modalType === "check" && (
                 <>
+                  {checkAddSuccess && (
+                    <div className="modal-success-banner">
+                      <CheckCircle />
+                      {addSuccessCount > 1
+                        ? `تمت إضافة ${addSuccessCount} شيكات بنجاح`
+                        : "تمت الإضافة بنجاح"}
+                    </div>
+                  )}
                   <div className="ca-form-row">
                     <div className="ca-form-group">
                       <label>رقم الشيك *</label>
@@ -2313,6 +2710,151 @@ export function CustomerAccount() {
                       />
                     </div>
                   </div>
+
+                  <div className="series-panel">
+                    <label className="series-toggle">
+                      <input
+                        type="checkbox"
+                        checked={seriesEnabled}
+                        onChange={(e) => setSeriesEnabled(e.target.checked)}
+                      />
+                      <span>
+                        إضافة سلسلة شيكات (نفس البيانات بأرقام وتواريخ متتالية)
+                      </span>
+                    </label>
+                    {seriesEnabled && (
+                      <>
+                        <div className="series-fields">
+                          <div className="form-group">
+                            <label>عدد الشيكات</label>
+                            <input
+                              type="number"
+                              min={2}
+                              max={60}
+                              className="ca-form-input"
+                              value={seriesCount}
+                              onChange={(e) =>
+                                setSeriesCount(
+                                  Math.max(
+                                    2,
+                                    Math.min(60, parseInt(e.target.value) || 2)
+                                  )
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>الفترة بين الشيكات</label>
+                            <select
+                              className="ca-form-input"
+                              value={seriesInterval}
+                              onChange={(e) =>
+                                setSeriesInterval(
+                                  e.target.value as SeriesInterval
+                                )
+                              }
+                            >
+                              <option value="month">شهر</option>
+                              <option value="two-weeks">أسبوعان</option>
+                              <option value="week">أسبوع</option>
+                            </select>
+                          </div>
+                        </div>
+                        {checkForm.checkNumber &&
+                          !/\d/.test(checkForm.checkNumber) && (
+                            <p className="series-warning">
+                              رقم الشيك يجب أن يحتوي على أرقام حتى يتم توليد
+                              أرقام السلسلة تلقائياً
+                            </p>
+                          )}
+                        {seriesEntries.length > 0 && (
+                          <div className="series-preview">
+                            <div className="series-preview-row series-preview-head">
+                              <span className="series-preview-index">#</span>
+                              <span className="series-preview-number">
+                                رقم الشيك
+                              </span>
+                              <span className="series-preview-date">
+                                التاريخ
+                              </span>
+                              <span className="series-preview-amount">
+                                المبلغ
+                              </span>
+                              <span className="series-remove-spacer" />
+                            </div>
+                            {seriesEntries.map((entry, i) => (
+                              <div key={i} className="series-preview-row">
+                                <span className="series-preview-index">
+                                  {i + 1}.
+                                </span>
+                                <input
+                                  type="text"
+                                  className="series-input series-input-number"
+                                  value={entry.checkNumber}
+                                  onChange={(e) =>
+                                    updateSeriesEntry(
+                                      i,
+                                      "checkNumber",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <input
+                                  type="date"
+                                  className="series-input series-input-date"
+                                  value={entry.dueDate}
+                                  onChange={(e) =>
+                                    updateSeriesEntry(
+                                      i,
+                                      "dueDate",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <input
+                                  type="number"
+                                  className="series-input series-input-amount"
+                                  value={entry.amount}
+                                  onChange={(e) =>
+                                    updateSeriesEntry(
+                                      i,
+                                      "amount",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                                <button
+                                  type="button"
+                                  className="series-remove-btn"
+                                  onClick={() => removeSeriesEntry(i)}
+                                  title="إزالة هذا الشيك"
+                                  disabled={seriesEntries.length <= 2}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                            <div className="series-preview-row series-preview-foot">
+                              <span>{seriesEntries.length} شيكات</span>
+                              <span className="series-total">
+                                المجموع:{" "}
+                                {seriesEntries
+                                  .reduce((sum, e) => sum + (e.amount || 0), 0)
+                                  .toLocaleString()}
+                              </span>
+                            </div>
+                            {new Set(seriesEntries.map((e) => e.checkNumber))
+                              .size !== seriesEntries.length && (
+                              <p className="series-warning">
+                                تنبيه: هناك أرقام شيكات مكررة في السلسلة
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
                   <div className="ca-form-group">
                     <label>الحالة *</label>
                     <select
@@ -2450,7 +2992,7 @@ export function CustomerAccount() {
                       notes: customer.notes,
                     });
                     setShowEditModal(false);
-                    fetchCustomerData();
+                    // The live subscription picks up the change automatically.
                   } catch (error) {
                     console.error("Error updating customer:", error);
                   }
@@ -2581,7 +3123,7 @@ export function CustomerAccount() {
                   style={{
                     textAlign: "center",
                     margin: "1rem 0",
-                    color: "#dc2626",
+                    color: "#b23b2e",
                   }}
                 >
                   هل أنت متأكد من حذف الطلب "{orderToDelete.title}"؟
@@ -2591,7 +3133,7 @@ export function CustomerAccount() {
                     textAlign: "center",
                     margin: "1rem 0",
                     fontSize: "0.875rem",
-                    color: "#64748b",
+                    color: "#6f6459",
                   }}
                 >
                   سيتم حذف جميع عناصر الطلب أيضاً. لا يمكن التراجع عن هذا
@@ -2612,13 +3154,20 @@ export function CustomerAccount() {
               <button
                 className="ca-btn-primary"
                 onClick={handleDeleteOrder}
-                style={{ background: "#dc2626" }}
+                style={{ background: "#b23b2e" }}
               >
                 حذف الطلب
               </button>
             </div>
           </div>
         </div>
+      )}
+      {showReceiptDialog && customer && (
+        <ReceiptDialog
+          customers={[{ id: customerId!, name: customer.name }]}
+          initialCustomerId={customerId!}
+          onClose={() => setShowReceiptDialog(false)}
+        />
       )}
     </div>
   );
