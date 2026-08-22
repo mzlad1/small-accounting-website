@@ -6,6 +6,7 @@ import {
   Edit,
   Trash2,
   User,
+  Phone,
   Package,
   DollarSign,
   Calendar,
@@ -74,6 +75,7 @@ export function Suppliers() {
   const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
+  const [paginatedSuppliers, setPaginatedSuppliers] = useState<Supplier[]>([]);
   const [supplierElements, setSupplierElements] = useState<SupplierElement[]>(
     []
   );
@@ -93,6 +95,11 @@ export function Suppliers() {
     address: "",
     notes: "",
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
 
   // Add-modal: focus the first field on open, and keep the dialog open
   // after a successful add so several suppliers can be entered in a row.
@@ -152,7 +159,12 @@ export function Suppliers() {
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [suppliers, searchTerm, sortBy]);
+  }, [suppliers, searchTerm, sortBy, currentPage, itemsPerPage]);
+
+  // Any change to the search or the sort restarts the list from page 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, sortBy]);
 
   // Runs once from the local cache (instant paint) and again with the
   // server result. Must fully replace state, never append.
@@ -258,13 +270,34 @@ export function Suppliers() {
     }
 
     // Apply sorting
+    const contactOf = (s: Supplier) =>
+      [s.phone, s.email, s.address].filter(Boolean).join(" ");
+
     filtered.sort((a, b) => {
-      let aValue: any = a[sortBy.field as keyof Supplier];
-      let bValue: any = b[sortBy.field as keyof Supplier];
+      let aValue: any;
+      let bValue: any;
+
+      if (sortBy.field === "contact") {
+        // "معلومات الاتصال" is a composed column — sort on the same text
+        aValue = contactOf(a);
+        bValue = contactOf(b);
+      } else {
+        aValue = a[sortBy.field as keyof Supplier];
+        bValue = b[sortBy.field as keyof Supplier];
+      }
 
       if (sortBy.field === "lastOrderDate") {
         aValue = aValue ? new Date(aValue).getTime() : 0;
         bValue = bValue ? new Date(bValue).getTime() : 0;
+      } else if (
+        sortBy.field === "totalElements" ||
+        sortBy.field === "totalValue"
+      ) {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else {
+        aValue = (aValue ?? "").toString();
+        bValue = (bValue ?? "").toString();
       }
 
       if (sortBy.order === "asc") {
@@ -275,6 +308,21 @@ export function Suppliers() {
     });
 
     setFilteredSuppliers(filtered);
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    setTotalPages(totalPages);
+
+    // Reset to first page if current page is beyond total pages
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+
+    // Get paginated data
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginated = filtered.slice(startIndex, endIndex);
+    setPaginatedSuppliers(paginated);
   };
 
   const handleAddSupplier = async () => {
@@ -528,6 +576,32 @@ export function Suppliers() {
     }
   };
 
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   if (loading) {
     return (
       <div className="suppliers-container">
@@ -643,17 +717,29 @@ export function Suppliers() {
         <table className="suppliers-table">
           <thead>
             <tr>
-              <th onClick={() => handleSort("name")} className="sortable">
+              <th
+                onClick={() => handleSort("name")}
+                className="sortable th-sortable"
+              >
                 <div className="suppliers-th-content">
                   <User className="suppliers-th-icon" />
                   اسم المورد
                   {getSortIcon("name")}
                 </div>
               </th>
-              <th>معلومات الاتصال</th>
+              <th
+                onClick={() => handleSort("contact")}
+                className="sortable th-sortable"
+              >
+                <div className="suppliers-th-content">
+                  <Phone className="suppliers-th-icon" />
+                  معلومات الاتصال
+                  {getSortIcon("contact")}
+                </div>
+              </th>
               <th
                 onClick={() => handleSort("totalElements")}
-                className="sortable"
+                className="sortable th-sortable"
               >
                 <div className="suppliers-th-content">
                   <Package className="suppliers-th-icon" />
@@ -661,7 +747,10 @@ export function Suppliers() {
                   {getSortIcon("totalElements")}
                 </div>
               </th>
-              <th onClick={() => handleSort("totalValue")} className="sortable">
+              <th
+                onClick={() => handleSort("totalValue")}
+                className="sortable th-sortable"
+              >
                 <div className="suppliers-th-content">
                   <DollarSign className="suppliers-th-icon" />
                   إجمالي القيمة
@@ -670,7 +759,7 @@ export function Suppliers() {
               </th>
               <th
                 onClick={() => handleSort("lastOrderDate")}
-                className="sortable"
+                className="sortable th-sortable"
               >
                 <div className="suppliers-th-content">
                   <Calendar className="suppliers-th-icon" />
@@ -682,15 +771,27 @@ export function Suppliers() {
             </tr>
           </thead>
           <tbody>
-            {filteredSuppliers.length === 0 ? (
+            {paginatedSuppliers.length === 0 ? (
               <tr>
                 <td colSpan={6} className="suppliers-no-data">
                   لا توجد موردين
                 </td>
               </tr>
             ) : (
-              filteredSuppliers.map((supplier) => (
-                <tr key={supplier.id} className="suppliers-supplier-row">
+              paginatedSuppliers.map((supplier) => (
+                <tr
+                  key={supplier.id}
+                  className="suppliers-supplier-row row-clickable"
+                  onClick={(e) => {
+                    if (
+                      (e.target as HTMLElement).closest(
+                        "button, a, input, select"
+                      )
+                    )
+                      return;
+                    handleViewSupplier(supplier);
+                  }}
+                >
                   <td>
                     <div className="suppliers-supplier-info">
                       <div className="suppliers-supplier-avatar">
@@ -699,7 +800,6 @@ export function Suppliers() {
                       <div className="suppliers-supplier-details">
                         <span
                           className="suppliers-supplier-name clickable"
-                          onClick={() => handleViewSupplier(supplier)}
                           title="انقر لعرض التفاصيل"
                         >
                           {supplier.name}
@@ -799,6 +899,78 @@ export function Suppliers() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {filteredSuppliers.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+              {Math.min(currentPage * itemsPerPage, filteredSuppliers.length)} من{" "}
+              {filteredSuppliers.length} مورد
+            </span>
+            <div className="items-per-page">
+              <label>عدد العناصر في الصفحة:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+                className="pagination-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              الأولى
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              السابقة
+            </button>
+
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                className={`pagination-btn ${
+                  currentPage === page ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              التالية
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              الأخيرة
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Supplier Modal */}
       {showAddModal && (

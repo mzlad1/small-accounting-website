@@ -15,8 +15,6 @@ import {
   Download,
   Upload,
   CreditCard,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import {
   collection,
@@ -81,6 +79,15 @@ export function SupplierPayments() {
   const [filteredBalances, setFilteredBalances] = useState<SupplierBalance[]>(
     []
   );
+  // Full filtered + sorted lists (before the page slice). Pagination totals
+  // are computed from these so the page count follows the active filters
+  // instead of the raw, unfiltered data.
+  const [allFilteredPayments, setAllFilteredPayments] = useState<
+    SupplierPayment[]
+  >([]);
+  const [allFilteredBalances, setAllFilteredBalances] = useState<
+    SupplierBalance[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [balanceSearchTerm, setBalanceSearchTerm] = useState("");
@@ -96,8 +103,8 @@ export function SupplierPayments() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [balanceCurrentPage, setBalanceCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(20);
-  const [balanceItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [balanceItemsPerPage, setBalanceItemsPerPage] = useState(10);
   const [showBalanceView, setShowBalanceView] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -347,6 +354,10 @@ export function SupplierPayments() {
           aValue = a.type;
           bValue = b.type;
           break;
+        case "notes":
+          aValue = a.notes || "";
+          bValue = b.notes || "";
+          break;
         default:
           aValue = a.date;
           bValue = b.date;
@@ -356,6 +367,9 @@ export function SupplierPayments() {
       if (aValue > bValue) return sortBy.order === "asc" ? 1 : -1;
       return 0;
     });
+
+    // Keep the full filtered + sorted list for the pagination totals
+    setAllFilteredPayments(filtered);
 
     // Apply pagination
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -396,6 +410,15 @@ export function SupplierPayments() {
           aValue = a.balance;
           bValue = b.balance;
           break;
+        case "lastPaymentDate":
+          // ISO strings sort correctly as raw values; missing dates last
+          aValue = a.lastPaymentDate || "";
+          bValue = b.lastPaymentDate || "";
+          break;
+        case "lastOrderDate":
+          aValue = a.lastOrderDate || "";
+          bValue = b.lastOrderDate || "";
+          break;
         default:
           aValue = a.balance;
           bValue = b.balance;
@@ -406,10 +429,100 @@ export function SupplierPayments() {
       return 0;
     });
 
+    // Keep the full filtered + sorted list for the pagination totals
+    setAllFilteredBalances(filtered);
+
     // Apply pagination
     const startIndex = (balanceCurrentPage - 1) * balanceItemsPerPage;
     const endIndex = startIndex + balanceItemsPerPage;
     setFilteredBalances(filtered.slice(startIndex, endIndex));
+  };
+
+  // ---------------------------------------------------------------------
+  // Pagination (payments tab + balances tab, each with its own page state)
+  // ---------------------------------------------------------------------
+  const totalPages = Math.ceil(allFilteredPayments.length / itemsPerPage);
+  const balanceTotalPages = Math.ceil(
+    allFilteredBalances.length / balanceItemsPerPage
+  );
+
+  // Reset to the first page whenever the payments search / filters / sort change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedSupplier, selectedType, sortBy]);
+
+  // Reset to the first page whenever the balances search / sort change
+  useEffect(() => {
+    setBalanceCurrentPage(1);
+  }, [balanceSearchTerm, balanceSortBy]);
+
+  // Keep the current page inside range when a filtered list shrinks
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  useEffect(() => {
+    if (balanceTotalPages > 0 && balanceCurrentPage > balanceTotalPages) {
+      setBalanceCurrentPage(balanceTotalPages);
+    }
+  }, [balanceTotalPages, balanceCurrentPage]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
+  const handleBalancePageChange = (page: number) => {
+    setBalanceCurrentPage(page);
+  };
+
+  const handleBalanceItemsPerPageChange = (newItemsPerPage: number) => {
+    setBalanceItemsPerPage(newItemsPerPage);
+    setBalanceCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getBalancePageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(
+      1,
+      balanceCurrentPage - Math.floor(maxVisiblePages / 2)
+    );
+    const endPage = Math.min(
+      balanceTotalPages,
+      startPage + maxVisiblePages - 1
+    );
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   const handleAddPayment = async (e: React.FormEvent) => {
@@ -968,7 +1081,10 @@ export function SupplierPayments() {
               <table className="payments-table">
                 <thead>
                   <tr>
-                    <th onClick={() => handleBalanceSort("supplierName")}>
+                    <th
+                      onClick={() => handleBalanceSort("supplierName")}
+                      className="th-sortable"
+                    >
                       اسم المورد
                       {balanceSortBy.field === "supplierName" &&
                         (balanceSortBy.order === "asc" ? (
@@ -977,7 +1093,10 @@ export function SupplierPayments() {
                           <SortDesc size={16} />
                         ))}
                     </th>
-                    <th onClick={() => handleBalanceSort("totalOrdered")}>
+                    <th
+                      onClick={() => handleBalanceSort("totalOrdered")}
+                      className="th-sortable"
+                    >
                       إجمالي الطلبات
                       {balanceSortBy.field === "totalOrdered" &&
                         (balanceSortBy.order === "asc" ? (
@@ -986,7 +1105,10 @@ export function SupplierPayments() {
                           <SortDesc size={16} />
                         ))}
                     </th>
-                    <th onClick={() => handleBalanceSort("totalPaid")}>
+                    <th
+                      onClick={() => handleBalanceSort("totalPaid")}
+                      className="th-sortable"
+                    >
                       إجمالي المدفوع
                       {balanceSortBy.field === "totalPaid" &&
                         (balanceSortBy.order === "asc" ? (
@@ -995,7 +1117,10 @@ export function SupplierPayments() {
                           <SortDesc size={16} />
                         ))}
                     </th>
-                    <th onClick={() => handleBalanceSort("balance")}>
+                    <th
+                      onClick={() => handleBalanceSort("balance")}
+                      className="th-sortable"
+                    >
                       الرصيد المستحق
                       {balanceSortBy.field === "balance" &&
                         (balanceSortBy.order === "asc" ? (
@@ -1004,8 +1129,30 @@ export function SupplierPayments() {
                           <SortDesc size={16} />
                         ))}
                     </th>
-                    <th>آخر دفعة</th>
-                    <th>آخر طلب</th>
+                    <th
+                      onClick={() => handleBalanceSort("lastPaymentDate")}
+                      className="th-sortable"
+                    >
+                      آخر دفعة
+                      {balanceSortBy.field === "lastPaymentDate" &&
+                        (balanceSortBy.order === "asc" ? (
+                          <SortAsc size={16} />
+                        ) : (
+                          <SortDesc size={16} />
+                        ))}
+                    </th>
+                    <th
+                      onClick={() => handleBalanceSort("lastOrderDate")}
+                      className="th-sortable"
+                    >
+                      آخر طلب
+                      {balanceSortBy.field === "lastOrderDate" &&
+                        (balanceSortBy.order === "asc" ? (
+                          <SortAsc size={16} />
+                        ) : (
+                          <SortDesc size={16} />
+                        ))}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1064,44 +1211,81 @@ export function SupplierPayments() {
             </div>
 
             {/* Balance Pagination */}
-            {supplierBalances.length > balanceItemsPerPage && (
-              <div className="pagination">
-                <button
-                  onClick={() =>
-                    setBalanceCurrentPage((prev) => Math.max(1, prev - 1))
-                  }
-                  disabled={balanceCurrentPage === 1}
-                  className="pagination-btn"
-                >
-                  <ChevronRight size={16} />
-                  السابق
-                </button>
+            {allFilteredBalances.length > 0 && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  <span>
+                    عرض {(balanceCurrentPage - 1) * balanceItemsPerPage + 1} إلى{" "}
+                    {Math.min(
+                      balanceCurrentPage * balanceItemsPerPage,
+                      allFilteredBalances.length
+                    )}{" "}
+                    من {allFilteredBalances.length} مورد
+                  </span>
+                  <div className="items-per-page">
+                    <label>عدد العناصر في الصفحة:</label>
+                    <select
+                      value={balanceItemsPerPage}
+                      onChange={(e) =>
+                        handleBalanceItemsPerPageChange(Number(e.target.value))
+                      }
+                      className="pagination-select"
+                    >
+                      <option value={5}>5</option>
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </div>
+                </div>
 
-                <span className="pagination-info">
-                  صفحة {balanceCurrentPage} من{" "}
-                  {Math.ceil(supplierBalances.length / balanceItemsPerPage)}
-                </span>
+                <div className="pagination-controls">
+                  <button
+                    className="pagination-btn"
+                    onClick={() => handleBalancePageChange(1)}
+                    disabled={balanceCurrentPage === 1}
+                  >
+                    الأولى
+                  </button>
+                  <button
+                    className="pagination-btn"
+                    onClick={() =>
+                      handleBalancePageChange(balanceCurrentPage - 1)
+                    }
+                    disabled={balanceCurrentPage === 1}
+                  >
+                    السابقة
+                  </button>
 
-                <button
-                  onClick={() =>
-                    setBalanceCurrentPage((prev) =>
-                      Math.min(
-                        Math.ceil(
-                          supplierBalances.length / balanceItemsPerPage
-                        ),
-                        prev + 1
-                      )
-                    )
-                  }
-                  disabled={
-                    balanceCurrentPage ===
-                    Math.ceil(supplierBalances.length / balanceItemsPerPage)
-                  }
-                  className="pagination-btn"
-                >
-                  التالي
-                  <ChevronLeft size={16} />
-                </button>
+                  {getBalancePageNumbers().map((page) => (
+                    <button
+                      key={page}
+                      className={`pagination-btn ${
+                        balanceCurrentPage === page ? "active" : ""
+                      }`}
+                      onClick={() => handleBalancePageChange(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    className="pagination-btn"
+                    onClick={() =>
+                      handleBalancePageChange(balanceCurrentPage + 1)
+                    }
+                    disabled={balanceCurrentPage === balanceTotalPages}
+                  >
+                    التالية
+                  </button>
+                  <button
+                    className="pagination-btn"
+                    onClick={() => handleBalancePageChange(balanceTotalPages)}
+                    disabled={balanceCurrentPage === balanceTotalPages}
+                  >
+                    الأخيرة
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1168,7 +1352,10 @@ export function SupplierPayments() {
             <table className="payments-table">
               <thead>
                 <tr>
-                  <th onClick={() => handleSort("supplierName")}>
+                  <th
+                    onClick={() => handleSort("supplierName")}
+                    className="th-sortable"
+                  >
                     المورد
                     {sortBy.field === "supplierName" &&
                       (sortBy.order === "asc" ? (
@@ -1177,7 +1364,10 @@ export function SupplierPayments() {
                         <SortDesc size={16} />
                       ))}
                   </th>
-                  <th onClick={() => handleSort("amount")}>
+                  <th
+                    onClick={() => handleSort("amount")}
+                    className="th-sortable"
+                  >
                     المبلغ
                     {sortBy.field === "amount" &&
                       (sortBy.order === "asc" ? (
@@ -1186,7 +1376,10 @@ export function SupplierPayments() {
                         <SortDesc size={16} />
                       ))}
                   </th>
-                  <th onClick={() => handleSort("date")}>
+                  <th
+                    onClick={() => handleSort("date")}
+                    className="th-sortable"
+                  >
                     التاريخ
                     {sortBy.field === "date" &&
                       (sortBy.order === "asc" ? (
@@ -1195,7 +1388,10 @@ export function SupplierPayments() {
                         <SortDesc size={16} />
                       ))}
                   </th>
-                  <th onClick={() => handleSort("type")}>
+                  <th
+                    onClick={() => handleSort("type")}
+                    className="th-sortable"
+                  >
                     النوع
                     {sortBy.field === "type" &&
                       (sortBy.order === "asc" ? (
@@ -1204,7 +1400,18 @@ export function SupplierPayments() {
                         <SortDesc size={16} />
                       ))}
                   </th>
-                  <th>ملاحظات</th>
+                  <th
+                    onClick={() => handleSort("notes")}
+                    className="th-sortable"
+                  >
+                    ملاحظات
+                    {sortBy.field === "notes" &&
+                      (sortBy.order === "asc" ? (
+                        <SortAsc size={16} />
+                      ) : (
+                        <SortDesc size={16} />
+                      ))}
+                  </th>
                   <th>الإجراءات</th>
                 </tr>
               </thead>
@@ -1265,39 +1472,77 @@ export function SupplierPayments() {
           </div>
 
           {/* Payments Pagination */}
-          {payments.length > itemsPerPage && (
-            <div className="pagination">
-              <button
-                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                disabled={currentPage === 1}
-                className="pagination-btn"
-              >
-                <ChevronRight size={16} />
-                السابق
-              </button>
+          {allFilteredPayments.length > 0 && (
+            <div className="pagination-container">
+              <div className="pagination-info">
+                <span>
+                  عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+                  {Math.min(
+                    currentPage * itemsPerPage,
+                    allFilteredPayments.length
+                  )}{" "}
+                  من {allFilteredPayments.length} دفعة
+                </span>
+                <div className="items-per-page">
+                  <label>عدد العناصر في الصفحة:</label>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) =>
+                      handleItemsPerPageChange(Number(e.target.value))
+                    }
+                    className="pagination-select"
+                  >
+                    <option value={5}>5</option>
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                  </select>
+                </div>
+              </div>
 
-              <span className="pagination-info">
-                صفحة {currentPage} من{" "}
-                {Math.ceil(payments.length / itemsPerPage)}
-              </span>
+              <div className="pagination-controls">
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(1)}
+                  disabled={currentPage === 1}
+                >
+                  الأولى
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  السابقة
+                </button>
 
-              <button
-                onClick={() =>
-                  setCurrentPage((prev) =>
-                    Math.min(
-                      Math.ceil(payments.length / itemsPerPage),
-                      prev + 1
-                    )
-                  )
-                }
-                disabled={
-                  currentPage === Math.ceil(payments.length / itemsPerPage)
-                }
-                className="pagination-btn"
-              >
-                التالي
-                <ChevronLeft size={16} />
-              </button>
+                {getPageNumbers().map((page) => (
+                  <button
+                    key={page}
+                    className={`pagination-btn ${
+                      currentPage === page ? "active" : ""
+                    }`}
+                    onClick={() => handlePageChange(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  التالية
+                </button>
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange(totalPages)}
+                  disabled={currentPage === totalPages}
+                >
+                  الأخيرة
+                </button>
+              </div>
             </div>
           )}
         </>

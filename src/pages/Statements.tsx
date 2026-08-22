@@ -18,6 +18,8 @@ import {
   ChevronRight,
   Printer,
   Search,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 import {
   collection,
@@ -31,6 +33,7 @@ import {
 import { db } from "../config/firebase";
 import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
+import { formatItemDate } from "../utils/itemDate";
 import { matchesSearch } from "../utils/search";
 import "./Statements.css";
 
@@ -132,9 +135,13 @@ export function Statements() {
   );
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState({
-    field: "name" as "name" | "balance" | "lastActivity",
+    field: "name",
     order: "asc" as "asc" | "desc",
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     setLoading(true);
@@ -437,36 +444,8 @@ export function Statements() {
       );
     }
 
-    // Apply sorting
-    filteredStatements.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      switch (sortBy.field) {
-        case "name":
-          aValue = a.customer.name;
-          bValue = b.customer.name;
-          break;
-        case "balance":
-          aValue = a.currentBalance;
-          bValue = b.currentBalance;
-          break;
-        case "lastActivity":
-          aValue = new Date(a.lastActivity).getTime();
-          bValue = new Date(b.lastActivity).getTime();
-          break;
-        default:
-          aValue = a.customer.name;
-          bValue = b.customer.name;
-      }
-
-      if (sortBy.order === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
-    });
-
+    // Sorting is applied on the visible list (below), so a header click
+    // reorders immediately without regenerating every statement.
     setCustomerStatements(filteredStatements);
   };
 
@@ -490,7 +469,7 @@ export function Statements() {
     setExpandedOrders(newExpanded);
   };
 
-  const handleSort = (field: "name" | "balance" | "lastActivity") => {
+  const handleSort = (field: string) => {
     setSortBy((prev) => ({
       field,
       order: prev.field === field && prev.order === "desc" ? "asc" : "desc",
@@ -499,7 +478,36 @@ export function Statements() {
 
   const getSortIcon = (field: string) => {
     if (sortBy.field !== field) return null;
-    return sortBy.order === "asc" ? "↑" : "↓";
+    return sortBy.order === "asc" ? (
+      <SortAsc size={14} />
+    ) : (
+      <SortDesc size={14} />
+    );
+  };
+
+  // One comparable value per sortable column: amounts stay numeric,
+  // names/phones compare as text, dates compare on their raw value.
+  const statementSortValue = (
+    statement: CustomerStatement,
+    field: string
+  ): string | number => {
+    switch (field) {
+      case "phone":
+        return statement.customer.phone || "";
+      case "balance":
+        return statement.currentBalance;
+      case "orders":
+        return statement.totalOrders;
+      case "payments":
+        return statement.totalPayments;
+      case "checks":
+        return statement.totalChecks;
+      case "lastActivity":
+        return statement.lastActivity || "";
+      case "name":
+      default:
+        return statement.customer.name || "";
+    }
   };
 
   const printStatement = (customerId?: string) => {
@@ -921,10 +929,64 @@ export function Statements() {
   };
 
   // Any-field, Arabic-aware search over the generated statements
-  // (the dropdown filters above are applied in generateCustomerStatements).
-  const visibleStatements = customerStatements.filter((statement) =>
-    matchesSearch(statement, searchTerm)
+  // (the dropdown filters above are applied in generateCustomerStatements),
+  // then header sorting — both before the pagination slice below.
+  const visibleStatements = customerStatements
+    .filter((statement) => matchesSearch(statement, searchTerm))
+    .sort((a, b) => {
+      const aValue = statementSortValue(a, sortBy.field);
+      const bValue = statementSortValue(b, sortBy.field);
+      const comparison =
+        typeof aValue === "number" && typeof bValue === "number"
+          ? aValue - bValue
+          : String(aValue).localeCompare(String(bValue), "ar");
+      return sortBy.order === "asc" ? comparison : -comparison;
+    });
+
+  // Pagination (top-level customer rows only - expanded details are untouched)
+  const totalPages = Math.ceil(visibleStatements.length / itemsPerPage);
+  const paginatedStatements = visibleStatements.slice(
+    (currentPage - 1) * itemsPerPage,
+    (currentPage - 1) * itemsPerPage + itemsPerPage
   );
+
+  // Reset to first page whenever the search term, filters or sorting change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filters, sortBy]);
+
+  // Keep the current page inside range when the visible list shrinks
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   if (loading) {
     return (
@@ -1121,7 +1183,12 @@ export function Statements() {
                   {getSortIcon("name")}
                 </div>
               </th>
-              <th>معلومات الاتصال</th>
+              <th onClick={() => handleSort("phone")} className="sortable">
+                <div className="th-content">
+                  معلومات الاتصال
+                  {getSortIcon("phone")}
+                </div>
+              </th>
               <th onClick={() => handleSort("balance")} className="sortable">
                 <div className="th-content">
                   <DollarSign className="th-icon" />
@@ -1129,9 +1196,27 @@ export function Statements() {
                   {getSortIcon("balance")}
                 </div>
               </th>
-              <th>الطلبات</th>
-              <th>المدفوعات</th>
-              <th>الشيكات</th>
+              <th onClick={() => handleSort("orders")} className="sortable">
+                <div className="th-content">
+                  <Package className="th-icon" />
+                  الطلبات
+                  {getSortIcon("orders")}
+                </div>
+              </th>
+              <th onClick={() => handleSort("payments")} className="sortable">
+                <div className="th-content">
+                  <CreditCard className="th-icon" />
+                  المدفوعات
+                  {getSortIcon("payments")}
+                </div>
+              </th>
+              <th onClick={() => handleSort("checks")} className="sortable">
+                <div className="th-content">
+                  <FileText className="th-icon" />
+                  الشيكات
+                  {getSortIcon("checks")}
+                </div>
+              </th>
               <th
                 onClick={() => handleSort("lastActivity")}
                 className="sortable"
@@ -1145,7 +1230,7 @@ export function Statements() {
             </tr>
           </thead>
           <tbody>
-            {visibleStatements.map((statement) => (
+            {paginatedStatements.map((statement) => (
               <React.Fragment key={statement.customer.id}>
                 {/* Main Row */}
                 <tr className="main-row">
@@ -1315,7 +1400,7 @@ export function Statements() {
                                                       <th>الصنف</th>
                                                       <th>النوع</th>
                                                       <th>الكمية</th>
-                                                      <th>الوحدة</th>
+                                                      <th>التاريخ</th>
                                                       <th>سعر الوحدة</th>
                                                       <th>الإجمالي</th>
                                                       <th>ملاحظات</th>
@@ -1329,7 +1414,7 @@ export function Statements() {
                                                         <td>{item.name}</td>
                                                         <td>{item.type}</td>
                                                         <td>{item.quantity}</td>
-                                                        <td>{item.unit}</td>
+                                                        <td>{formatItemDate(item)}</td>
                                                         <td>
                                                           {formatCurrency(
                                                             item.unitPrice
@@ -1462,6 +1547,78 @@ export function Statements() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {visibleStatements.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+              {Math.min(currentPage * itemsPerPage, visibleStatements.length)}{" "}
+              من {visibleStatements.length} عميل
+            </span>
+            <div className="items-per-page">
+              <label>عدد العناصر في الصفحة:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+                className="pagination-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              الأولى
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              السابقة
+            </button>
+
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                className={`pagination-btn ${
+                  currentPage === page ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              التالية
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              الأخيرة
+            </button>
+          </div>
+        </div>
+      )}
 
       {visibleStatements.length === 0 && (
         <div className="no-data-message">

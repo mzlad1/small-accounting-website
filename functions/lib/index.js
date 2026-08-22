@@ -52,6 +52,10 @@ const COLLECTIONS = [
     "personalChecks",
     "apartments",
     "lands",
+    "tasks",
+    "calendarEvents",
+    "receipts",
+    "settings",
 ];
 // ==========================================
 // CALENDAR REMINDERS - FCM Push Notifications

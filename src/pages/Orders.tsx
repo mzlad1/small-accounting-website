@@ -100,6 +100,7 @@ export function Orders() {
     type: "",
     quantity: 1,
     unit: "",
+    itemDate: "",
     unitPrice: 0,
     notes: "",
     supplierId: "",
@@ -118,6 +119,10 @@ export function Orders() {
   );
   const [selectedTitleIndex, setSelectedTitleIndex] = useState(-1);
   const [selectedElementNameIndex, setSelectedElementNameIndex] = useState(-1);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Add-modal: focus the first field on open, and keep the dialog open
   // after a successful add so several orders can be entered in a row.
@@ -183,6 +188,11 @@ export function Orders() {
   useEffect(() => {
     applyFiltersAndSort();
   }, [orders, searchTerm, filters, sortBy]);
+
+  // Reset to the first page whenever the visible list changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filters, sortBy]);
 
   const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
     const [
@@ -291,21 +301,36 @@ export function Orders() {
       );
     }
 
-    // Apply sorting
+    // Apply sorting (always before the pagination slice further down)
     filtered.sort((a, b) => {
-      let aValue: any = a[sortBy.field as keyof Order];
-      let bValue: any = b[sortBy.field as keyof Order];
+      const field = sortBy.field;
+      let comparison = 0;
 
-      if (sortBy.field === "date") {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
-      }
-
-      if (sortBy.order === "asc") {
-        return aValue > bValue ? 1 : -1;
+      if (field === "date" || field === "createdAt") {
+        // Dates compare on their underlying raw value, not the display text
+        const aTime = new Date(a[field as keyof Order] as string).getTime();
+        const bTime = new Date(b[field as keyof Order] as string).getTime();
+        comparison =
+          (Number.isNaN(aTime) ? 0 : aTime) - (Number.isNaN(bTime) ? 0 : bTime);
+      } else if (field === "total" || field === "numberOfItems") {
+        // Amounts and counts compare numerically
+        comparison =
+          (Number(a[field as keyof Order]) || 0) -
+          (Number(b[field as keyof Order]) || 0);
+      } else if (field === "status") {
+        // Sort on the Arabic label the user actually sees
+        comparison = getStatusText(a.status).localeCompare(
+          getStatusText(b.status),
+          "ar"
+        );
       } else {
-        return aValue < bValue ? 1 : -1;
+        comparison = String(a[field as keyof Order] ?? "").localeCompare(
+          String(b[field as keyof Order] ?? ""),
+          "ar"
+        );
       }
+
+      return sortBy.order === "asc" ? comparison : -comparison;
     });
 
     setFilteredOrders(filtered);
@@ -607,6 +632,7 @@ export function Orders() {
       type: "",
       quantity: 1,
       unit: "",
+      itemDate: "",
       unitPrice: 0,
       notes: "",
       supplierId: "",
@@ -654,6 +680,7 @@ export function Orders() {
         type: "",
         quantity: 1,
         unit: "",
+        itemDate: "",
         unitPrice: 0,
         notes: "",
         supplierId: "",
@@ -841,6 +868,47 @@ export function Orders() {
     return new Date(dateString).toLocaleDateString("en-GB");
   };
 
+  // Pagination (applied after filtering + sorting)
+  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedOrders = filteredOrders.slice(
+    startIndex,
+    startIndex + itemsPerPage
+  );
+
+  // Keep the page in range when the filtered list shrinks
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   if (loading) {
     return (
       <div className="orders-container">
@@ -1015,7 +1083,7 @@ export function Orders() {
             <tr>
               <th
                 onClick={() => handleSort("customerName")}
-                className="sortable"
+                className="sortable th-sortable"
               >
                 <div className="th-content">
                   <User className="th-icon" />
@@ -1023,21 +1091,30 @@ export function Orders() {
                   {getSortIcon("customerName")}
                 </div>
               </th>
-              <th onClick={() => handleSort("title")} className="sortable">
+              <th
+                onClick={() => handleSort("title")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <Package className="th-icon" />
                   عنوان الطلب
                   {getSortIcon("title")}
                 </div>
               </th>
-              <th onClick={() => handleSort("date")} className="sortable">
+              <th
+                onClick={() => handleSort("date")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <Calendar className="th-icon" />
                   التاريخ
                   {getSortIcon("date")}
                 </div>
               </th>
-              <th onClick={() => handleSort("status")} className="sortable">
+              <th
+                onClick={() => handleSort("status")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <Package className="th-icon" />
                   الحالة
@@ -1045,7 +1122,10 @@ export function Orders() {
                 </div>
               </th>
 
-              <th onClick={() => handleSort("total")} className="sortable">
+              <th
+                onClick={() => handleSort("total")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <DollarSign className="th-icon" />
                   الإجمالي
@@ -1063,8 +1143,20 @@ export function Orders() {
                 </td>
               </tr>
             ) : (
-              filteredOrders.map((order) => (
-                <tr key={order.id} className="order-row">
+              paginatedOrders.map((order) => (
+                <tr
+                  key={order.id}
+                  className="order-row row-clickable"
+                  onClick={(e) => {
+                    if (
+                      (e.target as HTMLElement).closest(
+                        "button, a, input, select"
+                      )
+                    )
+                      return;
+                    navigate(`/orders/${order.id}`);
+                  }}
+                >
                   <td>
                     <div className="customer-info">
                       <div className="customer-avatar">
@@ -1142,6 +1234,78 @@ export function Orders() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {filteredOrders.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+              {Math.min(currentPage * itemsPerPage, filteredOrders.length)} من{" "}
+              {filteredOrders.length} طلب
+            </span>
+            <div className="items-per-page">
+              <label>عدد العناصر في الصفحة:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+                className="pagination-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              الأولى
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              السابقة
+            </button>
+
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                className={`pagination-btn ${
+                  currentPage === page ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              التالية
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              الأخيرة
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add Order Modal */}
       {showAddModal && (
@@ -1535,12 +1699,15 @@ export function Orders() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>الوحدة *</label>
+                  <label>التاريخ *</label>
                   <input
-                    type="text"
-                    value={elementForm.unit}
+                    type="date"
+                    value={elementForm.itemDate}
                     onChange={(e) =>
-                      setElementForm({ ...elementForm, unit: e.target.value })
+                      setElementForm({
+                        ...elementForm,
+                        itemDate: e.target.value,
+                      })
                     }
                     placeholder="مثل: متر، قطعة، كيلو"
                     className="form-input"
@@ -1665,7 +1832,7 @@ export function Orders() {
                 disabled={
                   !elementForm.name ||
                   !elementForm.type ||
-                  !elementForm.unit ||
+                  !elementForm.itemDate ||
                   elementForm.quantity <= 0 ||
                   elementForm.unitPrice <= 0 ||
                   uploadingImages

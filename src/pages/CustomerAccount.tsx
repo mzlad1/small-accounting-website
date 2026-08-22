@@ -18,6 +18,8 @@ import {
   Search,
   Printer,
   ReceiptText,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 
 import {
@@ -266,14 +268,16 @@ export function CustomerAccount() {
 
 
   // Filters and sorting
+  type SortState = { field: string; order: "asc" | "desc" };
+
   const [orderFilters, setOrderFilters] = useState({
     status: "all",
     dateFrom: "",
     dateTo: "",
   });
-  const [orderSort, setOrderSort] = useState({
+  const [orderSort, setOrderSort] = useState<SortState>({
     field: "date",
-    order: "desc" as "asc" | "desc",
+    order: "desc",
   });
 
   const [paymentFilters, setPaymentFilters] = useState({
@@ -281,12 +285,113 @@ export function CustomerAccount() {
     dateFrom: "",
     dateTo: "",
   });
+  const [paymentSort, setPaymentSort] = useState<SortState>({
+    field: "date",
+    order: "desc",
+  });
 
   const [checkFilters, setCheckFilters] = useState({
     status: "all",
     dateFrom: "",
     dateTo: "",
   });
+  const [checkSort, setCheckSort] = useState<SortState>({
+    field: "dueDate",
+    order: "desc",
+  });
+
+  // Shared header-sorting helpers for the tab tables: click toggles
+  // desc → asc on the same column, any new column starts at desc.
+  const toggleSort = (
+    setSort: React.Dispatch<React.SetStateAction<SortState>>,
+    field: string
+  ) => {
+    setSort((prev) => ({
+      field,
+      order: prev.field === field && prev.order === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const sortIcon = (sort: SortState, field: string) => {
+    if (sort.field !== field) return null;
+    return sort.order === "asc" ? (
+      <SortAsc size={16} />
+    ) : (
+      <SortDesc size={16} />
+    );
+  };
+
+  // Amounts/counts compare numerically; text and raw date strings compare
+  // as text (numeric collation keeps check numbers in human order).
+  const compareBy = (
+    sort: SortState,
+    aValue: string | number,
+    bValue: string | number
+  ) => {
+    const comparison =
+      typeof aValue === "number" && typeof bValue === "number"
+        ? aValue - bValue
+        : String(aValue).localeCompare(String(bValue), "ar", {
+            numeric: true,
+          });
+    return sort.order === "asc" ? comparison : -comparison;
+  };
+
+  const orderSortValue = (order: Order, field: string): string | number => {
+    switch (field) {
+      case "title":
+        return order.title || "";
+      case "status":
+        return order.status || "";
+      case "items":
+        return calculateOrderNumberOfItems(order.id);
+      case "total":
+        return calculateOrderTotal(order.id);
+      case "date":
+      default:
+        return order.date || "";
+    }
+  };
+
+  const paymentSortValue = (
+    payment: Payment,
+    field: string
+  ): string | number => {
+    switch (field) {
+      case "type":
+        return payment.type || "";
+      case "amount":
+        return payment.amount || 0;
+      case "notes":
+        return payment.notes || "";
+      case "checkDetails":
+        return `${payment.checkNumber || ""} ${payment.checkBank || ""}`.trim();
+      case "date":
+      default:
+        return payment.date || "";
+    }
+  };
+
+  const checkSortValue = (
+    check: CustomerCheck,
+    field: string
+  ): string | number => {
+    switch (field) {
+      case "bank":
+        return check.bank || "";
+      case "amount":
+        return check.amount || 0;
+      case "status":
+        return check.status || "";
+      case "notes":
+        return check.notes || "";
+      case "checkNumber":
+        return check.checkNumber || "";
+      case "dueDate":
+      default:
+        return check.dueDate || "";
+    }
+  };
 
   const [statementFilters, setStatementFilters] = useState({
     dateFrom: "",
@@ -393,6 +498,19 @@ export function CustomerAccount() {
     setStatementPagination((prev) => ({ ...prev, currentPage: 1 }));
   }, [searchTerm]);
 
+  // A header-sort change puts that tab back on its first page
+  useEffect(() => {
+    setOrdersPagination((prev) => ({ ...prev, currentPage: 1 }));
+  }, [orderSort]);
+
+  useEffect(() => {
+    setPaymentsPagination((prev) => ({ ...prev, currentPage: 1 }));
+  }, [paymentSort]);
+
+  useEffect(() => {
+    setChecksPagination((prev) => ({ ...prev, currentPage: 1 }));
+  }, [checkSort]);
+
   // Apply filters to orders
   useEffect(() => {
     let filtered = [...orders];
@@ -419,18 +537,18 @@ export function CustomerAccount() {
       filtered = filtered.filter((order) => matchesSearch(order, searchTerm));
     }
 
-    // Apply sorting
-    filtered.sort((a, b) => {
-      if (orderSort.field === "date") {
-        return orderSort.order === "asc"
-          ? new Date(a.date).getTime() - new Date(b.date).getTime()
-          : new Date(b.date).getTime() - new Date(a.date).getTime();
-      }
-      return 0;
-    });
+    // Header sorting — applied before the pagination slice
+    filtered.sort((a, b) =>
+      compareBy(
+        orderSort,
+        orderSortValue(a, orderSort.field),
+        orderSortValue(b, orderSort.field)
+      )
+    );
 
     setFilteredOrders(filtered);
-  }, [orders, orderFilters, orderSort, searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, orderItems, orderFilters, orderSort, searchTerm]);
 
   // Apply filters to payments
   useEffect(() => {
@@ -511,12 +629,22 @@ export function CustomerAccount() {
     const finalPayments = [...cashPayments, ...groupedPayments];
 
     // Search runs on the grouped rows — the ones actually rendered
-    setFilteredPayments(
-      searchTerm
-        ? finalPayments.filter((payment) => matchesSearch(payment, searchTerm))
-        : finalPayments
+    const searchedPayments = searchTerm
+      ? finalPayments.filter((payment) => matchesSearch(payment, searchTerm))
+      : finalPayments;
+
+    // Header sorting — applied before the pagination slice
+    searchedPayments.sort((a, b) =>
+      compareBy(
+        paymentSort,
+        paymentSortValue(a, paymentSort.field),
+        paymentSortValue(b, paymentSort.field)
+      )
     );
-  }, [payments, paymentFilters, searchTerm]);
+
+    setFilteredPayments(searchedPayments);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payments, paymentFilters, paymentSort, searchTerm]);
 
   // Apply filters to checks
   useEffect(() => {
@@ -564,8 +692,18 @@ export function CustomerAccount() {
       "Filtered checks count:",
       filtered.length
     ); // Debug log
+    // Header sorting — applied before the pagination slice
+    filtered.sort((a, b) =>
+      compareBy(
+        checkSort,
+        checkSortValue(a, checkSort.field),
+        checkSortValue(b, checkSort.field)
+      )
+    );
+
     setFilteredChecks(filtered);
-  }, [customerChecks, checkFilters, searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerChecks, checkFilters, checkSort, searchTerm]);
 
   // Apply filters to statement
   useEffect(() => {
@@ -1766,11 +1904,36 @@ export function CustomerAccount() {
                 <table className="ca-data-table">
                   <thead>
                     <tr>
-                      <th>عنوان الطلب</th>
-                      <th>التاريخ</th>
-                      <th>الحالة</th>
-                      <th>عدد العناصر</th>
-                      <th>الإجمالي</th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setOrderSort, "title")}
+                      >
+                        عنوان الطلب {sortIcon(orderSort, "title")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setOrderSort, "date")}
+                      >
+                        التاريخ {sortIcon(orderSort, "date")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setOrderSort, "status")}
+                      >
+                        الحالة {sortIcon(orderSort, "status")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setOrderSort, "items")}
+                      >
+                        عدد العناصر {sortIcon(orderSort, "items")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setOrderSort, "total")}
+                      >
+                        الإجمالي {sortIcon(orderSort, "total")}
+                      </th>
                       <th>الإجراءات</th>
                     </tr>
                   </thead>
@@ -1783,7 +1946,19 @@ export function CustomerAccount() {
                       </tr>
                     ) : (
                       paginatedOrders.map((order) => (
-                        <tr key={order.id} className="ca-data-row">
+                        <tr
+                          key={order.id}
+                          className="ca-data-row row-clickable"
+                          onClick={(e) => {
+                            if (
+                              (e.target as HTMLElement).closest(
+                                "button, a, input, select"
+                              )
+                            )
+                              return;
+                            navigate(`/orders/${order.id}`);
+                          }}
+                        >
                           <td>{order.title}</td>
                           <td>{formatDate(order.date)}</td>
                           <td>
@@ -1941,11 +2116,38 @@ export function CustomerAccount() {
                 <table className="ca-data-table">
                   <thead>
                     <tr>
-                      <th>التاريخ</th>
-                      <th>النوع</th>
-                      <th>المبلغ</th>
-                      <th>ملاحظات</th>
-                      <th>تفاصيل الشيك</th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setPaymentSort, "date")}
+                      >
+                        التاريخ {sortIcon(paymentSort, "date")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setPaymentSort, "type")}
+                      >
+                        النوع {sortIcon(paymentSort, "type")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setPaymentSort, "amount")}
+                      >
+                        المبلغ {sortIcon(paymentSort, "amount")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setPaymentSort, "notes")}
+                      >
+                        ملاحظات {sortIcon(paymentSort, "notes")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() =>
+                          toggleSort(setPaymentSort, "checkDetails")
+                        }
+                      >
+                        تفاصيل الشيك {sortIcon(paymentSort, "checkDetails")}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2113,12 +2315,42 @@ export function CustomerAccount() {
                 <table className="ca-data-table">
                   <thead>
                     <tr>
-                      <th>رقم الشيك</th>
-                      <th>البنك</th>
-                      <th>المبلغ</th>
-                      <th>تاريخ الاستحقاق</th>
-                      <th>الحالة</th>
-                      <th>ملاحظات</th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setCheckSort, "checkNumber")}
+                      >
+                        رقم الشيك {sortIcon(checkSort, "checkNumber")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setCheckSort, "bank")}
+                      >
+                        البنك {sortIcon(checkSort, "bank")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setCheckSort, "amount")}
+                      >
+                        المبلغ {sortIcon(checkSort, "amount")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setCheckSort, "dueDate")}
+                      >
+                        تاريخ الاستحقاق {sortIcon(checkSort, "dueDate")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setCheckSort, "status")}
+                      >
+                        الحالة {sortIcon(checkSort, "status")}
+                      </th>
+                      <th
+                        className="th-sortable"
+                        onClick={() => toggleSort(setCheckSort, "notes")}
+                      >
+                        ملاحظات {sortIcon(checkSort, "notes")}
+                      </th>
                       <th>الإجراءات</th>
                     </tr>
                   </thead>

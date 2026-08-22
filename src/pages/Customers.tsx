@@ -190,34 +190,39 @@ export function Customers() {
       }
     }
 
-    // Apply sorting
+    // Apply sorting (always before the pagination slice further down)
     filtered.sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let comparison = 0;
 
       switch (sortBy) {
-        case "name":
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
+        case "phone":
+          // Phone numbers read as strings but compare naturally as numbers
+          comparison = (a.phone || "").localeCompare(b.phone || "", "ar", {
+            numeric: true,
+          });
+          break;
+        case "numberOfOrders":
+          comparison = a.numberOfOrders - b.numberOfOrders;
           break;
         case "balance":
-          aValue = a.currentBalance;
-          bValue = b.currentBalance;
+          comparison = a.currentBalance - b.currentBalance;
           break;
-        case "lastActivity":
-          aValue = new Date(a.lastActivity);
-          bValue = new Date(b.lastActivity);
+        case "lastActivity": {
+          // Dates compare on their raw ISO value, not the display text
+          const aTime = new Date(a.lastActivity).getTime();
+          const bTime = new Date(b.lastActivity).getTime();
+          comparison =
+            (Number.isNaN(aTime) ? 0 : aTime) -
+            (Number.isNaN(bTime) ? 0 : bTime);
           break;
+        }
+        case "name":
         default:
-          aValue = a.name.toLowerCase();
-          bValue = b.name.toLowerCase();
+          comparison = (a.name || "").localeCompare(b.name || "", "ar");
+          break;
       }
 
-      if (sortOrder === "asc") {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+      return sortOrder === "asc" ? comparison : -comparison;
     });
 
     setFilteredCustomers(filtered);
@@ -823,11 +828,27 @@ export function Customers() {
         <table className="customers-table">
           <thead>
             <tr>
-              <th>الاسم</th>
-              <th>رقم الهاتف</th>
-              <th>عدد الطلبات</th>
-              <th>الرصيد الحالي</th>
-              <th>آخر نشاط</th>
+              <th className="th-sortable" onClick={() => handleSort("name")}>
+                الاسم {getSortIcon("name")}
+              </th>
+              <th className="th-sortable" onClick={() => handleSort("phone")}>
+                رقم الهاتف {getSortIcon("phone")}
+              </th>
+              <th
+                className="th-sortable"
+                onClick={() => handleSort("numberOfOrders")}
+              >
+                عدد الطلبات {getSortIcon("numberOfOrders")}
+              </th>
+              <th className="th-sortable" onClick={() => handleSort("balance")}>
+                الرصيد الحالي {getSortIcon("balance")}
+              </th>
+              <th
+                className="th-sortable"
+                onClick={() => handleSort("lastActivity")}
+              >
+                آخر نشاط {getSortIcon("lastActivity")}
+              </th>
               <th>الإجراءات</th>
             </tr>
           </thead>
@@ -842,7 +863,19 @@ export function Customers() {
               </tr>
             ) : (
               currentCustomers.map((customer) => (
-                <tr key={customer.id} className="customer-row">
+                <tr
+                  key={customer.id}
+                  className="customer-row row-clickable"
+                  onClick={(e) => {
+                    if (
+                      (e.target as HTMLElement).closest(
+                        "button, a, input, select"
+                      )
+                    )
+                      return;
+                    openCustomerAccount(customer.id);
+                  }}
+                >
                   <td>
                     <div className="customer-info">
                       <div className="customer-avatar">

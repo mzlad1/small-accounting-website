@@ -12,6 +12,7 @@ import {
   SortAsc,
   SortDesc,
   Users,
+  FileText,
 } from "lucide-react";
 import {
   collection,
@@ -28,6 +29,7 @@ import {
 import { db } from "../config/firebase";
 import { fetchCacheFirst, fetchDocsCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll, subscribeDocs } from "../utils/live";
+import { formatItemDate, getItemDateIso } from "../utils/itemDate";
 import { matchesSearch } from "../utils/search";
 
 import "./SupplierDetails.css";
@@ -54,6 +56,7 @@ interface SupplierElement {
   elementType: string;
   quantity: number;
   unit: string;
+  itemDate?: string;
   unitPrice: number;
   totalPrice: number;
   orderDate: string;
@@ -68,6 +71,9 @@ export function SupplierDetails() {
   const [filteredElements, setFilteredElements] = useState<SupplierElement[]>(
     []
   );
+  const [paginatedElements, setPaginatedElements] = useState<SupplierElement[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
@@ -79,6 +85,11 @@ export function SupplierDetails() {
     field: "orderDate",
     order: "desc" as "asc" | "desc",
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
 
   useEffect(() => {
     if (!supplierId) return;
@@ -132,7 +143,12 @@ export function SupplierDetails() {
 
   useEffect(() => {
     applyFiltersAndSort();
-  }, [elements, searchTerm, filters, sortBy]);
+  }, [elements, searchTerm, filters, sortBy, currentPage, itemsPerPage]);
+
+  // Any change to the search, the filters or the sort restarts from page 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filters, sortBy]);
 
   // Both apply functions run once from the local cache (instant paint) and
   // again with the server result. They must fully replace state, never append.
@@ -193,6 +209,7 @@ export function SupplierDetails() {
           elementType: itemData.type,
           quantity: itemData.quantity,
           unit: itemData.unit,
+          itemDate: itemData.itemDate,
           unitPrice: itemData.unitPrice,
           totalPrice: itemData.total,
           orderDate: orderData?.date || itemData.createdAt,
@@ -235,12 +252,32 @@ export function SupplierDetails() {
 
     // Apply sorting
     filtered.sort((a, b) => {
-      let aValue: any = a[sortBy.field as keyof SupplierElement];
-      let bValue: any = b[sortBy.field as keyof SupplierElement];
+      let aValue: any;
+      let bValue: any;
+
+      if (sortBy.field === "itemDate") {
+        // The item-date column renders the resolved ISO date (real
+        // itemDate or a parsed legacy unit) — sort on that same value.
+        aValue = getItemDateIso(a);
+        bValue = getItemDateIso(b);
+      } else {
+        aValue = a[sortBy.field as keyof SupplierElement];
+        bValue = b[sortBy.field as keyof SupplierElement];
+      }
 
       if (sortBy.field === "orderDate") {
         aValue = new Date(aValue).getTime();
         bValue = new Date(bValue).getTime();
+      } else if (
+        sortBy.field === "quantity" ||
+        sortBy.field === "unitPrice" ||
+        sortBy.field === "totalPrice"
+      ) {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else {
+        aValue = (aValue ?? "").toString();
+        bValue = (bValue ?? "").toString();
       }
 
       if (sortBy.order === "asc") {
@@ -251,6 +288,47 @@ export function SupplierDetails() {
     });
 
     setFilteredElements(filtered);
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    setTotalPages(totalPages);
+
+    // Reset to first page if current page is beyond total pages
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+
+    // Get paginated data
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginated = filtered.slice(startIndex, endIndex);
+    setPaginatedElements(paginated);
+  };
+
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   const handleSort = (field: string) => {
@@ -339,7 +417,7 @@ export function SupplierDetails() {
                    <th>اسم العنصر</th>
                    <th>النوع</th>
                    <th>الكمية</th>
-                   <th>الوحدة</th>
+                   <th>التاريخ</th>
                    <th>سعر الوحدة</th>
                    <th>الإجمالي</th>
                    <th>ملاحظات</th>
@@ -356,7 +434,7 @@ export function SupplierDetails() {
                      <td>${element.elementName}</td>
                      <td>${element.elementType}</td>
                      <td>${element.quantity}</td>
-                     <td>${element.unit}</td>
+                     <td>${formatItemDate(element)}</td>
                      <td>${formatCurrency(element.unitPrice)}</td>
                      <td>${formatCurrency(element.totalPrice)}</td>
                      <td>${element.notes || "-"}</td>
@@ -609,14 +687,20 @@ export function SupplierDetails() {
         <table className="supplier-details-elements-table">
           <thead>
             <tr>
-              <th onClick={() => handleSort("orderDate")} className="sortable">
+              <th
+                onClick={() => handleSort("orderDate")}
+                className="sortable th-sortable"
+              >
                 <div className="supplier-details-th-content">
                   <Calendar className="supplier-details-th-icon" />
                   التاريخ
                   {getSortIcon("orderDate")}
                 </div>
               </th>
-              <th onClick={() => handleSort("orderTitle")} className="sortable">
+              <th
+                onClick={() => handleSort("orderTitle")}
+                className="sortable th-sortable"
+              >
                 <div className="supplier-details-th-content">
                   <Package className="supplier-details-th-icon" />
                   الطلب
@@ -625,7 +709,7 @@ export function SupplierDetails() {
               </th>
               <th
                 onClick={() => handleSort("customerName")}
-                className="sortable"
+                className="sortable th-sortable"
               >
                 <div className="supplier-details-th-content">
                   <Users className="supplier-details-th-icon" />
@@ -635,7 +719,7 @@ export function SupplierDetails() {
               </th>
               <th
                 onClick={() => handleSort("elementName")}
-                className="sortable"
+                className="sortable th-sortable"
               >
                 <div className="supplier-details-th-content">
                   <Package className="supplier-details-th-icon" />
@@ -645,7 +729,7 @@ export function SupplierDetails() {
               </th>
               <th
                 onClick={() => handleSort("elementType")}
-                className="sortable"
+                className="sortable th-sortable"
               >
                 <div className="supplier-details-th-content">
                   <Package className="supplier-details-th-icon" />
@@ -653,40 +737,67 @@ export function SupplierDetails() {
                   {getSortIcon("elementType")}
                 </div>
               </th>
-              <th onClick={() => handleSort("quantity")} className="sortable">
+              <th
+                onClick={() => handleSort("quantity")}
+                className="sortable th-sortable"
+              >
                 <div className="supplier-details-th-content">
                   <Package className="supplier-details-th-icon" />
                   الكمية
                   {getSortIcon("quantity")}
                 </div>
               </th>
-              <th>الوحدة</th>
-              <th onClick={() => handleSort("unitPrice")} className="sortable">
+              <th
+                onClick={() => handleSort("itemDate")}
+                className="sortable th-sortable"
+              >
+                <div className="supplier-details-th-content">
+                  <Calendar className="supplier-details-th-icon" />
+                  التاريخ
+                  {getSortIcon("itemDate")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("unitPrice")}
+                className="sortable th-sortable"
+              >
                 <div className="supplier-details-th-content">
                   <DollarSign className="supplier-details-th-icon" />
                   سعر الوحدة
                   {getSortIcon("unitPrice")}
                 </div>
               </th>
-              <th onClick={() => handleSort("totalPrice")} className="sortable">
+              <th
+                onClick={() => handleSort("totalPrice")}
+                className="sortable th-sortable"
+              >
                 <div className="supplier-details-th-content">
                   <DollarSign className="supplier-details-th-icon" />
                   الإجمالي
                   {getSortIcon("totalPrice")}
                 </div>
               </th>
-              <th>ملاحظات</th>
+              <th
+                onClick={() => handleSort("notes")}
+                className="sortable th-sortable"
+              >
+                <div className="supplier-details-th-content">
+                  <FileText className="supplier-details-th-icon" />
+                  ملاحظات
+                  {getSortIcon("notes")}
+                </div>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {filteredElements.length === 0 ? (
+            {paginatedElements.length === 0 ? (
               <tr>
                 <td colSpan={10} className="supplier-details-no-data">
                   لا توجد عناصر
                 </td>
               </tr>
             ) : (
-              filteredElements.map((element) => (
+              paginatedElements.map((element) => (
                 <tr key={element.id} className="supplier-details-element-row">
                   <td>{formatDate(element.orderDate)}</td>
                   <td>
@@ -725,7 +836,7 @@ export function SupplierDetails() {
                   <td>
                     <div className="supplier-details-unit-info">
                       <span className="supplier-details-unit-text">
-                        {element.unit}
+                        {formatItemDate(element)}
                       </span>
                     </div>
                   </td>
@@ -750,6 +861,78 @@ export function SupplierDetails() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {filteredElements.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+              {Math.min(currentPage * itemsPerPage, filteredElements.length)} من{" "}
+              {filteredElements.length} عنصر
+            </span>
+            <div className="items-per-page">
+              <label>عدد العناصر في الصفحة:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+                className="pagination-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              الأولى
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              السابقة
+            </button>
+
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                className={`pagination-btn ${
+                  currentPage === page ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              التالية
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              الأخيرة
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

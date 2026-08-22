@@ -419,6 +419,70 @@ div.modal-overlay {
   z-index: 2000;
 }
 
+/* All table values print strong: black ink, bold — no gray/faded
+   cell text anywhere (notes and dates included). Status/type badges
+   keep their pill colors; buttons and links keep their own styling.
+   !important is deliberate: this user preference must beat every
+   page-level cell recipe in the global bundle. */
+tbody td:not([class*="status"]):not([class*="badge"]),
+tbody td span:not([class*="status"]):not([class*="badge"]),
+tbody td div:not([class*="status"]):not([class*="badge"]):not([class*="actions"]),
+tbody td p:not([class*="status"]):not([class*="badge"]) {
+  color: var(--text-primary) !important;
+  font-weight: 700 !important;
+}
+
+/* Sortable table headers + clickable rows — shared affordances */
+thead th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s var(--ease-out), background 0.15s var(--ease-out);
+}
+
+thead th.th-sortable:hover {
+  color: var(--text-primary);
+  background: var(--row-hover);
+}
+
+thead th.th-sortable svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  vertical-align: middle;
+  margin-inline-start: 0.25rem;
+  color: var(--accent);
+}
+
+tbody tr.row-clickable {
+  cursor: pointer;
+}
+
+/* Pagination bar — authoritative layout (element+class specificity
+   beats the pages' colliding bare recipes in the global bundle) */
+div.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+div.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+div.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+}
+
 /* ============================================================
    Modal success banner — flashed inside add-dialogs after a
    successful save (dialog stays open for the next entry)

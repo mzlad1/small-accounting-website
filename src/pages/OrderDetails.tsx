@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   Plus,
+  Search,
   Edit,
   Trash2,
   ArrowLeft,
@@ -22,6 +23,7 @@ import {
   addDoc,
   updateDoc,
   deleteDoc,
+  writeBatch,
   doc,
   query,
   where,
@@ -38,6 +40,12 @@ import {
 import { db, storage } from "../config/firebase";
 import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
+import { matchesSearch } from "../utils/search";
+import {
+  parseLegacyDmy,
+  getItemDateIso,
+  formatItemDate,
+} from "../utils/itemDate";
 
 import "./OrderDetails.css";
 
@@ -65,6 +73,7 @@ interface OrderItem {
   type: string;
   quantity: number;
   unit: string;
+  itemDate?: string;
   unitPrice: number;
   total: number;
   notes?: string;
@@ -101,6 +110,7 @@ export function OrderDetails() {
     type: "",
     quantity: 1,
     unit: "",
+    itemDate: "",
     unitPrice: 0,
     notes: "",
     supplierId: "",
@@ -130,6 +140,8 @@ export function OrderDetails() {
   // Add-modal: focus the first field on open, and keep the dialog open
   // after a successful add so several items can be entered in a row.
   const addModalRef = useRef<HTMLDivElement | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const migratedRef = useRef(false);
   const [addSuccess, setAddSuccess] = useState(false);
 
   const focusFirstField = () => {
@@ -269,6 +281,7 @@ export function OrderDetails() {
         type: "",
         quantity: 1,
         unit: "",
+        itemDate: "",
         unitPrice: 0,
         notes: "",
         supplierId: "",
@@ -321,6 +334,7 @@ export function OrderDetails() {
         type: "",
         quantity: 1,
         unit: "",
+        itemDate: "",
         unitPrice: 0,
         notes: "",
         supplierId: "",
@@ -414,7 +428,7 @@ export function OrderDetails() {
                   <th>اسم العنصر</th>
                   <th>النوع</th>
                   <th>الكمية</th>
-                  <th>الوحدة</th>
+                  <th>التاريخ</th>
                   <th>سعر الوحدة</th>
                   <th>المجموع</th>
                   <th>ملاحظات</th>
@@ -428,7 +442,7 @@ export function OrderDetails() {
                     <td>${item.name}</td>
                     <td>${item.type}</td>
                     <td>${item.quantity}</td>
-                    <td>${item.unit}</td>
+                    <td>${formatItemDate(item)}</td>
                     <td>${formatCurrency(item.unitPrice)}</td>
                     <td>${formatCurrency(item.total)}</td>
                     <td>${item.notes || "-"}</td>
@@ -467,6 +481,7 @@ export function OrderDetails() {
       type: item.type,
       quantity: item.quantity,
       unit: item.unit,
+      itemDate: getItemDateIso(item),
       unitPrice: item.unitPrice,
       notes: item.notes || "",
       supplierId: item.supplierId || "",
@@ -482,8 +497,36 @@ export function OrderDetails() {
     setShowDeleteItemModal(true);
   };
 
+  // One-time migration: items whose الوحدة holds a d/m/yyyy date get a
+  // proper itemDate field (the original unit value stays untouched)
+  useEffect(() => {
+    if (migratedRef.current || items.length === 0) return;
+    const toMigrate = items.filter(
+      (it) => !it.itemDate && parseLegacyDmy(it.unit)
+    );
+    if (toMigrate.length === 0) return;
+    migratedRef.current = true;
+    const batch = writeBatch(db);
+    toMigrate.forEach((it) =>
+      batch.update(doc(db, "orderItems", it.id), {
+        itemDate: parseLegacyDmy(it.unit),
+      })
+    );
+    batch
+      .commit()
+      .then(() =>
+        console.log(`Migrated ${toMigrate.length} item dates from unit field`)
+      )
+      .catch((e) => console.warn("itemDate migration failed:", e));
+  }, [items]);
+
   const getFilteredAndSortedItems = () => {
     let filtered = [...items];
+
+    // Any-field search
+    if (searchTerm) {
+      filtered = filtered.filter((item) => matchesSearch(item, searchTerm));
+    }
 
     // Apply type filter
     if (filters.type !== "all") {
@@ -492,8 +535,15 @@ export function OrderDetails() {
 
     // Apply sorting
     filtered.sort((a, b) => {
-      let aValue: any = a[sortBy.field as keyof OrderItem];
-      let bValue: any = b[sortBy.field as keyof OrderItem];
+      let aValue: any;
+      let bValue: any;
+      if (sortBy.field === "itemDate") {
+        aValue = getItemDateIso(a);
+        bValue = getItemDateIso(b);
+      } else {
+        aValue = a[sortBy.field as keyof OrderItem];
+        bValue = b[sortBy.field as keyof OrderItem];
+      }
 
       if (sortBy.order === "asc") {
         return aValue > bValue ? 1 : -1;
@@ -799,6 +849,19 @@ export function OrderDetails() {
 
         {/* Filters and Sorting */}
         <div className="filters-bar">
+          <div className="filter-field filter-field-search">
+            <label>بحث</label>
+            <div className="search-box">
+              <Search className="search-icon" />
+              <input
+                type="text"
+                className="search-input"
+                placeholder="بحث..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
           <div className="filter-field">
             <label>النوع</label>
             <select
@@ -824,6 +887,7 @@ export function OrderDetails() {
               <option value="quantity">الكمية</option>
               <option value="unitPrice">السعر</option>
               <option value="total">الإجمالي</option>
+              <option value="itemDate">التاريخ</option>
             </select>
           </div>
 
@@ -847,6 +911,7 @@ export function OrderDetails() {
             type="button"
             className="filters-clear-btn"
             onClick={() => {
+              setSearchTerm("");
               setFilters({ type: "all" });
               setSortBy({ field: "name", order: "asc" });
             }}
@@ -863,7 +928,7 @@ export function OrderDetails() {
                 <th>اسم العنصر</th>
                 <th>النوع</th>
                 <th>الكمية</th>
-                <th>الوحدة</th>
+                <th>التاريخ</th>
                 <th>سعر الوحدة</th>
                 <th>الإجمالي</th>
                 <th>الصور</th>
@@ -891,7 +956,7 @@ export function OrderDetails() {
                       <div className="od-item-quantity">{item.quantity}</div>
                     </td>
                     <td>
-                      <div className="od-item-unit">{item.unit}</div>
+                      <div className="od-item-unit">{formatItemDate(item)}</div>
                     </td>
                     <td>
                       <div className="od-item-unit-price">
@@ -1062,14 +1127,13 @@ export function OrderDetails() {
                   />
                 </div>
                 <div className="od-form-group">
-                  <label>الوحدة *</label>
+                  <label>التاريخ *</label>
                   <input
-                    type="text"
-                    value={itemForm.unit}
+                    type="date"
+                    value={itemForm.itemDate}
                     onChange={(e) =>
-                      setItemForm({ ...itemForm, unit: e.target.value })
+                      setItemForm({ ...itemForm, itemDate: e.target.value })
                     }
-                    placeholder="مثل: متر، قطعة، كيلو"
                     className="od-form-input"
                   />
                 </div>
@@ -1190,7 +1254,7 @@ export function OrderDetails() {
                 disabled={
                   !itemForm.name ||
                   !itemForm.type ||
-                  !itemForm.unit ||
+                  !itemForm.itemDate ||
                   itemForm.quantity <= 0 ||
                   itemForm.unitPrice <= 0 ||
                   uploadingImages
@@ -1218,6 +1282,7 @@ export function OrderDetails() {
                     type: "",
                     quantity: 1,
                     unit: "",
+                    itemDate: "",
                     unitPrice: 0,
                     notes: "",
                     supplierId: "",
@@ -1305,14 +1370,13 @@ export function OrderDetails() {
                   />
                 </div>
                 <div className="od-form-group">
-                  <label>الوحدة *</label>
+                  <label>التاريخ *</label>
                   <input
-                    type="text"
-                    value={itemForm.unit}
+                    type="date"
+                    value={itemForm.itemDate}
                     onChange={(e) =>
-                      setItemForm({ ...itemForm, unit: e.target.value })
+                      setItemForm({ ...itemForm, itemDate: e.target.value })
                     }
-                    placeholder="مثل: متر، قطعة، كيلو"
                     className="od-form-input"
                   />
                 </div>
@@ -1458,6 +1522,7 @@ export function OrderDetails() {
                     type: "",
                     quantity: 1,
                     unit: "",
+                    itemDate: "",
                     unitPrice: 0,
                     notes: "",
                     supplierId: "",
@@ -1476,7 +1541,7 @@ export function OrderDetails() {
                 disabled={
                   !itemForm.name ||
                   !itemForm.type ||
-                  !itemForm.unit ||
+                  !itemForm.itemDate ||
                   itemForm.quantity <= 0 ||
                   itemForm.unitPrice <= 0 ||
                   uploadingImages

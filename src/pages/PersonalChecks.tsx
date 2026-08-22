@@ -333,14 +333,24 @@ export function PersonalChecks() {
       }
     }
 
-    // Apply sorting
+    // Apply sorting — every column header is sortable, so normalise per
+    // field kind: amounts numerically, dates by their raw ISO value
+    // (YYYY-MM-DD sorts chronologically), everything else as a string.
+    const numericSortFields = ["amount"];
+    const dateSortFields = ["dueDate", "createdAt", "autoPaidAt"];
     filtered.sort((a, b) => {
       let aValue: any = a[sortBy.field as keyof PersonalCheck];
       let bValue: any = b[sortBy.field as keyof PersonalCheck];
 
-      if (sortBy.field === "dueDate") {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
+      if (numericSortFields.includes(sortBy.field)) {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else if (dateSortFields.includes(sortBy.field)) {
+        aValue = aValue ?? "";
+        bValue = bValue ?? "";
+      } else {
+        aValue = (aValue ?? "").toString();
+        bValue = (bValue ?? "").toString();
       }
 
       if (sortBy.order === "asc") {
@@ -1027,32 +1037,81 @@ export function PersonalChecks() {
         <table className="personal-checks-table">
           <thead>
             <tr>
-              <th onClick={() => handleSort("payee")} className="sortable">
+              <th
+                onClick={() => handleSort("payee")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <User className="th-icon" />
                   المستفيد
                   {getSortIcon("payee")}
                 </div>
               </th>
-              <th>رقم الشيك</th>
-              <th>البنك</th>
-              <th onClick={() => handleSort("amount")} className="sortable">
+              <th
+                onClick={() => handleSort("checkNumber")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  رقم الشيك
+                  {getSortIcon("checkNumber")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("bank")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  البنك
+                  {getSortIcon("bank")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("amount")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <DollarSign className="th-icon" />
                   المبلغ
                   {getSortIcon("amount")}
                 </div>
               </th>
-              <th>العملة</th>
-              <th onClick={() => handleSort("dueDate")} className="sortable">
+              <th
+                onClick={() => handleSort("currency")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  العملة
+                  {getSortIcon("currency")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("dueDate")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <Calendar className="th-icon" />
                   تاريخ الاستحقاق
                   {getSortIcon("dueDate")}
                 </div>
               </th>
-              <th>الحالة</th>
-              <th>ملاحظات</th>
+              <th
+                onClick={() => handleSort("status")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  الحالة
+                  {getSortIcon("status")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("notes")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  ملاحظات
+                  {getSortIcon("notes")}
+                </div>
+              </th>
               <th>الإجراءات</th>
             </tr>
           </thead>

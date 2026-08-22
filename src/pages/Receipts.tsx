@@ -10,6 +10,8 @@ import {
   DollarSign,
   Calendar,
   Settings,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 import {
   collection,
@@ -63,6 +65,10 @@ export function Receipts() {
   const [customerFilter, setCustomerFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [sortBy, setSortBy] = useState({
+    field: "receiptNumber",
+    order: "desc" as "asc" | "desc",
+  });
   const [showNewReceipt, setShowNewReceipt] = useState(false);
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [templateDraft, setTemplateDraft] = useState(DEFAULT_TEMPLATE);
@@ -70,6 +76,10 @@ export function Receipts() {
   const [receiptToDelete, setReceiptToDelete] = useState<Receipt | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const applySnapshots = (snapshots: Array<QuerySnapshot<DocumentData>>) => {
     const [receiptsSnapshot, customersSnapshot] = snapshots;
@@ -105,6 +115,43 @@ export function Receipts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleSort = (field: string) => {
+    setSortBy((prev) => ({
+      field,
+      order: prev.field === field && prev.order === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortBy.field !== field) return null;
+    return sortBy.order === "asc" ? (
+      <SortAsc size={16} />
+    ) : (
+      <SortDesc size={16} />
+    );
+  };
+
+  // One comparable value per sortable column: numbers stay numeric,
+  // text compares as text, the date compares on its raw stored value.
+  const receiptSortValue = (
+    receipt: Receipt,
+    field: string
+  ): string | number => {
+    switch (field) {
+      case "customerName":
+        return receipt.customerName || "";
+      case "amount":
+        return receipt.amount || 0;
+      case "description":
+        return receipt.values?.["البيان"] || "";
+      case "date":
+        return receipt.date || "";
+      case "receiptNumber":
+      default:
+        return receipt.receiptNumber || 0;
+    }
+  };
+
   const filteredReceipts = useMemo(() => {
     let filtered = [...receipts];
     if (searchTerm) {
@@ -119,8 +166,64 @@ export function Receipts() {
     if (dateTo) {
       filtered = filtered.filter((r) => r.date <= dateTo);
     }
+    // Header sorting — applied before the pagination slice below
+    filtered.sort((a, b) => {
+      const aValue = receiptSortValue(a, sortBy.field);
+      const bValue = receiptSortValue(b, sortBy.field);
+      const comparison =
+        typeof aValue === "number" && typeof bValue === "number"
+          ? aValue - bValue
+          : String(aValue).localeCompare(String(bValue), "ar");
+      return sortBy.order === "asc" ? comparison : -comparison;
+    });
     return filtered;
-  }, [receipts, searchTerm, customerFilter, dateFrom, dateTo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [receipts, searchTerm, customerFilter, dateFrom, dateTo, sortBy]);
+
+  // Reset to the first page whenever the visible list changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, customerFilter, dateFrom, dateTo, sortBy]);
+
+  // Pagination (applied after filtering)
+  const totalPages = Math.ceil(filteredReceipts.length / itemsPerPage);
+  const paginatedReceipts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredReceipts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredReceipts, currentPage, itemsPerPage]);
+
+  // Keep the page in range when the filtered list shrinks
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [currentPage, totalPages]);
+
+  // Pagination functions
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage + 1 < maxVisiblePages) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   const thisMonthCount = useMemo(() => {
     const now = new Date();
@@ -358,11 +461,30 @@ export function Receipts() {
         <table className="receipts-table">
           <thead>
             <tr>
-              <th>رقم السند</th>
-              <th>العميل</th>
-              <th>المبلغ</th>
-              <th>البيان</th>
-              <th>التاريخ</th>
+              <th
+                className="th-sortable"
+                onClick={() => handleSort("receiptNumber")}
+              >
+                رقم السند {getSortIcon("receiptNumber")}
+              </th>
+              <th
+                className="th-sortable"
+                onClick={() => handleSort("customerName")}
+              >
+                العميل {getSortIcon("customerName")}
+              </th>
+              <th className="th-sortable" onClick={() => handleSort("amount")}>
+                المبلغ {getSortIcon("amount")}
+              </th>
+              <th
+                className="th-sortable"
+                onClick={() => handleSort("description")}
+              >
+                البيان {getSortIcon("description")}
+              </th>
+              <th className="th-sortable" onClick={() => handleSort("date")}>
+                التاريخ {getSortIcon("date")}
+              </th>
               <th>إجراءات</th>
             </tr>
           </thead>
@@ -374,7 +496,7 @@ export function Receipts() {
                 </td>
               </tr>
             ) : (
-              filteredReceipts.map((receipt) => (
+              paginatedReceipts.map((receipt) => (
                 <tr key={receipt.id}>
                   <td className="receipt-number">#{receipt.receiptNumber}</td>
                   <td>{receipt.customerName || "—"}</td>
@@ -421,6 +543,78 @@ export function Receipts() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Controls */}
+      {filteredReceipts.length > 0 && (
+        <div className="pagination-container">
+          <div className="pagination-info">
+            <span>
+              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
+              {Math.min(currentPage * itemsPerPage, filteredReceipts.length)} من{" "}
+              {filteredReceipts.length} سند
+            </span>
+            <div className="items-per-page">
+              <label>عدد العناصر في الصفحة:</label>
+              <select
+                value={itemsPerPage}
+                onChange={(e) =>
+                  handleItemsPerPageChange(Number(e.target.value))
+                }
+                className="pagination-select"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pagination-controls">
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+            >
+              الأولى
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              السابقة
+            </button>
+
+            {getPageNumbers().map((page) => (
+              <button
+                key={page}
+                className={`pagination-btn ${
+                  currentPage === page ? "active" : ""
+                }`}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </button>
+            ))}
+
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              التالية
+            </button>
+            <button
+              className="pagination-btn"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+            >
+              الأخيرة
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* New receipt dialog */}
       {showNewReceipt && (

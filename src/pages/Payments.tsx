@@ -285,14 +285,24 @@ export function Payments() {
     // Combine cash payments and grouped check payments
     const finalPayments = [...cashPayments, ...groupedPayments];
 
-    // Apply sorting
+    // Apply sorting — every column header is sortable, so normalise per
+    // field kind: amounts numerically, dates by their raw ISO value
+    // (YYYY-MM-DD sorts chronologically), everything else as a string.
+    const numericSortFields = ["amount"];
+    const dateSortFields = ["date", "checkDate", "createdAt"];
     finalPayments.sort((a, b) => {
       let aValue: any = a[sortBy.field as keyof Payment];
       let bValue: any = b[sortBy.field as keyof Payment];
 
-      if (sortBy.field === "date") {
-        aValue = new Date(aValue).getTime();
-        bValue = new Date(bValue).getTime();
+      if (numericSortFields.includes(sortBy.field)) {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      } else if (dateSortFields.includes(sortBy.field)) {
+        aValue = aValue ?? "";
+        bValue = bValue ?? "";
+      } else {
+        aValue = (aValue ?? "").toString();
+        bValue = (bValue ?? "").toString();
       }
 
       if (sortBy.order === "asc") {
@@ -968,7 +978,10 @@ export function Payments() {
         <table className="payments-table">
           <thead>
             <tr>
-              <th onClick={() => handleSort("date")} className="sortable">
+              <th
+                onClick={() => handleSort("date")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <Calendar className="th-icon" />
                   التاريخ
@@ -977,7 +990,7 @@ export function Payments() {
               </th>
               <th
                 onClick={() => handleSort("customerName")}
-                className="sortable"
+                className="sortable th-sortable"
               >
                 <div className="th-content">
                   <User className="th-icon" />
@@ -985,16 +998,43 @@ export function Payments() {
                   {getSortIcon("customerName")}
                 </div>
               </th>
-              <th>النوع</th>
-              <th onClick={() => handleSort("amount")} className="sortable">
+              <th
+                onClick={() => handleSort("type")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  النوع
+                  {getSortIcon("type")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("amount")}
+                className="sortable th-sortable"
+              >
                 <div className="th-content">
                   <DollarSign className="th-icon" />
                   المبلغ
                   {getSortIcon("amount")}
                 </div>
               </th>
-              <th>ملاحظات</th>
-              <th>تفاصيل الشيك</th>
+              <th
+                onClick={() => handleSort("notes")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  ملاحظات
+                  {getSortIcon("notes")}
+                </div>
+              </th>
+              <th
+                onClick={() => handleSort("checkNumber")}
+                className="sortable th-sortable"
+              >
+                <div className="th-content">
+                  تفاصيل الشيك
+                  {getSortIcon("checkNumber")}
+                </div>
+              </th>
               <th>الإجراءات</th>
             </tr>
           </thead>
