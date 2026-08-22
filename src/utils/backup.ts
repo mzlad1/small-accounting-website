@@ -53,6 +53,10 @@ const COLLECTIONS = [
   "personalChecks",
   "apartments",
   "lands",
+  "tasks",
+  "calendarEvents",
+  "receipts",
+  "settings",
 ];
 
 export class FirebaseBackupService {
@@ -167,11 +171,11 @@ export class FirebaseBackupService {
    */
   validateBackupData(backupData: BackupData): boolean {
     try {
-      // Check if all required collections exist
+      // Older backups may predate newly-added collections — that's
+      // fine, restore simply restores what the backup contains
       for (const collectionName of COLLECTIONS) {
         if (!backupData.collections[collectionName]) {
-          console.warn(`⚠️ Missing collection: ${collectionName}`);
-          return false;
+          console.warn(`⚠️ Collection not in this backup: ${collectionName}`);
         }
       }
 

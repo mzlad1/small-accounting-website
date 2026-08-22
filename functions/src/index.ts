@@ -19,6 +19,10 @@ const COLLECTIONS = [
   "personalChecks",
   "apartments",
   "lands",
+  "tasks",
+  "calendarEvents",
+  "receipts",
+  "settings",
 ];
 
 // ==========================================
