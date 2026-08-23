@@ -98,6 +98,20 @@ export function Layout({ children }: LayoutProps) {
 
   const userInitial = (currentUser?.email || "؟").charAt(0).toUpperCase();
 
+  // MZLAD monogram — same mark as brand.svg / the PWA icons
+  const brandMark = (size: number) => (
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true">
+      <path
+        d="M18 45V21l14 16 14-16v24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
   return (
     <div
       className={`layout-container ${
@@ -114,10 +128,8 @@ export function Layout({ children }: LayoutProps) {
           <Menu size={22} />
         </button>
         <div className="topbar-brand">
-          <span className="brand-mark">
-            <Building2 size={16} />
-          </span>
-          <span className="topbar-title">إدارة المشاريع</span>
+          <span className="brand-mark">{brandMark(18)}</span>
+          <span className="topbar-title">MZLAD</span>
         </div>
       </header>
 
@@ -134,11 +146,9 @@ export function Layout({ children }: LayoutProps) {
         }`}
       >
         <div className="sidebar-brand">
-          <span className="brand-mark">
-            <Building2 size={18} />
-          </span>
+          <span className="brand-mark">{brandMark(20)}</span>
           <div className="brand-text">
-            <strong>إدارة المشاريع</strong>
+            <strong className="brand-wordmark">MZLAD</strong>
             <span>دفتر الحسابات</span>
           </div>
           <button

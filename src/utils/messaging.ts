@@ -13,6 +13,36 @@ import app, { db } from "../config/firebase";
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
 
+// The PWA service worker owns the root scope ("/"), so the messaging
+// worker lives at Firebase's dedicated push scope. Push delivery follows
+// the subscription's registration, not the page scope, so both coexist.
+const FCM_SW_SCOPE = "/firebase-cloud-messaging-push-scope";
+
+async function registerMessagingSw(): Promise<ServiceWorkerRegistration> {
+  const registration = await navigator.serviceWorker.register(
+    "/firebase-messaging-sw.js",
+    { scope: FCM_SW_SCOPE },
+  );
+  // navigator.serviceWorker.ready waits on the ROOT scope (the PWA
+  // worker) — wait for THIS registration to activate instead
+  await new Promise<void>((resolve) => {
+    const sw =
+      registration.installing || registration.waiting || registration.active;
+    if (!sw || sw.state === "activated") {
+      resolve();
+      return;
+    }
+    const onState = () => {
+      if (sw.state === "activated" || sw.state === "redundant") {
+        sw.removeEventListener("statechange", onState);
+        resolve();
+      }
+    };
+    sw.addEventListener("statechange", onState);
+  });
+  return registration;
+}
+
 /**
  * Initialize Firebase Cloud Messaging and request notification permission
  */
@@ -34,9 +64,8 @@ export async function requestNotificationPermission(
       return null;
     }
 
-    // Register service worker and wait until it is fully active
-    await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-    const registration = await navigator.serviceWorker.ready;
+    // Register the messaging worker and wait until it is fully active
+    const registration = await registerMessagingSw();
 
     // Get FCM token
     const messaging = getMessaging(app);
@@ -142,9 +171,7 @@ export async function registerFCMTokenOnLogin(
       return;
     }
 
-    const registration = await navigator.serviceWorker.register(
-      "/firebase-messaging-sw.js",
-    );
+    const registration = await registerMessagingSw();
 
     const messaging = getMessaging(app);
     const token = await getToken(messaging, {

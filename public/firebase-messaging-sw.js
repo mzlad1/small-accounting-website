@@ -26,8 +26,8 @@ messaging.onBackgroundMessage((payload) => {
   const title = payload.notification?.title || "إشعار جديد";
   const options = {
     body: payload.notification?.body || "",
-    icon: "/vite.svg",
-    badge: "/vite.svg",
+    icon: "/pwa-192x192.png",
+    badge: "/pwa-192x192.png",
     dir: "rtl",
     lang: "ar",
     tag: payload.data?.type || "default",

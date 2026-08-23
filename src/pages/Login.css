@@ -95,6 +95,25 @@
 }
 
 /* Page title — Alexandria display face */
+/* MZLAD brand: the terracotta tile + spaced wordmark above the greeting */
+.login-logo-mark {
+  display: block;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 0.85rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(34, 28, 21, 0.16);
+}
+
+.login-wordmark {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
 .login-title {
   margin: 0;
   font-family: var(--font-display);

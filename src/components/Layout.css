@@ -86,6 +86,12 @@
   letter-spacing: 0.02em;
 }
 
+/* Latin wordmark: a little air between the letters reads as designed */
+.brand-wordmark,
+.topbar-title {
+  letter-spacing: 0.12em;
+}
+
 /* Collapse toggle — quiet ghost button in the brand row */
 .sidebar-toggle {
   display: flex;

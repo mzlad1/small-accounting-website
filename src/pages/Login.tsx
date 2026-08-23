@@ -69,6 +69,8 @@ export function Login() {
 
       <div className="login-content">
         <div className="login-header">
+          <img className="login-logo-mark" src="/brand.svg" alt="MZLAD" />
+          <div className="login-wordmark">MZLAD</div>
           <h2 className="login-title">مرحباً بعودتك</h2>
         </div>
 

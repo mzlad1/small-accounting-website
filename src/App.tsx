@@ -1,272 +1,151 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { Layout } from "./components/Layout";
-import { Login } from "./pages/Login";
-import { ResetPassword } from "./pages/ResetPassword";
-import { Dashboard } from "./pages/Dashboard";
-import { Customers } from "./pages/Customers";
-import { CustomerAccount } from "./pages/CustomerAccount";
-import { OrderDetails } from "./pages/OrderDetails";
-import { Orders } from "./pages/Orders";
-import { Payments } from "./pages/Payments";
-import { Checks } from "./pages/Checks";
-import { PersonalChecks } from "./pages/PersonalChecks";
-import { Statements } from "./pages/Statements";
-import { Suppliers } from "./pages/Suppliers";
-import { SupplierDetails } from "./pages/SupplierDetails";
-import { SupplierPayments } from "./pages/SupplierPayments";
-import { Reports } from "./pages/Reports";
-import { Receipts } from "./pages/Receipts";
-import Backup from "./pages/Backup";
-import { CalendarPage } from "./pages/Calendar";
-import { Tasks } from "./pages/Tasks";
-import { Apartments } from "./pages/Apartments";
-import { ApartmentDetails } from "./pages/ApartmentDetails";
-import { ApartmentGallery } from "./pages/ApartmentGallery";
-import { Lands } from "./pages/Lands";
-import { LandDetails } from "./pages/LandDetails";
-import { LandGallery } from "./pages/LandGallery";
+
+// Route-level code splitting: each page loads as its own chunk on first
+// visit, so the initial bundle only carries the shell (auth + layout).
+const named = <T,>(
+  loader: () => Promise<T>,
+  pick: (m: T) => React.ComponentType
+) => lazy(() => loader().then((m) => ({ default: pick(m) })));
+
+const Login = named(() => import("./pages/Login"), (m) => m.Login);
+const ResetPassword = named(
+  () => import("./pages/ResetPassword"),
+  (m) => m.ResetPassword
+);
+const Dashboard = named(() => import("./pages/Dashboard"), (m) => m.Dashboard);
+const Customers = named(() => import("./pages/Customers"), (m) => m.Customers);
+const CustomerAccount = named(
+  () => import("./pages/CustomerAccount"),
+  (m) => m.CustomerAccount
+);
+const OrderDetails = named(
+  () => import("./pages/OrderDetails"),
+  (m) => m.OrderDetails
+);
+const Orders = named(() => import("./pages/Orders"), (m) => m.Orders);
+const Payments = named(() => import("./pages/Payments"), (m) => m.Payments);
+const Checks = named(() => import("./pages/Checks"), (m) => m.Checks);
+const PersonalChecks = named(
+  () => import("./pages/PersonalChecks"),
+  (m) => m.PersonalChecks
+);
+const Statements = named(
+  () => import("./pages/Statements"),
+  (m) => m.Statements
+);
+const Suppliers = named(() => import("./pages/Suppliers"), (m) => m.Suppliers);
+const SupplierDetails = named(
+  () => import("./pages/SupplierDetails"),
+  (m) => m.SupplierDetails
+);
+const SupplierPayments = named(
+  () => import("./pages/SupplierPayments"),
+  (m) => m.SupplierPayments
+);
+const Reports = named(() => import("./pages/Reports"), (m) => m.Reports);
+const Receipts = named(() => import("./pages/Receipts"), (m) => m.Receipts);
+const Backup = lazy(() => import("./pages/Backup"));
+const CalendarPage = named(
+  () => import("./pages/Calendar"),
+  (m) => m.CalendarPage
+);
+const Tasks = named(() => import("./pages/Tasks"), (m) => m.Tasks);
+const Apartments = named(
+  () => import("./pages/Apartments"),
+  (m) => m.Apartments
+);
+const ApartmentDetails = named(
+  () => import("./pages/ApartmentDetails"),
+  (m) => m.ApartmentDetails
+);
+const ApartmentGallery = named(
+  () => import("./pages/ApartmentGallery"),
+  (m) => m.ApartmentGallery
+);
+const Lands = named(() => import("./pages/Lands"), (m) => m.Lands);
+const LandDetails = named(
+  () => import("./pages/LandDetails"),
+  (m) => m.LandDetails
+);
+const LandGallery = named(
+  () => import("./pages/LandGallery"),
+  (m) => m.LandGallery
+);
+
+function PageFallback() {
+  return (
+    <div className="loading-spinner">
+      <div className="spinner"></div>
+      <p>جاري التحميل...</p>
+    </div>
+  );
+}
+
+// The sidebar stays painted while a page chunk loads: Suspense sits
+// inside Layout, not around the whole route tree.
+const page = (element: React.ReactNode) => (
+  <ProtectedRoute>
+    <Layout>
+      <Suspense fallback={<PageFallback />}>{element}</Suspense>
+    </Layout>
+  </ProtectedRoute>
+);
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Dashboard />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/receipts"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Receipts />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/calendar"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <CalendarPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tasks"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Tasks />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/customers"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Customers />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/customers/:customerId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <CustomerAccount />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/orders"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Orders />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/orders/:orderId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <OrderDetails />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/payments"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Payments />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/checks"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Checks />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/personal-checks"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <PersonalChecks />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/statements"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Statements />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/suppliers"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Suppliers />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/suppliers/:supplierId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <SupplierDetails />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/supplier-payments"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <SupplierPayments />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/reports"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Reports />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/backup"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Backup />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/apartments"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Apartments />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/apartments/:apartmentId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ApartmentDetails />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/apartments/:apartmentId/gallery"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <ApartmentGallery />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/lands"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Lands />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/lands/:landId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <LandDetails />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/lands/:landId/gallery"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <LandGallery />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/" element={page(<Dashboard />)} />
+            <Route path="/receipts" element={page(<Receipts />)} />
+            <Route path="/calendar" element={page(<CalendarPage />)} />
+            <Route path="/tasks" element={page(<Tasks />)} />
+            <Route path="/customers" element={page(<Customers />)} />
+            <Route
+              path="/customers/:customerId"
+              element={page(<CustomerAccount />)}
+            />
+            <Route path="/orders" element={page(<Orders />)} />
+            <Route path="/orders/:orderId" element={page(<OrderDetails />)} />
+            <Route path="/payments" element={page(<Payments />)} />
+            <Route path="/checks" element={page(<Checks />)} />
+            <Route path="/personal-checks" element={page(<PersonalChecks />)} />
+            <Route path="/statements" element={page(<Statements />)} />
+            <Route path="/suppliers" element={page(<Suppliers />)} />
+            <Route
+              path="/suppliers/:supplierId"
+              element={page(<SupplierDetails />)}
+            />
+            <Route
+              path="/supplier-payments"
+              element={page(<SupplierPayments />)}
+            />
+            <Route path="/reports" element={page(<Reports />)} />
+            <Route path="/backup" element={page(<Backup />)} />
+            <Route path="/apartments" element={page(<Apartments />)} />
+            <Route
+              path="/apartments/:apartmentId"
+              element={page(<ApartmentDetails />)}
+            />
+            <Route
+              path="/apartments/:apartmentId/gallery"
+              element={page(<ApartmentGallery />)}
+            />
+            <Route path="/lands" element={page(<Lands />)} />
+            <Route path="/lands/:landId" element={page(<LandDetails />)} />
+            <Route
+              path="/lands/:landId/gallery"
+              element={page(<LandGallery />)}
+            />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
   );
