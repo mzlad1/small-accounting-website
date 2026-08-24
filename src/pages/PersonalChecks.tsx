@@ -18,6 +18,7 @@ import {
   Trash2,
   Printer,
   Upload,
+  Landmark,
 } from "lucide-react";
 import {
   collection,
@@ -41,6 +42,14 @@ import {
 } from "../utils/checkSeries";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+  SortControl,
+} from "../components/Filters";
 import "./PersonalChecks.css";
 
 interface PersonalCheck {
@@ -579,6 +588,16 @@ export function PersonalChecks() {
     }
   };
 
+  // Cheque stamp tone — mirrors the colour family the status pill uses
+  // (olive = paid, brick = returned/overdue, ochre = waiting, grey = undefined).
+  const getStampTone = (status: string) => {
+    const cls = getStatusClass(status);
+    if (cls === "paid") return "pch-ok";
+    if (cls === "returned" || cls === "overdue") return "pch-bad";
+    if (cls === "undefined") return "pch-mute";
+    return "pch-warn";
+  };
+
   const printPersonalChecks = () => {
     try {
       const printWindow = window.open("", "_blank");
@@ -939,377 +958,180 @@ export function PersonalChecks() {
       </div>
 
       {/* Search and Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </div>
-
-        <div className="filter-field">
-          <label>الحالة</label>
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="filter-select"
-          >
-            <option value="all">جميع الحالات</option>
-            <option value="pending">في الانتظار</option>
-            <option value="paid">مدفوع</option>
-            <option value="returned">مرتجع</option>
-            <option value="overdue">متأخر</option>
-            <option value="undefined">غير محدد</option>
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>تاريخ الاستحقاق</label>
-          <select
-            value={filters.dueDateFilter}
-            onChange={(e) =>
-              setFilters({ ...filters, dueDateFilter: e.target.value })
-            }
-            className="filter-select"
-          >
-            <option value="all">جميع التواريخ</option>
-            <option value="today">اليوم</option>
-            <option value="week">هذا الأسبوع</option>
-            <option value="month">هذا الشهر</option>
-            <option value="range">نطاق مخصص</option>
-          </select>
-        </div>
-
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setFilters({
+            status: "all",
+            dueDateFilter: "all",
+            dateFrom: "",
+            dateTo: "",
+          });
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SelectField
+          label="الحالة"
+          value={filters.status}
+          onChange={(value) => setFilters({ ...filters, status: value })}
+          options={[
+            { value: "all", label: "جميع الحالات" },
+            { value: "pending", label: "في الانتظار" },
+            { value: "paid", label: "مدفوع" },
+            { value: "returned", label: "مرتجع" },
+            { value: "overdue", label: "متأخر" },
+            { value: "undefined", label: "غير محدد" },
+          ]}
+        />
+        <SelectField
+          label="تاريخ الاستحقاق"
+          value={filters.dueDateFilter}
+          onChange={(value) => setFilters({ ...filters, dueDateFilter: value })}
+          options={[
+            { value: "all", label: "جميع التواريخ" },
+            { value: "today", label: "اليوم" },
+            { value: "week", label: "هذا الأسبوع" },
+            { value: "month", label: "هذا الشهر" },
+            { value: "range", label: "نطاق مخصص" },
+          ]}
+        />
         {filters.dueDateFilter === "range" && (
           <>
-            <div className="filter-field">
-              <label>من تاريخ</label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateFrom: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
-
-            <div className="filter-field">
-              <label>إلى تاريخ</label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateTo: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
+            <DateField
+              label="من تاريخ"
+              value={filters.dateFrom}
+              onChange={(value) => setFilters({ ...filters, dateFrom: value })}
+            />
+            <DateField
+              label="إلى تاريخ"
+              value={filters.dateTo}
+              onChange={(value) => setFilters({ ...filters, dateTo: value })}
+            />
           </>
         )}
+        <SortControl
+          value={sortBy.field}
+          onChange={(field) => setSortBy((prev) => ({ ...prev, field }))}
+          options={[
+            { value: "payee", label: "المستفيد" },
+            { value: "checkNumber", label: "رقم الشيك" },
+            { value: "bank", label: "البنك" },
+            { value: "amount", label: "المبلغ" },
+            { value: "currency", label: "العملة" },
+            { value: "dueDate", label: "تاريخ الاستحقاق" },
+            { value: "status", label: "الحالة" },
+            { value: "notes", label: "ملاحظات" },
+          ]}
+          order={sortBy.order}
+          onToggleOrder={() =>
+            setSortBy((prev) => ({
+              ...prev,
+              order: prev.order === "asc" ? "desc" : "asc",
+            }))
+          }
+        />
+      </FiltersBar>
 
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setFilters({
-              status: "all",
-              dueDateFilter: "all",
-              dateFrom: "",
-              dateTo: "",
-            });
-          }}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+      {/* Personal checks — cheque cards */}
+      {currentChecks.length === 0 ? (
+        <div className="pch-empty">
+          <CreditCard size={34} color="#D8CDBB" />
+          <p>لا توجد شيكات شخصية مطابقة</p>
+        </div>
+      ) : (
+        <div className="pch-grid">
+          {currentChecks.map((check) => (
+            <article
+              key={check.id}
+              className={`pch-cheque ${
+                isOverdue(check.dueDate) ? "pch-overdue" : ""
+              }`}
+            >
+              <div className="pch-cheque-top">
+                <span className="pch-bank">
+                  <Landmark size={15} />
+                  <span className="pch-bank-name">{check.bank || "-"}</span>
+                </span>
+                <span className="pch-chqnum">#{check.checkNumber}</span>
+              </div>
 
-      {/* Checks Table */}
-      <div className="personal-table-container">
-        <table className="personal-checks-table">
-          <thead>
-            <tr>
-              <th
-                onClick={() => handleSort("payee")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <User className="th-icon" />
-                  المستفيد
-                  {getSortIcon("payee")}
+              <div className="pch-payline">
+                لأمر: <b>{check.payee}</b>
+              </div>
+
+              <div className="pch-cheque-mid">
+                <div className="pch-amountbox">
+                  {formatCurrency(check.amount, check.currency)}
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("checkNumber")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  رقم الشيك
-                  {getSortIcon("checkNumber")}
+                <div className="pch-due">
+                  <span>تاريخ الاستحقاق</span>
+                  <b>{formatDate(check.dueDate)}</b>
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("bank")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  البنك
-                  {getSortIcon("bank")}
+                <div className={`pch-stamp ${getStampTone(check.status)}`}>
+                  {getStatusText(check.status)}
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("amount")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <DollarSign className="th-icon" />
-                  المبلغ
-                  {getSortIcon("amount")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("currency")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  العملة
-                  {getSortIcon("currency")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("dueDate")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <Calendar className="th-icon" />
-                  تاريخ الاستحقاق
-                  {getSortIcon("dueDate")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("status")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  الحالة
-                  {getSortIcon("status")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("notes")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  ملاحظات
-                  {getSortIcon("notes")}
-                </div>
-              </th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentChecks.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="no-data">
-                  لا توجد شيكات شخصية
-                </td>
-              </tr>
-            ) : (
-              currentChecks.map((check) => (
-                <tr
-                  key={check.id}
-                  className={`check-row ${
-                    isOverdue(check.dueDate) ? "overdue" : ""
-                  }`}
-                >
-                  <td>
-                    <div className="payee-info">
-                      <div className="payee-avatar">
-                        <User className="avatar-icon" />
-                      </div>
-                      <div className="payee-details">
-                        <span className="payee-name">{check.payee}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="check-number">{check.checkNumber}</div>
-                  </td>
-                  <td>
-                    <div className="bank-name">{check.bank}</div>
-                  </td>
-                  <td>
-                    <div className="check-amount">
-                      {formatCurrency(check.amount, check.currency)}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="check-currency">
-                      {check.currency === "شيقل جديد" ? "₪" : "$"}
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      className={`due-date ${
-                        isOverdue(check.dueDate) ? "overdue" : ""
-                      }`}
+              </div>
+
+              {check.notes && <div className="pch-note">{check.notes}</div>}
+
+              <div className="pch-cheque-foot">
+                <span className="pch-meta">
+                  العملة:{" "}
+                  <b>{check.currency === "شيقل جديد" ? "₪" : "$"}</b>
+                </span>
+                <div className="pch-actions">
+                  <div className="status-update-dropdown">
+                    <select
+                      value={check.status}
+                      onChange={(e) =>
+                        handleStatusUpdate(
+                          check.id,
+                          e.target.value as PersonalCheck["status"]
+                        )
+                      }
+                      className="status-select"
                     >
-                      {formatDate(check.dueDate)}
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      className={`status-badge ${getStatusClass(check.status)}`}
-                    >
-                      {getStatusIcon(check.status)}
-                      {getStatusText(check.status)}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="check-notes">{check.notes || "-"}</div>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <div className="status-update-dropdown">
-                        <select
-                          value={check.status}
-                          onChange={(e) =>
-                            handleStatusUpdate(
-                              check.id,
-                              e.target.value as PersonalCheck["status"]
-                            )
-                          }
-                          className="status-select"
-                        >
-                          <option value="pending">في الانتظار</option>
-                          <option value="paid">مدفوع</option>
-                          <option value="returned">مرتجع</option>
-                          <option value="undefined">غير محدد</option>
-                        </select>
-                      </div>
-                      <button
-                        className="action-btn edit"
-                        onClick={() => openEditModal(check)}
-                        title="تعديل"
-                      >
-                        <Edit />
-                      </button>
-                      <button
-                        className="action-btn delete"
-                        onClick={() => openDeleteModal(check)}
-                        title="حذف"
-                      >
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                      <option value="pending">في الانتظار</option>
+                      <option value="paid">مدفوع</option>
+                      <option value="returned">مرتجع</option>
+                      <option value="undefined">غير محدد</option>
+                    </select>
+                  </div>
+                  <button
+                    className="action-btn edit"
+                    onClick={() => openEditModal(check)}
+                    title="تعديل"
+                  >
+                    <Edit />
+                  </button>
+                  <button
+                    className="action-btn delete"
+                    onClick={() => openDeleteModal(check)}
+                    title="حذف"
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+
       {/* Pagination */}
       {filteredChecks.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {startIndex + 1}-{Math.min(endIndex, filteredChecks.length)}{" "}
-              من {filteredChecks.length} شيك
-            </span>
-            <div className="page-size-selector">
-              <label>عرض:</label>
-              <select
-                value={checksPerPage}
-                onChange={(e) => {
-                  setChecksPerPage(Number(e.target.value));
-                  setCurrentPage(1); // Reset to first page when changing page size
-                }}
-                className="page-size-select"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span>شيك في الصفحة</span>
-            </div>
-          </div>
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={goToFirstPage}
-              disabled={currentPage === 1}
-              title="الصفحة الأولى"
-            >
-              <span>«</span>
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={goToPreviousPage}
-              disabled={currentPage === 1}
-              title="الصفحة السابقة"
-            >
-              <span>‹</span>
-            </button>
-
-            {/* Page numbers */}
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .filter((page) => {
-                // Show first page, last page, current page, and pages around current page
-                if (page === 1 || page === totalPages) return true;
-                if (page >= currentPage - 2 && page <= currentPage + 2)
-                  return true;
-                return false;
-              })
-              .map((page, index, array) => {
-                // Add ellipsis if there's a gap
-                const prevPage = array[index - 1];
-                const showEllipsis = prevPage && page - prevPage > 1;
-
-                return (
-                  <React.Fragment key={page}>
-                    {showEllipsis && (
-                      <span className="pagination-ellipsis">...</span>
-                    )}
-                    <button
-                      className={`pagination-btn ${
-                        page === currentPage ? "active" : ""
-                      }`}
-                      onClick={() => goToPage(page)}
-                    >
-                      {page}
-                    </button>
-                  </React.Fragment>
-                );
-              })}
-
-            <button
-              className="pagination-btn"
-              onClick={goToNextPage}
-              disabled={currentPage === totalPages}
-              title="الصفحة التالية"
-            >
-              <span>›</span>
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={goToLastPage}
-              disabled={currentPage === totalPages}
-              title="الصفحة الأخيرة"
-            >
-              <span>»</span>
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredChecks.length}
+          itemsPerPage={checksPerPage}
+          onPageChange={goToPage}
+          onItemsPerPageChange={(size) => {
+            setChecksPerPage(size);
+            setCurrentPage(1); // Reset to first page when changing page size
+          }}
+          itemLabel="شيك"
+          pageSizeOptions={[10, 20, 50, 100]}
+        />
       )}
       {/* Add Check Modal */}
       {showAddModal && (

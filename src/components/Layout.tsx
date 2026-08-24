@@ -19,6 +19,7 @@ import {
   DatabaseBackup,
   LogOut,
   Menu,
+  User,
   X,
   PanelRightClose,
   PanelRightOpen,
@@ -95,8 +96,6 @@ export function Layout({ children }: LayoutProps) {
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
-
-  const userInitial = (currentUser?.email || "؟").charAt(0).toUpperCase();
 
   // MZLAD monogram — same mark as brand.svg / the PWA icons
   const brandMark = (size: number) => (
@@ -205,7 +204,9 @@ export function Layout({ children }: LayoutProps) {
           className={`sidebar-footer ${sidebarCollapsed ? "collapsed" : ""}`}
         >
           <div className="user-chip">
-            <span className="user-avatar">{userInitial}</span>
+            <span className="user-avatar">
+              <User size={15} strokeWidth={2.4} />
+            </span>
             <span className="user-email">{currentUser?.email}</span>
             <button
               onClick={logout}

@@ -25,7 +25,7 @@ import {
   Calendar,
   FileText,
   CheckCircle,
-  Circle,
+  Check,
   Search,
 } from "lucide-react";
 import "./Tasks.css";
@@ -297,11 +297,11 @@ export function Tasks() {
         />
       </div>
 
-      {/* Tasks List */}
-      <div className="tasks-content">
+      {/* Tasks List — one ruled checklist sheet per day */}
+      <div className="tasks-content tsk-board">
         {filteredTasks.length === 0 ? (
-          <div className="empty-state">
-            <FileText className="empty-icon" />
+          <div className="tsk-empty">
+            <FileText size={34} className="tsk-empty-icon" />
             <h3>{searchTerm ? "لا توجد نتائج للبحث" : "لا توجد مهام"}</h3>
             <p>
               {searchTerm ? "جرّب كلمة بحث أخرى" : "ابدأ بإضافة مهمة جديدة"}
@@ -317,64 +317,73 @@ export function Tasks() {
             )}
           </div>
         ) : (
-          <div className="tasks-by-date">
-            {sortedDates.map((date) => (
-              <div key={date} className="date-group">
-                <div className="date-header">
-                  <Calendar className="date-icon" />
-                  <h2 className="date-title">{formatDate(date)}</h2>
-                  <span className="tasks-count">
-                    {groupedTasks[date].length} مهمة
-                  </span>
-                </div>
-                <div className="tasks-list">
-                  {groupedTasks[date].map((task) => (
-                    <div
-                      key={task.id}
-                      className={`task-card ${
-                        task.completed ? "completed" : ""
-                      }`}
-                    >
-                      <div className="task-main">
+          <div className="tsk-sheets">
+            {sortedDates.map((date) => {
+              const dayTasks = groupedTasks[date];
+              const doneCount = dayTasks.filter((t) => t.completed).length;
+              return (
+                <div key={date} className="tsk-sheet">
+                  <div className="tsk-sheet-head">
+                    <Calendar className="tsk-sheet-icon" />
+                    <h3>{formatDate(date)}</h3>
+                    <small>{dayTasks.length} مهمة</small>
+                    {doneCount > 0 && (
+                      <span className="tsk-sheet-done">
+                        {doneCount} منجزة
+                      </span>
+                    )}
+                  </div>
+                  <div className="tsk-lines">
+                    {dayTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className={`tsk-row ${task.completed ? "done" : ""}`}
+                      >
                         <button
-                          className="complete-checkbox"
+                          type="button"
+                          className={`tsk-check ${
+                            task.completed ? "done" : ""
+                          }`}
                           onClick={() => handleToggleComplete(task)}
+                          title={
+                            task.completed ? "إلغاء الإنجاز" : "تعليم كمنجزة"
+                          }
                         >
-                          {task.completed ? (
-                            <CheckCircle className="check-icon completed" />
-                          ) : (
-                            <Circle className="check-icon" />
-                          )}
+                          <Check size={14} />
                         </button>
-                        <div className="task-content">
-                          <h3 className="task-name">{task.name}</h3>
-                          <p className="task-description">{task.description}</p>
+                        <div className="tsk-text">
+                          <span className="tsk-title">{task.name}</span>
+                          <small className="tsk-desc">
+                            {task.description}
+                          </small>
                           {task.notes && (
-                            <p className="task-notes">
+                            <small className="tsk-note">
                               <strong>ملاحظات:</strong> {task.notes}
-                            </p>
+                            </small>
                           )}
                         </div>
+                        <div className="tsk-actions">
+                          <button
+                            className="action-btn edit"
+                            onClick={() => handleOpenModal(task)}
+                            title="تعديل"
+                          >
+                            <Edit />
+                          </button>
+                          <button
+                            className="action-btn delete"
+                            onClick={() => handleDelete(task.id)}
+                            title="حذف"
+                          >
+                            <Trash2 />
+                          </button>
+                        </div>
                       </div>
-                      <div className="task-actions">
-                        <button
-                          className="action-btn edit"
-                          onClick={() => handleOpenModal(task)}
-                        >
-                          <Edit />
-                        </button>
-                        <button
-                          className="action-btn delete"
-                          onClick={() => handleDelete(task.id)}
-                        >
-                          <Trash2 />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

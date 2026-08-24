@@ -35,6 +35,13 @@ import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
 import { formatItemDate } from "../utils/itemDate";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+} from "../components/Filters";
 import "./Statements.css";
 
 interface Customer {
@@ -1063,115 +1070,71 @@ export function Statements() {
       </div>
 
       {/* Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </div>
-
-        <div className="filter-field">
-          <label>من تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) =>
-              setFilters({ ...filters, dateFrom: e.target.value })
-            }
-            className="filter-input"
-          />
-        </div>
-
-        <div className="filter-field">
-          <label>إلى تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-            className="filter-input"
-          />
-        </div>
-
-        <div className="filter-field">
-          <label>الحالة</label>
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="filter-select"
-          >
-            <option value="all">جميع العملاء</option>
-            <option value="active">عملاء نشطون</option>
-            <option value="inactive">عملاء غير نشطين</option>
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>نوع الرصيد</label>
-          <select
-            value={filters.balanceType}
-            onChange={(e) =>
-              setFilters({ ...filters, balanceType: e.target.value })
-            }
-            className="filter-select"
-          >
-            <option value="all">جميع الأرصدة</option>
-            <option value="positive">رصيد موجب</option>
-            <option value="negative">رصيد سالب</option>
-            <option value="zero">رصيد صفر</option>
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>العميل</label>
-          <select
-            value={filters.customerId || "all"}
-            onChange={(e) =>
-              setFilters({
-                ...filters,
-                customerId:
-                  e.target.value === "all" ? undefined : e.target.value,
-              })
-            }
-            className="filter-select"
-          >
-            <option value="all">جميع العملاء</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setFilters({
+            dateFrom: "2020-01-01",
+            dateTo: new Date().toISOString().split("T")[0],
+            status: "all",
+            balanceType: "all",
+            customerId: undefined,
+          });
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <DateField
+          label="من تاريخ"
+          value={filters.dateFrom}
+          onChange={(v) => setFilters({ ...filters, dateFrom: v })}
+        />
+        <DateField
+          label="إلى تاريخ"
+          value={filters.dateTo}
+          onChange={(v) => setFilters({ ...filters, dateTo: v })}
+        />
+        <SelectField
+          label="الحالة"
+          value={filters.status}
+          onChange={(v) => setFilters({ ...filters, status: v })}
+          options={[
+            { value: "all", label: "جميع العملاء" },
+            { value: "active", label: "عملاء نشطون" },
+            { value: "inactive", label: "عملاء غير نشطين" },
+          ]}
+        />
+        <SelectField
+          label="نوع الرصيد"
+          value={filters.balanceType}
+          onChange={(v) => setFilters({ ...filters, balanceType: v })}
+          options={[
+            { value: "all", label: "جميع الأرصدة" },
+            { value: "positive", label: "رصيد موجب" },
+            { value: "negative", label: "رصيد سالب" },
+            { value: "zero", label: "رصيد صفر" },
+          ]}
+        />
+        <SelectField
+          label="العميل"
+          value={filters.customerId || "all"}
+          onChange={(v) =>
             setFilters({
-              dateFrom: "2020-01-01",
-              dateTo: new Date().toISOString().split("T")[0],
-              status: "all",
-              balanceType: "all",
-              customerId: undefined,
-            });
-          }}
-        >
-          <Filter size={18} />
-          مسح الفلاتر
-        </button>
-      </div>
+              ...filters,
+              customerId: v === "all" ? undefined : v,
+            })
+          }
+          options={[
+            { value: "all", label: "جميع العملاء" },
+            ...customers.map((customer) => ({
+              value: customer.id,
+              label: customer.name,
+            })),
+          ]}
+        />
+      </FiltersBar>
 
       {/* Customer Statements Table */}
-      <div className="statements-table-container">
+      <div className="statements-table-container stm-sheet">
         <table className="statements-table">
           <thead>
             <tr>
@@ -1550,78 +1513,19 @@ export function Statements() {
 
       {/* Pagination Controls */}
       {visibleStatements.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-              {Math.min(currentPage * itemsPerPage, visibleStatements.length)}{" "}
-              من {visibleStatements.length} عميل
-            </span>
-            <div className="items-per-page">
-              <label>عدد العناصر في الصفحة:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="pagination-select"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              الأولى
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              السابقة
-            </button>
-
-            {getPageNumbers().map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${
-                  currentPage === page ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              التالية
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              الأخيرة
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={visibleStatements.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          itemLabel="عميل"
+        />
       )}
 
       {visibleStatements.length === 0 && (
-        <div className="no-data-message">
+        <div className="no-data-message stm-empty">
+          <FileText className="stm-empty-icon" size={34} />
           <p>لا توجد بيانات لعرضها</p>
           <span>جرب تغيير الفلاتر أو نطاق التاريخ</span>
         </div>

@@ -902,3 +902,136 @@
     gap: 0.5rem;
   }
 }
+
+/* ===== data-presentation redesign (rpt-) ===== */
+/* Recipe I — Ledger paper. Reports keeps its table (a month-by-month
+   ledger is the right form). The summary blocks become report sheets:
+   an ink-rule top edge, a display-face heading marked with the same
+   clay bar this page already stamps on its PRINTED section headers,
+   and figures set as black-bold numerals. No new charts, no new
+   computed values — print/export and the receipt-stub KPI cards are
+   untouched, and the bare `.amount` class (auto-fit from index.css)
+   keeps its name and its rules.
+   Every selector is scoped under .reports-container. */
+
+/* The report sheet ------------------------------------------ */
+.reports-container .rpt-sheet {
+  background: var(--bg-surface);
+  border: 1px solid #e7dfd2;
+  border-top: 2px solid #2b241c;
+  border-radius: 14px;
+  box-shadow: none;
+  padding: 1.35rem 1.5rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.reports-container .rpt-sheet > h3 {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  border-inline-start: 3px solid var(--accent);
+  border-bottom: 1px solid #f0e9dc;
+  padding: 0 0 0.7rem;
+  padding-inline-start: 0.7rem;
+}
+
+/* Due-check slips — quiet tinted tiles, loud figures --------- */
+.reports-container .rpt-sheet .check-item {
+  background: #faf6ee;
+  border: 1px solid #efe7d8;
+  border-radius: 12px;
+}
+
+.reports-container .rpt-sheet .check-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.reports-container .rpt-sheet .check-amount {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ledger table ---------------------------------------------- */
+.reports-container .rpt-ledger {
+  border: 1px solid #e7dfd2;
+  border-top: 2px solid #2b241c;
+  border-radius: 12px;
+  overflow-x: auto;
+}
+
+.reports-container .rpt-ledger table > thead > tr > th {
+  background: #faf6ee;
+  padding: 0.8rem 1rem;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  border-bottom: 2px solid #2b241c;
+}
+
+.reports-container .rpt-ledger table > tbody > tr > td {
+  border-bottom: 1px solid #f0e9dc;
+  font-family: var(--font-display);
+  font-size: 0.86rem;
+  font-weight: 800 !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.reports-container .rpt-ledger table > thead > tr > th + th,
+.reports-container .rpt-ledger table > tbody > tr > td + td {
+  border-inline-start: 1px solid #f5f1ea;
+}
+
+.reports-container .rpt-ledger table > tbody > tr:hover {
+  background: #faf6ee;
+}
+
+.reports-container .rpt-ledger table > tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+/* The money column carries the most weight on the sheet */
+.reports-container .rpt-ledger table > tbody > tr > td:last-child {
+  font-size: 0.98rem;
+  letter-spacing: -0.015em;
+}
+
+/* Responsive — keep the original cell rhythm ---------------- */
+@media (max-width: 768px) {
+  .reports-container .rpt-sheet {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .reports-container .rpt-ledger table > thead > tr > th,
+  .reports-container .rpt-ledger table > tbody > tr > td {
+    padding: 0.625rem 0.75rem;
+    font-size: 0.82rem;
+  }
+}
+
+/* Print — the sheets flatten back to plain paper ------------ */
+@media print {
+  .reports-container .rpt-sheet,
+  .reports-container .rpt-ledger {
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .reports-container .rpt-ledger table > thead > tr > th,
+  .reports-container .rpt-sheet .check-item {
+    background: transparent;
+  }
+}

@@ -804,3 +804,282 @@
     padding: 1rem;
   }
 }
+
+/* ===== data-presentation redesign (lnd-) =====
+   Plot listing cards replace the old detail-row card layout: aerial
+   photo with the plot badge, price band, spec chips, notes, actions.
+   Card click opens the land details page. Twin of Apartments' apt- block. */
+
+.lnd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 1.1rem;
+  margin-bottom: 2rem;
+}
+
+.lnd-prop {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid #e7dfd2;
+  background: var(--surface);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.lnd-prop:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 30px rgba(34, 28, 21, 0.11);
+  border-color: #d8cdbb;
+}
+
+.lnd-prop:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Photo ---------- */
+.lnd-prop-photo {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: #efe7d8;
+  overflow: hidden;
+}
+
+.lnd-prop-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.lnd-prop:hover .lnd-prop-photo img {
+  transform: scale(1.045);
+}
+
+.lnd-prop-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #d8cdbb;
+}
+
+.lnd-prop-badge {
+  position: absolute;
+  top: 10px;
+  inset-inline-start: 10px;
+}
+
+/* Plot pill — the listing's identity signal */
+.lnd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 0.22rem 0.6rem;
+  white-space: nowrap;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-soft);
+  color: var(--accent-deep);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Photo count — opposite corner of the badge */
+.lnd-photocount {
+  position: absolute;
+  top: 10px;
+  inset-inline-end: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  background: rgba(255, 254, 251, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+}
+
+/* ---------- Price band ---------- */
+.lnd-priceband {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid #f0e9dc;
+}
+
+.lnd-price {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.lnd-permeter {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Body ---------- */
+.lnd-prop-body {
+  padding: 0.7rem 0.9rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.lnd-prop-body h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lnd-loc {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  min-width: 0;
+}
+
+.lnd-loc-icon {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.lnd-loc .location-value {
+  min-width: 0;
+}
+
+.lnd-loc .location-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lnd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.lnd-chips span {
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: #faf6ee;
+  border: 1px solid #efe7d8;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.lnd-chips span svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.lnd-note {
+  display: flex;
+  gap: 0.4rem;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  background: #faf6ee;
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+}
+
+.lnd-note svg {
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+}
+
+.lnd-note p {
+  margin: 0;
+  min-width: 0;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Foot / actions ---------- */
+.lnd-prop-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 0.2rem;
+}
+
+.lnd-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+/* ---------- Filters-bar sort control ---------- */
+.lnd-sortrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.lnd-sortrow select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Empty state ---------- */
+.lnd-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-tertiary);
+  border: 1.5px dashed #d8cdbb;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.lnd-empty svg {
+  color: #d8cdbb;
+}
+
+.lnd-empty p {
+  margin: 0.8rem 0 0;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 560px) {
+  .lnd-grid {
+    grid-template-columns: 1fr;
+  }
+}

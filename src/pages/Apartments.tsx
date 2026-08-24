@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   Building2,
+  Home,
   MapPin,
   Layers,
   Ruler,
@@ -17,8 +18,12 @@ import {
   Upload,
   X,
   CheckCircle,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 import { LocationValue } from "../components/LocationValue";
+import { Pagination } from "../components/Pagination";
+import { FiltersBar, SearchField, SortControl } from "../components/Filters";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, DocumentData, QuerySnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from "../config/firebase";
@@ -52,8 +57,20 @@ export function Apartments() {
   const [editingApartment, setEditingApartment] = useState<Apartment | null>(null);
   const [uploading, setUploading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(9);
+  const [itemsPerPage, setItemsPerPage] = useState(9);
+  // Sorting lives in the filters bar (the listing has no table headers)
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const navigate = useNavigate();
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
 
   const [formData, setFormData] = useState({
     location: "",
@@ -231,11 +248,42 @@ export function Apartments() {
     matchesSearch(apartment, searchTerm)
   );
 
+  // Sorting (was on the table headers, now driven from the filters bar) —
+  // always applied BEFORE the pagination slice.
+  const sortedApartments = [...filteredApartments].sort((a, b) => {
+    let comparison = 0;
+    switch (sortBy) {
+      case "buildingName":
+        comparison = (a.buildingName || "").localeCompare(b.buildingName || "", "ar");
+        break;
+      case "location":
+        comparison = (a.location || "").localeCompare(b.location || "", "ar");
+        break;
+      case "floor":
+        comparison = (a.floor || "").localeCompare(b.floor || "", "ar", {
+          numeric: true,
+        });
+        break;
+      case "area":
+        comparison = (a.area || 0) - (b.area || 0);
+        break;
+      case "price":
+        comparison = (a.price || 0) - (b.price || 0);
+        break;
+      case "paymentMethod":
+        comparison = (a.paymentMethod || "").localeCompare(b.paymentMethod || "", "ar");
+        break;
+      default:
+        comparison = (a.createdAt || "").localeCompare(b.createdAt || "");
+    }
+    return sortOrder === "asc" ? comparison : -comparison;
+  });
+
   // Pagination
   const totalPages = Math.ceil(filteredApartments.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentApartments = filteredApartments.slice(indexOfFirstItem, indexOfLastItem);
+  const currentApartments = sortedApartments.slice(indexOfFirstItem, indexOfLastItem);
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
@@ -252,6 +300,14 @@ export function Apartments() {
       style: "currency",
       currency: "ILS",
     }).format(amount);
+  };
+
+  // Payment-method pill tone — reuses the system's status color family
+  const paymentTone = (method: string) => {
+    if (method === "نقداً") return "apt-tag-cash";
+    if (method === "تقسيط") return "apt-tag-install";
+    if (method === "شيكات") return "apt-tag-check";
+    return "apt-tag-bank";
   };
 
   if (loading) {
@@ -287,116 +343,143 @@ export function Apartments() {
       </div>
 
       {/* Search */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="بحث عن شقة..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => setSearchTerm("")}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+      <FiltersBar onClear={() => setSearchTerm("")}>
+        <SearchField
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="بحث عن شقة..."
+        />
+        {/* Sorting moved off the (now removed) column headers into the bar */}
+        <SortControl
+          value={sortBy}
+          onChange={(field) => {
+            if (field !== sortBy) handleSort(field);
+          }}
+          options={[
+            { value: "createdAt", label: "تاريخ الإضافة" },
+            { value: "buildingName", label: "اسم العمارة" },
+            { value: "location", label: "الموقع" },
+            { value: "floor", label: "الطابق" },
+            { value: "area", label: "المساحة" },
+            { value: "price", label: "السعر" },
+            { value: "paymentMethod", label: "آلية الدفع" },
+          ]}
+          order={sortOrder}
+          onToggleOrder={() => handleSort(sortBy)}
+        />
+      </FiltersBar>
 
-      {/* Apartments Grid */}
-      <div className="apartments-grid">
+      {/* Listing cards */}
+      <div className="apt-grid">
         {currentApartments.map((apartment) => (
-          <div key={apartment.id} className="apartments-card">
-            <div className="apartments-card-image">
-              {apartment.images.length > 0 ? (
+          <div
+            key={apartment.id}
+            className="apt-prop"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("button, a, input, select")) return;
+              navigate(`/apartments/${apartment.id}`);
+            }}
+          >
+            <div className="apt-prop-photo">
+              {apartment.images && apartment.images.length > 0 ? (
                 <img src={apartment.images[0]} alt={apartment.buildingName} />
               ) : (
-                <div className="apartments-no-image">
-                  <Building2 size={48} />
+                <div className="apt-prop-ph">
+                  <Home size={44} />
                 </div>
               )}
-              <div className="apartments-card-price">
-                {formatCurrency(apartment.price)}
+              <div className="apt-prop-badge">
+                <span className={`apt-tag ${paymentTone(apartment.paymentMethod)}`}>
+                  <CreditCard size={12} />
+                  {apartment.paymentMethod}
+                </span>
               </div>
+              {apartment.images && apartment.images.length > 0 && (
+                <span className="apt-photocount">
+                  <Image size={12} />
+                  {apartment.images.length}
+                </span>
+              )}
             </div>
 
-            <div className="apartments-card-content">
-              <h3 className="apartments-card-title">{apartment.buildingName}</h3>
+            <div className="apt-priceband">
+              <span className="apt-price">{formatCurrency(apartment.price)}</span>
+              {apartment.area > 0 && (
+                <span className="apt-permeter">
+                  {formatCurrency(apartment.price / apartment.area)} / م²
+                </span>
+              )}
+            </div>
 
-              <div className="apartments-card-details">
-                <div className="apartments-detail-item">
-                  <MapPin className="apartments-detail-icon" />
-                  <LocationValue value={apartment.location} />
-                </div>
-                <div className="apartments-detail-item">
-                  <Layers className="apartments-detail-icon" />
-                  <span>الطابق {apartment.floor}</span>
-                </div>
-                <div className="apartments-detail-item">
-                  <Ruler className="apartments-detail-icon" />
-                  <span>{apartment.area} م²</span>
-                </div>
-                <div className="apartments-detail-item">
-                  <CreditCard className="apartments-detail-icon" />
-                  <span>{apartment.paymentMethod}</span>
-                </div>
+            <div className="apt-prop-body">
+              <h3>{apartment.buildingName}</h3>
+
+              <div className="apt-loc">
+                <MapPin size={13} className="apt-loc-icon" />
+                <LocationValue value={apartment.location} />
+              </div>
+
+              <div className="apt-chips">
+                <span>
+                  <Layers size={12} />
+                  الطابق {apartment.floor}
+                </span>
+                <span>
+                  <Ruler size={12} />
+                  {apartment.area} م²
+                </span>
               </div>
 
               {apartment.notes && (
-                <div className="apartments-card-notes">
-                  <StickyNote className="apartments-note-icon" />
+                <div className="apt-note">
+                  <StickyNote size={12} />
                   <p>{apartment.notes}</p>
                 </div>
               )}
 
-              <div className="apartments-card-actions">
-                <button
-                  className="apartments-action-btn apartments-view-btn"
-                  onClick={() => navigate(`/apartments/${apartment.id}`)}
-                  title="عرض التفاصيل"
-                >
-                  <Eye size={16} />
-                  تفاصيل
-                </button>
-                {apartment.images.length > 0 && (
+              <div className="apt-prop-foot">
+                <div className="apt-actions">
                   <button
-                    className="apartments-action-btn apartments-gallery-btn"
-                    onClick={() => navigate(`/apartments/${apartment.id}/gallery`)}
-                    title="عرض الصور"
+                    className="apartments-action-btn apartments-view-btn"
+                    onClick={() => navigate(`/apartments/${apartment.id}`)}
+                    title="عرض التفاصيل"
                   >
-                    <Image size={16} />
-                    الصور ({apartment.images.length})
+                    <Eye size={16} />
+                    تفاصيل
                   </button>
-                )}
-                <button
-                  className="apartments-action-btn apartments-contact-btn"
-                  onClick={() => navigate(`/apartments/${apartment.id}`)}
-                  title="معلومات المالك"
-                >
-                  <Phone size={16} />
-                  تواصل
-                </button>
-                <button
-                  className="apartments-action-btn apartments-edit-btn"
-                  onClick={() => handleEdit(apartment)}
-                  title="تعديل"
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  className="apartments-action-btn apartments-delete-btn"
-                  onClick={() => handleDelete(apartment.id)}
-                  title="حذف"
-                >
-                  <Trash2 size={16} />
-                </button>
+                  {apartment.images && apartment.images.length > 0 && (
+                    <button
+                      className="apartments-action-btn apartments-gallery-btn"
+                      onClick={() => navigate(`/apartments/${apartment.id}/gallery`)}
+                      title="عرض الصور"
+                    >
+                      <Image size={16} />
+                      الصور ({apartment.images.length})
+                    </button>
+                  )}
+                  <button
+                    className="apartments-action-btn apartments-contact-btn"
+                    onClick={() => navigate(`/apartments/${apartment.id}`)}
+                    title="معلومات المالك"
+                  >
+                    <Phone size={16} />
+                    تواصل
+                  </button>
+                  <button
+                    className="apartments-action-btn apartments-edit-btn"
+                    onClick={() => handleEdit(apartment)}
+                    title="تعديل"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    className="apartments-action-btn apartments-delete-btn"
+                    onClick={() => handleDelete(apartment.id)}
+                    title="حذف"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -404,46 +487,26 @@ export function Apartments() {
       </div>
 
       {filteredApartments.length === 0 && (
-        <div className="apartments-no-data-message">
-          <Building2 size={64} />
-          <p>لا توجد شقق</p>
-          <span>قم بإضافة شقة جديدة</span>
+        <div className="apt-empty">
+          <Building2 size={34} />
+          <p>لا توجد شقق مطابقة — أضف شقة جديدة للبدء</p>
         </div>
       )}
 
       {/* Pagination */}
-      {filteredApartments.length > 0 && totalPages > 1 && (
-        <div className="apartments-pagination">
-          <button
-            className="apartments-pagination-btn"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            السابق
-          </button>
-          
-          <div className="apartments-pagination-numbers">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
-              <button
-                key={pageNumber}
-                className={`apartments-pagination-number ${
-                  currentPage === pageNumber ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(pageNumber)}
-              >
-                {pageNumber}
-              </button>
-            ))}
-          </div>
-
-          <button
-            className="apartments-pagination-btn"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            التالي
-          </button>
-        </div>
+      {filteredApartments.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredApartments.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={(size) => {
+            setItemsPerPage(size);
+            setCurrentPage(1);
+          }}
+          itemLabel="شقة"
+          pageSizeOptions={[9, 18, 36]}
+        />
       )}
 
       {/* Add/Edit Modal */}

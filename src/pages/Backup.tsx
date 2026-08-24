@@ -366,6 +366,16 @@ const Backup: React.FC = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentBackups = cloudBackups.slice(indexOfFirstItem, indexOfLastItem);
 
+  // Display-only: which folder on the shelf gets the "الأحدث" chip.
+  const newestCloudId = cloudBackups.length
+    ? cloudBackups.reduce((newest, backup) =>
+        new Date(backup.uploadDate).getTime() >
+        new Date(newest.uploadDate).getTime()
+          ? backup
+          : newest
+      ).id
+    : "";
+
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
   };
@@ -706,60 +716,79 @@ const Backup: React.FC = () => {
                       <p>الرجاء الانتظار</p>
                     </div>
                   ) : cloudBackups.length === 0 ? (
-                    <div className="empty-state">
-                      <Cloud size={48} />
+                    <div className="bkp-empty">
+                      <Cloud size={34} />
                       <h4>لا توجد نسخ احتياطية سحابية</h4>
                       <p>ابدأ بإنشاء أول نسخة احتياطية سحابية</p>
                     </div>
                   ) : (
                     <>
-                      <div className="backups-grid">
-                        {currentBackups.map((backup) => (
-                          <div key={backup.id} className="backup-card">
-                            <div className="backup-header">
-                              <div className="backup-icon">
-                                <Database size={20} />
+                      {/* Archive shelf — each backup is a hanging folder */}
+                      <div className="bkp-shelf">
+                        {currentBackups.map((backup) => {
+                          const [stampDate, stampTime] = formatDate(
+                            backup.uploadDate
+                          ).split(", ");
+                          return (
+                            <div key={backup.id} className="bkp-folder">
+                              <div className="bkp-top">
+                                <span className="bkp-icon">
+                                  <Database size={16} />
+                                </span>
+                                {backup.id === newestCloudId && (
+                                  <span className="bkp-newest">الأحدث</span>
+                                )}
                               </div>
-                              <div className="backup-info">
-                                <h4>{backup.name}</h4>
-                                <p>{formatDate(backup.uploadDate)}</p>
+
+                              <div className="bkp-face">
+                                <b className="bkp-date">{stampDate}</b>
+                                {stampTime && (
+                                  <small className="bkp-time">
+                                    {stampTime}
+                                  </small>
+                                )}
+                              </div>
+
+                              <p className="bkp-file">{backup.name}</p>
+
+                              <div className="bkp-meta">
                                 <span className="backup-size">
                                   {formatFileSize(backup.size)}
                                 </span>
                               </div>
-                            </div>
 
-                            <div className="backup-actions">
-                              <button
-                                className="action-btn restore"
-                                onClick={() => handleRestoreBackup(backup)}
-                                disabled={isRestoring}
-                                title="استعادة البيانات"
-                              >
-                                <RotateCcw size={16} />
-                                استعادة
-                              </button>
-                              <button
-                                className="action-btn download"
-                                onClick={() =>
-                                  window.open(backup.downloadUrl, "_blank")
-                                }
-                                title="تحميل"
-                              >
-                                <Download size={16} />
-                                تحميل
-                              </button>
-                              <button
-                                className="action-btn delete"
-                                onClick={() => handleDeleteBackup(backup)}
-                                title="حذف"
-                              >
-                                <Trash2 size={16} />
-                                حذف
-                              </button>
+                              <div className="bkp-actions">
+                                <button
+                                  className="action-btn restore"
+                                  onClick={() => handleRestoreBackup(backup)}
+                                  disabled={isRestoring}
+                                  title="استعادة البيانات"
+                                >
+                                  <RotateCcw size={16} />
+                                  استعادة
+                                </button>
+                                <button
+                                  className="action-btn download"
+                                  onClick={() =>
+                                    window.open(backup.downloadUrl, "_blank")
+                                  }
+                                  title="تحميل"
+                                >
+                                  <Download size={16} />
+                                  تحميل
+                                </button>
+                                <button
+                                  className="action-btn delete"
+                                  onClick={() => handleDeleteBackup(backup)}
+                                  title="حذف"
+                                >
+                                  <Trash2 size={16} />
+                                  حذف
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {/* Pagination */}
@@ -843,30 +872,50 @@ const Backup: React.FC = () => {
                 {backupHistory.length > 0 && (
                   <div className="backup-history">
                     <h2>تاريخ النسخ المحلية</h2>
-                    <div className="history-list">
+                    <div className="bkp-shelf">
                       {backupHistory
                         .slice()
                         .reverse()
-                        .map((backup, index) => (
-                          <div key={index} className="history-item">
-                            <div className="history-icon">
-                              {backup.type === "automated" ? (
-                                <Clock size={16} />
-                              ) : (
-                                <Download size={16} />
-                              )}
+                        .map((backup, index) => {
+                          const [stampDate, stampTime] = formatDate(
+                            backup.date
+                          ).split(", ");
+                          return (
+                            <div key={index} className="bkp-folder">
+                              <div className="bkp-top">
+                                <span className="bkp-icon">
+                                  {backup.type === "automated" ? (
+                                    <Clock size={16} />
+                                  ) : (
+                                    <Download size={16} />
+                                  )}
+                                </span>
+                                {index === 0 && (
+                                  <span className="bkp-newest">الأحدث</span>
+                                )}
+                              </div>
+
+                              <div className="bkp-face">
+                                <b className="bkp-date">{stampDate}</b>
+                                {stampTime && (
+                                  <small className="bkp-time">
+                                    {stampTime}
+                                  </small>
+                                )}
+                              </div>
+
+                              <p className="bkp-file">{backup.filename}</p>
+
+                              <div className="bkp-meta">
+                                <span className={`backup-type ${backup.type}`}>
+                                  {backup.type === "automated"
+                                    ? "تلقائي"
+                                    : "يدوي"}
+                                </span>
+                              </div>
                             </div>
-                            <div className="history-content">
-                              <h4>{backup.filename}</h4>
-                              <p>{formatDate(backup.date)}</p>
-                              <span className={`backup-type ${backup.type}`}>
-                                {backup.type === "automated"
-                                  ? "تلقائي"
-                                  : "يدوي"}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   </div>
                 )}

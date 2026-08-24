@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
   MapPin,
+  Map,
   Ruler,
   DollarSign,
   Image,
@@ -15,8 +16,12 @@ import {
   Upload,
   X,
   CheckCircle,
+  SortAsc,
+  SortDesc,
 } from "lucide-react";
 import { LocationValue } from "../components/LocationValue";
+import { Pagination } from "../components/Pagination";
+import { FiltersBar, SearchField, SortControl } from "../components/Filters";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, DocumentData, QuerySnapshot } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "../config/firebase";
@@ -50,8 +55,20 @@ export function Lands() {
   const [editingLand, setEditingLand] = useState<Land | null>(null);
   const [uploading, setUploading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(9);
+  const [itemsPerPage, setItemsPerPage] = useState(9);
+  // Sorting lives in the filters bar (the listing has no table headers)
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const navigate = useNavigate();
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(field);
+      setSortOrder("asc");
+    }
+  };
 
   const [formData, setFormData] = useState({
     location: "",
@@ -229,11 +246,44 @@ export function Lands() {
     matchesSearch(land, searchTerm)
   );
 
+  // Sorting (was on the table headers, now driven from the filters bar) —
+  // always applied BEFORE the pagination slice.
+  const sortedLands = [...filteredLands].sort((a, b) => {
+    let comparison = 0;
+    switch (sortBy) {
+      case "basinName":
+        comparison = (a.basinName || "").localeCompare(b.basinName || "", "ar");
+        break;
+      case "location":
+        comparison = (a.location || "").localeCompare(b.location || "", "ar");
+        break;
+      case "basinNumber":
+        comparison = (a.basinNumber || "").localeCompare(b.basinNumber || "", "ar", {
+          numeric: true,
+        });
+        break;
+      case "plotNumber":
+        comparison = (a.plotNumber || "").localeCompare(b.plotNumber || "", "ar", {
+          numeric: true,
+        });
+        break;
+      case "area":
+        comparison = (a.area || 0) - (b.area || 0);
+        break;
+      case "price":
+        comparison = (a.price || 0) - (b.price || 0);
+        break;
+      default:
+        comparison = (a.createdAt || "").localeCompare(b.createdAt || "");
+    }
+    return sortOrder === "asc" ? comparison : -comparison;
+  });
+
   // Pagination
   const totalPages = Math.ceil(filteredLands.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentLands = filteredLands.slice(indexOfFirstItem, indexOfLastItem);
+  const currentLands = sortedLands.slice(indexOfFirstItem, indexOfLastItem);
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
@@ -285,114 +335,146 @@ export function Lands() {
       </div>
 
       {/* Search */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="بحث عن أرض..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => setSearchTerm("")}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+      <FiltersBar onClear={() => setSearchTerm("")}>
+        <SearchField
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="بحث عن أرض..."
+        />
+        {/* Sorting moved off the (now removed) column headers into the bar */}
+        <SortControl
+          value={sortBy}
+          onChange={(field) => {
+            if (field !== sortBy) handleSort(field);
+          }}
+          options={[
+            { value: "createdAt", label: "تاريخ الإضافة" },
+            { value: "basinName", label: "اسم الحوض" },
+            { value: "location", label: "الموقع" },
+            { value: "basinNumber", label: "رقم الحوض" },
+            { value: "plotNumber", label: "رقم القطعة" },
+            { value: "area", label: "المساحة" },
+            { value: "price", label: "السعر" },
+          ]}
+          order={sortOrder}
+          onToggleOrder={() => handleSort(sortBy)}
+        />
+      </FiltersBar>
 
-      {/* Lands Grid */}
-      <div className="lands-grid">
+      {/* Listing cards */}
+      <div className="lnd-grid">
         {currentLands.map((land) => (
-          <div key={land.id} className="lands-card">
-            <div className="lands-card-image">
+          <div
+            key={land.id}
+            className="lnd-prop"
+            onClick={(e) => {
+              if ((e.target as HTMLElement).closest("button, a, input, select")) return;
+              navigate(`/lands/${land.id}`);
+            }}
+          >
+            <div className="lnd-prop-photo">
               {land.images && land.images.length > 0 ? (
-                <img src={land.images[0]} alt={`${land.basinName} - ${land.plotNumber}`} />
+                <img
+                  src={land.images[0]}
+                  alt={`${land.basinName} - ${land.plotNumber}`}
+                />
               ) : (
-                <div className="lands-no-image">
-                  <Mountain size={48} />
+                <div className="lnd-prop-ph">
+                  <Map size={44} />
                 </div>
               )}
-              <div className="lands-card-price">
-                {formatCurrency(land.price)}
+              <div className="lnd-prop-badge">
+                <span className="lnd-tag">
+                  <Map size={12} />
+                  قطعة {land.plotNumber}
+                </span>
               </div>
+              {land.images && land.images.length > 0 && (
+                <span className="lnd-photocount">
+                  <Image size={12} />
+                  {land.images.length}
+                </span>
+              )}
             </div>
 
-            <div className="lands-card-content">
-              <h3 className="lands-card-title">
-                {land.basinName} - قطعة {land.plotNumber}
-              </h3>
+            <div className="lnd-priceband">
+              <span className="lnd-price">{formatCurrency(land.price)}</span>
+              {land.area > 0 && (
+                <span className="lnd-permeter">
+                  {formatCurrency(land.price / land.area)} / م²
+                </span>
+              )}
+            </div>
 
-              <div className="lands-card-details">
-                <div className="lands-detail-item">
-                  <MapPin className="lands-detail-icon" />
-                  <LocationValue value={land.location} />
-                </div>
-                <div className="lands-detail-item">
-                  <Mountain className="lands-detail-icon" />
-                  <span>حوض رقم {land.basinNumber}</span>
-                </div>
-                <div className="lands-detail-item">
-                  <Ruler className="lands-detail-icon" />
-                  <span>{land.area} م²</span>
-                </div>
+            <div className="lnd-prop-body">
+              <h3>{land.basinName}</h3>
+
+              <div className="lnd-loc">
+                <MapPin size={13} className="lnd-loc-icon" />
+                <LocationValue value={land.location} />
+              </div>
+
+              <div className="lnd-chips">
+                <span>
+                  <Mountain size={12} />
+                  حوض رقم {land.basinNumber}
+                </span>
+                <span>
+                  <Ruler size={12} />
+                  {land.area} م²
+                </span>
               </div>
 
               {land.notes && (
-                <div className="lands-card-notes">
-                  <StickyNote className="lands-note-icon" />
+                <div className="lnd-note">
+                  <StickyNote size={12} />
                   <p>{land.notes}</p>
                 </div>
               )}
 
-              <div className="lands-card-actions">
-                <button
-                  className="lands-action-btn lands-view-btn"
-                  onClick={() => navigate(`/lands/${land.id}`)}
-                  title="عرض التفاصيل"
-                >
-                  <Eye size={16} />
-                  تفاصيل
-                </button>
-                {land.images && land.images.length > 0 && (
+              <div className="lnd-prop-foot">
+                <div className="lnd-actions">
                   <button
-                    className="lands-action-btn lands-gallery-btn"
-                    onClick={() => navigate(`/lands/${land.id}/gallery`)}
-                    title="عرض الصور"
+                    className="lands-action-btn lands-view-btn"
+                    onClick={() => navigate(`/lands/${land.id}`)}
+                    title="عرض التفاصيل"
                   >
-                    <Image size={16} />
-                    الصور ({land.images.length})
+                    <Eye size={16} />
+                    تفاصيل
                   </button>
-                )}
-                <button
-                  className="lands-action-btn lands-contact-btn"
-                  onClick={() => navigate(`/lands/${land.id}`)}
-                  title="معلومات المالك"
-                >
-                  <Phone size={16} />
-                  تواصل
-                </button>
-                <button
-                  className="lands-action-btn lands-edit-btn"
-                  onClick={() => handleEdit(land)}
-                  title="تعديل"
-                >
-                  <Edit size={16} />
-                </button>
-                <button
-                  className="lands-action-btn lands-delete-btn"
-                  onClick={() => handleDelete(land.id)}
-                  title="حذف"
-                >
-                  <Trash2 size={16} />
-                </button>
+                  {land.images && land.images.length > 0 && (
+                    <button
+                      className="lands-action-btn lands-gallery-btn"
+                      onClick={() => navigate(`/lands/${land.id}/gallery`)}
+                      title="عرض الصور"
+                    >
+                      <Image size={16} />
+                      الصور ({land.images.length})
+                    </button>
+                  )}
+                  <button
+                    className="lands-action-btn lands-contact-btn"
+                    onClick={() => navigate(`/lands/${land.id}`)}
+                    title="معلومات المالك"
+                  >
+                    <Phone size={16} />
+                    تواصل
+                  </button>
+                  <button
+                    className="lands-action-btn lands-edit-btn"
+                    onClick={() => handleEdit(land)}
+                    title="تعديل"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    className="lands-action-btn lands-delete-btn"
+                    onClick={() => handleDelete(land.id)}
+                    title="حذف"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -400,46 +482,26 @@ export function Lands() {
       </div>
 
       {filteredLands.length === 0 && (
-        <div className="lands-no-data-message">
-          <Mountain size={64} />
-          <p>لا توجد أراضي</p>
-          <span>قم بإضافة أرض جديدة</span>
+        <div className="lnd-empty">
+          <Mountain size={34} />
+          <p>لا توجد أراضي مطابقة — أضف أرضاً جديدة للبدء</p>
         </div>
       )}
 
       {/* Pagination */}
-      {filteredLands.length > 0 && totalPages > 1 && (
-        <div className="lands-pagination">
-          <button
-            className="lands-pagination-btn"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            السابق
-          </button>
-          
-          <div className="lands-pagination-numbers">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
-              <button
-                key={pageNumber}
-                className={`lands-pagination-number ${
-                  currentPage === pageNumber ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(pageNumber)}
-              >
-                {pageNumber}
-              </button>
-            ))}
-          </div>
-
-          <button
-            className="lands-pagination-btn"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            التالي
-          </button>
-        </div>
+      {filteredLands.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredLands.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={(size) => {
+            setItemsPerPage(size);
+            setCurrentPage(1);
+          }}
+          itemLabel="أرض"
+          pageSizeOptions={[9, 18, 36]}
+        />
       )}
 
       {/* Add/Edit Modal */}

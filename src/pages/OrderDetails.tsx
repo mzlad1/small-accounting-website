@@ -46,6 +46,12 @@ import {
   getItemDateIso,
   formatItemDate,
 } from "../utils/itemDate";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  SortControl,
+} from "../components/Filters";
 
 import "./OrderDetails.css";
 
@@ -848,77 +854,43 @@ export function OrderDetails() {
         </div>
 
         {/* Filters and Sorting */}
-        <div className="filters-bar">
-          <div className="filter-field filter-field-search">
-            <label>بحث</label>
-            <div className="search-box">
-              <Search className="search-icon" />
-              <input
-                type="text"
-                className="search-input"
-                placeholder="بحث..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="filter-field">
-            <label>النوع</label>
-            <select
-              value={filters.type}
-              onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-            >
-              {getUniqueTypes().map((type) => (
-                <option key={type} value={type}>
-                  {type === "all" ? "جميع الأنواع" : type}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="filter-field">
-            <label>ترتيب حسب</label>
-            <select
-              value={sortBy.field}
-              onChange={(e) => setSortBy({ ...sortBy, field: e.target.value })}
-            >
-              <option value="name">الاسم</option>
-              <option value="type">النوع</option>
-              <option value="quantity">الكمية</option>
-              <option value="unitPrice">السعر</option>
-              <option value="total">الإجمالي</option>
-              <option value="itemDate">التاريخ</option>
-            </select>
-          </div>
-
-          <div className="filter-field">
-            <label>ترتيب</label>
-            <button
-              type="button"
-              className="sort-toggle-btn"
-              onClick={() =>
-                setSortBy({
-                  ...sortBy,
-                  order: sortBy.order === "asc" ? "desc" : "asc",
-                })
-              }
-            >
-              {sortBy.order === "asc" ? "↑" : "↓"}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            className="filters-clear-btn"
-            onClick={() => {
-              setSearchTerm("");
-              setFilters({ type: "all" });
-              setSortBy({ field: "name", order: "asc" });
-            }}
-          >
-            مسح الفلاتر
-          </button>
-        </div>
+        <FiltersBar
+          onClear={() => {
+            setSearchTerm("");
+            setFilters({ type: "all" });
+            setSortBy({ field: "name", order: "asc" });
+          }}
+        >
+          <SearchField value={searchTerm} onChange={setSearchTerm} />
+          <SelectField
+            label="النوع"
+            value={filters.type}
+            onChange={(type) => setFilters({ ...filters, type })}
+            options={getUniqueTypes().map((type) => ({
+              value: type,
+              label: type === "all" ? "جميع الأنواع" : type,
+            }))}
+          />
+          <SortControl
+            value={sortBy.field}
+            onChange={(field) => setSortBy({ ...sortBy, field })}
+            options={[
+              { value: "name", label: "الاسم" },
+              { value: "type", label: "النوع" },
+              { value: "quantity", label: "الكمية" },
+              { value: "unitPrice", label: "السعر" },
+              { value: "total", label: "الإجمالي" },
+              { value: "itemDate", label: "التاريخ" },
+            ]}
+            order={sortBy.order}
+            onToggleOrder={() =>
+              setSortBy({
+                ...sortBy,
+                order: sortBy.order === "asc" ? "desc" : "asc",
+              })
+            }
+          />
+        </FiltersBar>
 
         {/* Items Table */}
         <div className="od-table-container">

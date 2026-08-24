@@ -47,6 +47,13 @@ import {
   SeriesInterval,
 } from "../utils/checkSeries";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+} from "../components/Filters";
 
 import "./CustomerAccount.css";
 
@@ -1552,100 +1559,6 @@ export function CustomerAccount() {
     return pages;
   };
 
-  // Reusable pagination component
-  const PaginationControls = ({
-    section,
-    currentPage,
-    totalPages,
-    itemsPerPage,
-    totalItems,
-  }: {
-    section: "orders" | "payments" | "checks" | "statement";
-    currentPage: number;
-    totalPages: number;
-    itemsPerPage: number;
-    totalItems: number;
-  }) => {
-    if (totalItems === 0) return null;
-
-    return (
-      <div className="ca-pagination-container">
-        <div className="ca-pagination-info">
-          <span>
-            عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-            {Math.min(currentPage * itemsPerPage, totalItems)} من {totalItems}{" "}
-            {section === "orders"
-              ? "طلب"
-              : section === "payments"
-              ? "دفعة"
-              : section === "checks"
-              ? "شيك"
-              : "قيد"}
-          </span>
-          <div className="ca-items-per-page">
-            <label>عدد العناصر في الصفحة:</label>
-            <select
-              value={itemsPerPage}
-              onChange={(e) =>
-                handleItemsPerPageChange(Number(e.target.value), section)
-              }
-              className="ca-pagination-select"
-            >
-              <option value={5}>5</option>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="ca-pagination-controls">
-          <button
-            className="ca-pagination-btn"
-            onClick={() => handlePageChange(1, section)}
-            disabled={currentPage === 1}
-          >
-            الأولى
-          </button>
-          <button
-            className="ca-pagination-btn"
-            onClick={() => handlePageChange(currentPage - 1, section)}
-            disabled={currentPage === 1}
-          >
-            السابقة
-          </button>
-
-          {getPageNumbers(currentPage, totalPages).map((page) => (
-            <button
-              key={page}
-              className={`ca-pagination-btn ${
-                currentPage === page ? "active" : ""
-              }`}
-              onClick={() => handlePageChange(page, section)}
-            >
-              {page}
-            </button>
-          ))}
-
-          <button
-            className="ca-pagination-btn"
-            onClick={() => handlePageChange(currentPage + 1, section)}
-            disabled={currentPage === totalPages}
-          >
-            التالية
-          </button>
-          <button
-            className="ca-pagination-btn"
-            onClick={() => handlePageChange(totalPages, section)}
-            disabled={currentPage === totalPages}
-          >
-            الأخيرة
-          </button>
-        </div>
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <div className="ca-customer-account-container">
@@ -1825,79 +1738,46 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="filters-bar">
-                <div className="filter-field filter-field-search">
-                  <label>بحث</label>
-                  <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                      type="text"
-                      className="search-input"
-                      placeholder="بحث..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="filter-field">
-                  <label>الحالة</label>
-                  <select
-                    value={orderFilters.status}
-                    onChange={(e) =>
-                      setOrderFilters({
-                        ...orderFilters,
-                        status: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="all">جميع الحالات</option>
-                    <option value="pending">في الانتظار</option>
-                    <option value="in-progress">قيد التنفيذ</option>
-                    <option value="completed">مكتمل</option>
-                    <option value="cancelled">ملغي</option>
-                  </select>
-                </div>
-                <div className="filter-field">
-                  <label>من تاريخ</label>
-                  <input
-                    type="date"
-                    value={orderFilters.dateFrom}
-                    onChange={(e) =>
-                      setOrderFilters({
-                        ...orderFilters,
-                        dateFrom: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="filter-field">
-                  <label>إلى تاريخ</label>
-                  <input
-                    type="date"
-                    value={orderFilters.dateTo}
-                    onChange={(e) =>
-                      setOrderFilters({
-                        ...orderFilters,
-                        dateTo: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="filters-clear-btn"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setOrderFilters({
-                      status: "all",
-                      dateFrom: "",
-                      dateTo: "",
-                    });
-                  }}
-                >
-                  مسح الفلاتر
-                </button>
-              </div>
+              <FiltersBar
+                onClear={() => {
+                  setSearchTerm("");
+                  setOrderFilters({
+                    status: "all",
+                    dateFrom: "",
+                    dateTo: "",
+                  });
+                }}
+              >
+                <SearchField value={searchTerm} onChange={setSearchTerm} />
+                <SelectField
+                  label="الحالة"
+                  value={orderFilters.status}
+                  onChange={(v) =>
+                    setOrderFilters({ ...orderFilters, status: v })
+                  }
+                  options={[
+                    { value: "all", label: "جميع الحالات" },
+                    { value: "pending", label: "في الانتظار" },
+                    { value: "in-progress", label: "قيد التنفيذ" },
+                    { value: "completed", label: "مكتمل" },
+                    { value: "cancelled", label: "ملغي" },
+                  ]}
+                />
+                <DateField
+                  label="من تاريخ"
+                  value={orderFilters.dateFrom}
+                  onChange={(v) =>
+                    setOrderFilters({ ...orderFilters, dateFrom: v })
+                  }
+                />
+                <DateField
+                  label="إلى تاريخ"
+                  value={orderFilters.dateTo}
+                  onChange={(v) =>
+                    setOrderFilters({ ...orderFilters, dateTo: v })
+                  }
+                />
+              </FiltersBar>
 
               {/* Orders Table */}
               <div className="ca-table-container">
@@ -2008,12 +1888,15 @@ export function CustomerAccount() {
               </div>
 
               {/* Orders Pagination */}
-              <PaginationControls
-                section="orders"
+              <Pagination
                 currentPage={ordersPagination.currentPage}
-                totalPages={ordersPagination.totalPages}
-                itemsPerPage={ordersPagination.itemsPerPage}
                 totalItems={filteredOrders.length}
+                itemsPerPage={ordersPagination.itemsPerPage}
+                onPageChange={(page) => handlePageChange(page, "orders")}
+                onItemsPerPageChange={(size) =>
+                  handleItemsPerPageChange(size, "orders")
+                }
+                itemLabel="طلب"
               />
             </div>
           )}
@@ -2039,77 +1922,44 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="filters-bar">
-                <div className="filter-field filter-field-search">
-                  <label>بحث</label>
-                  <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                      type="text"
-                      className="search-input"
-                      placeholder="بحث..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="filter-field">
-                  <label>النوع</label>
-                  <select
-                    value={paymentFilters.type}
-                    onChange={(e) =>
-                      setPaymentFilters({
-                        ...paymentFilters,
-                        type: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="all">جميع الأنواع</option>
-                    <option value="cash">نقداً</option>
-                    <option value="check">شيك</option>
-                  </select>
-                </div>
-                <div className="filter-field">
-                  <label>من تاريخ</label>
-                  <input
-                    type="date"
-                    value={paymentFilters.dateFrom}
-                    onChange={(e) =>
-                      setPaymentFilters({
-                        ...paymentFilters,
-                        dateFrom: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="filter-field">
-                  <label>إلى تاريخ</label>
-                  <input
-                    type="date"
-                    value={paymentFilters.dateTo}
-                    onChange={(e) =>
-                      setPaymentFilters({
-                        ...paymentFilters,
-                        dateTo: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="filters-clear-btn"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setPaymentFilters({
-                      type: "all",
-                      dateFrom: "",
-                      dateTo: "",
-                    });
-                  }}
-                >
-                  مسح الفلاتر
-                </button>
-              </div>
+              <FiltersBar
+                onClear={() => {
+                  setSearchTerm("");
+                  setPaymentFilters({
+                    type: "all",
+                    dateFrom: "",
+                    dateTo: "",
+                  });
+                }}
+              >
+                <SearchField value={searchTerm} onChange={setSearchTerm} />
+                <SelectField
+                  label="النوع"
+                  value={paymentFilters.type}
+                  onChange={(v) =>
+                    setPaymentFilters({ ...paymentFilters, type: v })
+                  }
+                  options={[
+                    { value: "all", label: "جميع الأنواع" },
+                    { value: "cash", label: "نقداً" },
+                    { value: "check", label: "شيك" },
+                  ]}
+                />
+                <DateField
+                  label="من تاريخ"
+                  value={paymentFilters.dateFrom}
+                  onChange={(v) =>
+                    setPaymentFilters({ ...paymentFilters, dateFrom: v })
+                  }
+                />
+                <DateField
+                  label="إلى تاريخ"
+                  value={paymentFilters.dateTo}
+                  onChange={(v) =>
+                    setPaymentFilters({ ...paymentFilters, dateTo: v })
+                  }
+                />
+              </FiltersBar>
 
               {/* Payments Table */}
               <div className="ca-table-container">
@@ -2191,12 +2041,15 @@ export function CustomerAccount() {
               </div>
 
               {/* Payments Pagination */}
-              <PaginationControls
-                section="payments"
+              <Pagination
                 currentPage={paymentsPagination.currentPage}
-                totalPages={paymentsPagination.totalPages}
-                itemsPerPage={paymentsPagination.itemsPerPage}
                 totalItems={filteredPayments.length}
+                itemsPerPage={paymentsPagination.itemsPerPage}
+                onPageChange={(page) => handlePageChange(page, "payments")}
+                onItemsPerPageChange={(size) =>
+                  handleItemsPerPageChange(size, "payments")
+                }
+                itemLabel="دفعة"
               />
             </div>
           )}
@@ -2237,78 +2090,45 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="filters-bar">
-                <div className="filter-field filter-field-search">
-                  <label>بحث</label>
-                  <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                      type="text"
-                      className="search-input"
-                      placeholder="بحث..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="filter-field">
-                  <label>الحالة</label>
-                  <select
-                    value={checkFilters.status}
-                    onChange={(e) =>
-                      setCheckFilters({
-                        ...checkFilters,
-                        status: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="all">جميع الحالات</option>
-                    <option value="pending">في الانتظار</option>
-                    <option value="collected">تم تحصيله</option>
-                    <option value="returned">مرتجع</option>
-                  </select>
-                </div>
-                <div className="filter-field">
-                  <label>من تاريخ</label>
-                  <input
-                    type="date"
-                    value={checkFilters.dateFrom}
-                    onChange={(e) =>
-                      setCheckFilters({
-                        ...checkFilters,
-                        dateFrom: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="filter-field">
-                  <label>إلى تاريخ</label>
-                  <input
-                    type="date"
-                    value={checkFilters.dateTo}
-                    onChange={(e) =>
-                      setCheckFilters({
-                        ...checkFilters,
-                        dateTo: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="filters-clear-btn"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setCheckFilters({
-                      status: "all",
-                      dateFrom: "",
-                      dateTo: "",
-                    });
-                  }}
-                >
-                  مسح الفلاتر
-                </button>
-              </div>
+              <FiltersBar
+                onClear={() => {
+                  setSearchTerm("");
+                  setCheckFilters({
+                    status: "all",
+                    dateFrom: "",
+                    dateTo: "",
+                  });
+                }}
+              >
+                <SearchField value={searchTerm} onChange={setSearchTerm} />
+                <SelectField
+                  label="الحالة"
+                  value={checkFilters.status}
+                  onChange={(v) =>
+                    setCheckFilters({ ...checkFilters, status: v })
+                  }
+                  options={[
+                    { value: "all", label: "جميع الحالات" },
+                    { value: "pending", label: "في الانتظار" },
+                    { value: "collected", label: "تم تحصيله" },
+                    { value: "returned", label: "مرتجع" },
+                  ]}
+                />
+                <DateField
+                  label="من تاريخ"
+                  value={checkFilters.dateFrom}
+                  onChange={(v) =>
+                    setCheckFilters({ ...checkFilters, dateFrom: v })
+                  }
+                />
+                <DateField
+                  label="إلى تاريخ"
+                  value={checkFilters.dateTo}
+                  onChange={(v) =>
+                    setCheckFilters({ ...checkFilters, dateTo: v })
+                  }
+                />
+              </FiltersBar>
 
               {/* Checks Table */}
               <div className="ca-table-container">
@@ -2413,12 +2233,15 @@ export function CustomerAccount() {
               </div>
 
               {/* Checks Pagination */}
-              <PaginationControls
-                section="checks"
+              <Pagination
                 currentPage={checksPagination.currentPage}
-                totalPages={checksPagination.totalPages}
-                itemsPerPage={checksPagination.itemsPerPage}
                 totalItems={filteredChecks.length}
+                itemsPerPage={checksPagination.itemsPerPage}
+                onPageChange={(page) => handlePageChange(page, "checks")}
+                onItemsPerPageChange={(size) =>
+                  handleItemsPerPageChange(size, "checks")
+                }
+                itemLabel="شيك"
               />
             </div>
           )}
@@ -2527,78 +2350,45 @@ export function CustomerAccount() {
               </div>
 
               {/* Filters */}
-              <div className="filters-bar">
-                <div className="filter-field filter-field-search">
-                  <label>بحث</label>
-                  <div className="search-box">
-                    <Search className="search-icon" />
-                    <input
-                      type="text"
-                      className="search-input"
-                      placeholder="بحث..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                </div>
-                <div className="filter-field">
-                  <label>من تاريخ</label>
-                  <input
-                    type="date"
-                    value={statementFilters.dateFrom}
-                    onChange={(e) =>
-                      setStatementFilters({
-                        ...statementFilters,
-                        dateFrom: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="filter-field">
-                  <label>إلى تاريخ</label>
-                  <input
-                    type="date"
-                    value={statementFilters.dateTo}
-                    onChange={(e) =>
-                      setStatementFilters({
-                        ...statementFilters,
-                        dateTo: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="filter-field">
-                  <label>نوع القيد</label>
-                  <select
-                    value={statementFilters.entryType}
-                    onChange={(e) =>
-                      setStatementFilters({
-                        ...statementFilters,
-                        entryType: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="all">جميع الأنواع</option>
-                    <option value="order">طلبات</option>
-                    <option value="payment">مدفوعات</option>
-                    <option value="check">شيكات</option>
-                  </select>
-                </div>
-                <button
-                  type="button"
-                  className="filters-clear-btn"
-                  onClick={() => {
-                    setSearchTerm("");
-                    setStatementFilters({
-                      dateFrom: "",
-                      dateTo: "",
-                      entryType: "all",
-                    });
-                  }}
-                >
-                  مسح الفلاتر
-                </button>
-              </div>
+              <FiltersBar
+                onClear={() => {
+                  setSearchTerm("");
+                  setStatementFilters({
+                    dateFrom: "",
+                    dateTo: "",
+                    entryType: "all",
+                  });
+                }}
+              >
+                <SearchField value={searchTerm} onChange={setSearchTerm} />
+                <DateField
+                  label="من تاريخ"
+                  value={statementFilters.dateFrom}
+                  onChange={(v) =>
+                    setStatementFilters({ ...statementFilters, dateFrom: v })
+                  }
+                />
+                <DateField
+                  label="إلى تاريخ"
+                  value={statementFilters.dateTo}
+                  onChange={(v) =>
+                    setStatementFilters({ ...statementFilters, dateTo: v })
+                  }
+                />
+                <SelectField
+                  label="نوع القيد"
+                  value={statementFilters.entryType}
+                  onChange={(v) =>
+                    setStatementFilters({ ...statementFilters, entryType: v })
+                  }
+                  options={[
+                    { value: "all", label: "جميع الأنواع" },
+                    { value: "order", label: "طلبات" },
+                    { value: "payment", label: "مدفوعات" },
+                    { value: "check", label: "شيكات" },
+                  ]}
+                />
+              </FiltersBar>
 
               {/* Statement Table */}
               <div className="ca-table-container">
@@ -2653,12 +2443,15 @@ export function CustomerAccount() {
               </div>
 
               {/* Statement Pagination */}
-              <PaginationControls
-                section="statement"
+              <Pagination
                 currentPage={statementPagination.currentPage}
-                totalPages={statementPagination.totalPages}
-                itemsPerPage={statementPagination.itemsPerPage}
                 totalItems={filteredStatement.length}
+                itemsPerPage={statementPagination.itemsPerPage}
+                onPageChange={(page) => handlePageChange(page, "statement")}
+                onItemsPerPageChange={(size) =>
+                  handleItemsPerPageChange(size, "statement")
+                }
+                itemLabel="قيد"
               />
             </div>
           )}

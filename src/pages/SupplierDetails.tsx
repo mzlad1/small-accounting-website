@@ -31,6 +31,13 @@ import { fetchCacheFirst, fetchDocsCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll, subscribeDocs } from "../utils/live";
 import { formatItemDate, getItemDateIso } from "../utils/itemDate";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+} from "../components/Filters";
 
 import "./SupplierDetails.css";
 
@@ -618,69 +625,35 @@ export function SupplierDetails() {
       </div>
 
       {/* Search and Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className="filter-field">
-          <label>النوع</label>
-          <select
-            value={filters.type}
-            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-          >
-            <option value="all">جميع الأنواع</option>
-            {Array.from(new Set(elements.map((e) => e.elementType))).map(
-              (type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              )
-            )}
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>من تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) =>
-              setFilters({ ...filters, dateFrom: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="filter-field">
-          <label>إلى تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-          />
-        </div>
-
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setFilters({ type: "all", dateFrom: "", dateTo: "" });
-          }}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setFilters({ type: "all", dateFrom: "", dateTo: "" });
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SelectField
+          label="النوع"
+          value={filters.type}
+          onChange={(type) => setFilters({ ...filters, type })}
+          options={[
+            { value: "all", label: "جميع الأنواع" },
+            ...Array.from(new Set(elements.map((e) => e.elementType))).map(
+              (type) => ({ value: type, label: type })
+            ),
+          ]}
+        />
+        <DateField
+          label="من تاريخ"
+          value={filters.dateFrom}
+          onChange={(dateFrom) => setFilters({ ...filters, dateFrom })}
+        />
+        <DateField
+          label="إلى تاريخ"
+          value={filters.dateTo}
+          onChange={(dateTo) => setFilters({ ...filters, dateTo })}
+        />
+      </FiltersBar>
 
       {/* Elements Table */}
       <div className="supplier-details-table-container">
@@ -864,74 +837,14 @@ export function SupplierDetails() {
 
       {/* Pagination Controls */}
       {filteredElements.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-              {Math.min(currentPage * itemsPerPage, filteredElements.length)} من{" "}
-              {filteredElements.length} عنصر
-            </span>
-            <div className="items-per-page">
-              <label>عدد العناصر في الصفحة:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="pagination-select"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              الأولى
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              السابقة
-            </button>
-
-            {getPageNumbers().map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${
-                  currentPage === page ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              التالية
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              الأخيرة
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredElements.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          itemLabel="عنصر"
+        />
       )}
     </div>
   );

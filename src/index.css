@@ -1040,3 +1040,297 @@ div.pagination-controls {
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--text-tertiary);
 }
+/* ===== unified pagination (.pg-*) — used by src/components/Pagination.tsx.
+   Lives here in index.css ON PURPOSE: always loaded, never code-split,
+   so pagination can never render unstyled. ===== */
+.pg-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-top: 1.1rem;
+  padding: 0.55rem 0.9rem;
+  background: var(--surface, #fffefb);
+  border: 1px solid #e7dfd2;
+  border-radius: 12px;
+}
+
+.pg-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.pg-info b {
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.pg-size {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.pg-size select {
+  border: 1px solid #e0d6c4;
+  background: #faf6ee;
+  border-radius: 8px;
+  padding: 0.25rem 0.45rem;
+  font-family: inherit;
+  font-weight: 800;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.pg-pages {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pg-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e0d6c4;
+  background: var(--surface, #fffefb);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.8rem;
+  transition: border-color 0.13s ease, color 0.13s ease, transform 0.13s ease,
+    background 0.13s ease;
+}
+
+.pg-btn:hover:not(:disabled) {
+  border-color: var(--accent, #bc5727);
+  color: var(--accent, #bc5727);
+  transform: translateY(-1px);
+}
+
+.pg-btn:disabled:not(.pg-current) {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pg-current,
+.pg-current:disabled {
+  background: var(--accent, #bc5727);
+  border-color: var(--accent, #bc5727);
+  color: #fff7ef;
+  cursor: default;
+  opacity: 1;
+}
+
+.pg-dots {
+  min-width: 18px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-weight: 800;
+  user-select: none;
+}
+
+@media (max-width: 640px) {
+  .pg-bar {
+    justify-content: center;
+  }
+}
+/* ===== unified filters bar (.fx-*) — used by src/components/Filters.tsx.
+   Lives in index.css ON PURPOSE: always loaded, never code-split.
+   Every control is 40px tall, bottom-aligned — the bar cannot break
+   its baseline. ===== */
+.fx-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.7rem 0.8rem;
+  background: var(--surface, #fffefb);
+  border: 1px solid #e7dfd2;
+  border-radius: 14px;
+  padding: 0.8rem 0.95rem 0.85rem;
+  margin-bottom: 1.15rem;
+}
+
+.fx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.32rem;
+  flex: 0 1 175px;
+  min-width: 150px;
+}
+
+.fx-search {
+  flex: 2 1 250px;
+}
+
+.fx-date {
+  flex: 0 1 155px;
+  min-width: 140px;
+}
+
+.fx-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--text-tertiary);
+  padding-inline-start: 0.15rem;
+  transition: color 0.13s ease;
+}
+
+.fx-active .fx-label {
+  color: var(--accent, #bc5727);
+}
+
+.fx-control {
+  height: 40px;
+  width: 100%;
+  border: 1px solid #e0d6c4;
+  border-radius: 10px;
+  background: #fdfbf7;
+  padding: 0 0.7rem;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: border-color 0.13s ease, box-shadow 0.13s ease,
+    background 0.13s ease;
+}
+
+select.fx-control {
+  cursor: pointer;
+}
+
+.fx-control:focus {
+  outline: none;
+  border-color: var(--accent, #bc5727);
+  box-shadow: 0 0 0 3px rgba(188, 87, 39, 0.12);
+  background: #fff;
+}
+
+.fx-active .fx-control {
+  border-color: rgba(188, 87, 39, 0.55);
+  background: #fff;
+}
+
+.fx-search-box {
+  position: relative;
+}
+
+.fx-search-icon {
+  position: absolute;
+  inset-inline-start: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #c9bca4;
+  pointer-events: none;
+}
+
+.fx-search-box .fx-control {
+  padding-inline-start: 2.15rem;
+  padding-inline-end: 2.1rem;
+}
+
+.fx-search-clear {
+  position: absolute;
+  inset-inline-end: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: #f1ead9;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.13s ease, color 0.13s ease;
+}
+
+.fx-search-clear:hover {
+  background: var(--accent-soft, #f6e7dc);
+  color: var(--accent, #bc5727);
+}
+
+.fx-sort-row {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.fx-sort-row select {
+  flex: 1;
+  min-width: 0;
+}
+
+.fx-sort-toggle {
+  flex: 0 0 40px;
+  width: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.fx-sort-toggle:hover {
+  border-color: var(--accent, #bc5727);
+  color: var(--accent, #bc5727);
+}
+
+.fx-clear {
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1.5px dashed #d8cdbb;
+  background: transparent;
+  border-radius: 10px;
+  padding: 0 0.9rem;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-inline-start: auto;
+  transition: border-color 0.13s ease, color 0.13s ease, background 0.13s ease;
+}
+
+.fx-clear:hover {
+  border-color: var(--danger-text, #a93f2c);
+  color: var(--danger-text, #a93f2c);
+  background: rgba(169, 63, 44, 0.05);
+}
+
+@media (max-width: 640px) {
+  .fx-field,
+  .fx-search,
+  .fx-date {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .fx-clear {
+    width: 100%;
+    justify-content: center;
+    margin-inline-start: 0;
+  }
+}

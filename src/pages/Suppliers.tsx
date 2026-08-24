@@ -7,6 +7,8 @@ import {
   Trash2,
   User,
   Phone,
+  Mail,
+  MapPin,
   Package,
   DollarSign,
   Calendar,
@@ -35,6 +37,12 @@ import { db } from "../config/firebase";
 import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SortControl,
+} from "../components/Filters";
 
 import { useNavigate } from "react-router-dom";
 import "./Suppliers.css";
@@ -696,280 +704,147 @@ export function Suppliers() {
       </div>
 
       {/* Search */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+      <FiltersBar>
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SortControl
+          value={sortBy.field}
+          onChange={(field) => setSortBy((prev) => ({ ...prev, field }))}
+          options={[
+            { value: "name", label: "اسم المورد" },
+            { value: "contact", label: "معلومات الاتصال" },
+            { value: "totalElements", label: "العناصر" },
+            { value: "totalValue", label: "إجمالي القيمة" },
+            { value: "lastOrderDate", label: "آخر طلبية" },
+          ]}
+          order={sortBy.order}
+          onToggleOrder={() => handleSort(sortBy.field)}
+        />
+      </FiltersBar>
 
-      {/* Suppliers Table */}
-      <div className="suppliers-table-container">
-        <table className="suppliers-table">
-          <thead>
-            <tr>
-              <th
-                onClick={() => handleSort("name")}
-                className="sortable th-sortable"
-              >
-                <div className="suppliers-th-content">
-                  <User className="suppliers-th-icon" />
-                  اسم المورد
-                  {getSortIcon("name")}
+      {/* Suppliers — entity cards */}
+      {paginatedSuppliers.length === 0 ? (
+        <div className="spl-empty">
+          <Package size={34} color="#D8CDBB" />
+          <p>لا توجد موردين</p>
+        </div>
+      ) : (
+        <div className="spl-grid">
+          {paginatedSuppliers.map((supplier) => (
+            <article
+              key={supplier.id}
+              className="spl-card"
+              title="انقر لعرض التفاصيل"
+              onClick={(e) => {
+                if (
+                  (e.target as HTMLElement).closest("button, a, input, select")
+                )
+                  return;
+                handleViewSupplier(supplier);
+              }}
+            >
+              <div className="spl-tab" title={supplier.name}>
+                {supplier.name}
+              </div>
+
+              <div className="spl-lines">
+                <div className="spl-line">
+                  <span className="spl-line-label">الهاتف</span>
+                  <span className="spl-dots" />
+                  <span className="spl-line-val spl-ltr">
+                    {supplier.phone || "—"}
+                  </span>
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("contact")}
-                className="sortable th-sortable"
-              >
-                <div className="suppliers-th-content">
-                  <Phone className="suppliers-th-icon" />
-                  معلومات الاتصال
-                  {getSortIcon("contact")}
+                {supplier.email && (
+                  <div className="spl-line">
+                    <span className="spl-line-label">البريد</span>
+                    <span className="spl-dots" />
+                    <span
+                      className="spl-line-val spl-ltr"
+                      title={supplier.email}
+                    >
+                      {supplier.email}
+                    </span>
+                  </div>
+                )}
+                {supplier.address && (
+                  <div className="spl-line">
+                    <span className="spl-line-label">العنوان</span>
+                    <span className="spl-dots" />
+                    <span className="spl-line-val" title={supplier.address}>
+                      {supplier.address}
+                    </span>
+                  </div>
+                )}
+                <div className="spl-line">
+                  <span className="spl-line-label">عدد العناصر</span>
+                  <span className="spl-dots" />
+                  <span className="spl-line-val">
+                    {supplier.totalElements || 0}
+                  </span>
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("totalElements")}
-                className="sortable th-sortable"
-              >
-                <div className="suppliers-th-content">
-                  <Package className="suppliers-th-icon" />
-                  العناصر
-                  {getSortIcon("totalElements")}
+                <div className="spl-line">
+                  <span className="spl-line-label">آخر طلبية</span>
+                  <span className="spl-dots" />
+                  <span className="spl-line-val">
+                    {supplier.lastOrderDate
+                      ? formatDate(supplier.lastOrderDate)
+                      : "لا توجد طلبيات"}
+                  </span>
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("totalValue")}
-                className="sortable th-sortable"
-              >
-                <div className="suppliers-th-content">
-                  <DollarSign className="suppliers-th-icon" />
-                  إجمالي القيمة
-                  {getSortIcon("totalValue")}
+              </div>
+
+              <div className="spl-total">
+                <span className="spl-total-label">إجمالي القيمة</span>
+                <b className="spl-bal">
+                  {formatCurrency(supplier.totalValue || 0)}
+                </b>
+              </div>
+
+              {supplier.notes && (
+                <div className="spl-notes">{supplier.notes}</div>
+              )}
+
+              <div className="spl-foot">
+                <span className="spl-open">عرض التفاصيل ←</span>
+                <div className="spl-actions">
+                  <button
+                    className="suppliers-action-btn view"
+                    onClick={() => handleViewSupplier(supplier)}
+                    title="عرض التفاصيل"
+                  >
+                    <Eye />
+                  </button>
+                  <button
+                    className="suppliers-action-btn edit"
+                    onClick={() => handleEditSupplier(supplier)}
+                    title="تعديل"
+                  >
+                    <Edit />
+                  </button>
+                  <button
+                    className="suppliers-action-btn delete"
+                    onClick={() => handleDeleteSupplier(supplier)}
+                    title="حذف"
+                  >
+                    <Trash2 />
+                  </button>
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("lastOrderDate")}
-                className="sortable th-sortable"
-              >
-                <div className="suppliers-th-content">
-                  <Calendar className="suppliers-th-icon" />
-                  آخر طلبية
-                  {getSortIcon("lastOrderDate")}
-                </div>
-              </th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedSuppliers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="suppliers-no-data">
-                  لا توجد موردين
-                </td>
-              </tr>
-            ) : (
-              paginatedSuppliers.map((supplier) => (
-                <tr
-                  key={supplier.id}
-                  className="suppliers-supplier-row row-clickable"
-                  onClick={(e) => {
-                    if (
-                      (e.target as HTMLElement).closest(
-                        "button, a, input, select"
-                      )
-                    )
-                      return;
-                    handleViewSupplier(supplier);
-                  }}
-                >
-                  <td>
-                    <div className="suppliers-supplier-info">
-                      <div className="suppliers-supplier-avatar">
-                        <User className="suppliers-avatar-icon" />
-                      </div>
-                      <div className="suppliers-supplier-details">
-                        <span
-                          className="suppliers-supplier-name clickable"
-                          title="انقر لعرض التفاصيل"
-                        >
-                          {supplier.name}
-                        </span>
-                        {supplier.notes && (
-                          <span className="suppliers-supplier-notes">
-                            {supplier.notes}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="suppliers-contact-info">
-                      {supplier.phone && (
-                        <div className="suppliers-contact-item">
-                          <span className="suppliers-contact-label">هاتف:</span>
-                          <span className="suppliers-contact-value">
-                            {supplier.phone}
-                          </span>
-                        </div>
-                      )}
-                      {supplier.email && (
-                        <div className="suppliers-contact-item">
-                          <span className="suppliers-contact-label">بريد:</span>
-                          <span className="suppliers-contact-value">
-                            {supplier.email}
-                          </span>
-                        </div>
-                      )}
-                      {supplier.address && (
-                        <div className="suppliers-contact-item">
-                          <span className="suppliers-contact-label">
-                            عنوان:
-                          </span>
-                          <span className="suppliers-contact-value">
-                            {supplier.address}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="suppliers-elements-count">
-                      <span className="suppliers-count-number">
-                        {supplier.totalElements || 0}
-                      </span>
-                      <span className="suppliers-count-label">عنصر</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="suppliers-value-amount">
-                      {formatCurrency(supplier.totalValue || 0)}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="suppliers-last-order">
-                      {supplier.lastOrderDate ? (
-                        <span className="suppliers-order-date">
-                          {formatDate(supplier.lastOrderDate)}
-                        </span>
-                      ) : (
-                        <span className="suppliers-no-orders">
-                          لا توجد طلبيات
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="suppliers-action-buttons">
-                      <button
-                        className="suppliers-action-btn view"
-                        onClick={() => handleViewSupplier(supplier)}
-                        title="عرض التفاصيل"
-                      >
-                        <Eye />
-                      </button>
-                      <button
-                        className="suppliers-action-btn edit"
-                        onClick={() => handleEditSupplier(supplier)}
-                        title="تعديل"
-                      >
-                        <Edit />
-                      </button>
-                      <button
-                        className="suppliers-action-btn delete"
-                        onClick={() => handleDeleteSupplier(supplier)}
-                        title="حذف"
-                      >
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
       {/* Pagination Controls */}
       {filteredSuppliers.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-              {Math.min(currentPage * itemsPerPage, filteredSuppliers.length)} من{" "}
-              {filteredSuppliers.length} مورد
-            </span>
-            <div className="items-per-page">
-              <label>عدد العناصر في الصفحة:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="pagination-select"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              الأولى
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              السابقة
-            </button>
-
-            {getPageNumbers().map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${
-                  currentPage === page ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              التالية
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              الأخيرة
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredSuppliers.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          itemLabel="مورد"
+        />
       )}
 
       {/* Add Supplier Modal */}

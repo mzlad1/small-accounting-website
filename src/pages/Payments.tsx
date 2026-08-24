@@ -32,6 +32,14 @@ import {
 import { db } from "../config/firebase";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+  SortControl,
+} from "../components/Filters";
 
 import "./Payments.css";
 
@@ -666,6 +674,62 @@ export function Payments() {
     return new Date(dateString).toLocaleDateString("en-GB");
   };
 
+  // --- Ledger feed helpers (presentation only) -------------------------
+  // Group the CURRENT PAGE SLICE by month, preserving the slice's order so
+  // the active sort still drives the sequence of entries.
+  interface MonthGroup {
+    key: string;
+    label: string;
+    total: number;
+    items: Payment[];
+  }
+
+  const buildMonthGroups = (list: Payment[]): MonthGroup[] => {
+    const groups: MonthGroup[] = [];
+    const index: { [key: string]: number } = {};
+
+    list.forEach((payment) => {
+      const parsed = new Date(payment.date);
+      const valid = !isNaN(parsed.getTime());
+      const key = valid
+        ? `${parsed.getFullYear()}-${parsed.getMonth()}`
+        : "unknown";
+
+      if (index[key] === undefined) {
+        index[key] = groups.length;
+        groups.push({
+          key,
+          label: valid
+            ? parsed.toLocaleDateString("ar", {
+                month: "long",
+                year: "numeric",
+              })
+            : "بدون تاريخ",
+          total: 0,
+          items: [],
+        });
+      }
+
+      const group = groups[index[key]];
+      group.items.push(payment);
+      group.total += payment.amount || 0;
+    });
+
+    return groups;
+  };
+
+  const dateLeafDay = (dateString: string) => {
+    const parsed = new Date(dateString);
+    return isNaN(parsed.getTime()) ? "—" : parsed.getDate();
+  };
+
+  const dateLeafMonth = (dateString: string) => {
+    const parsed = new Date(dateString);
+    return isNaN(parsed.getTime())
+      ? ""
+      : parsed.toLocaleDateString("ar", { month: "short" });
+  };
+
   const printPayments = () => {
     try {
       const printWindow = window.open("", "_blank");
@@ -892,206 +956,136 @@ export function Payments() {
       </div>
 
       {/* Search and Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setFilters({
+            customer: "all",
+            type: "all",
+            dateFrom: "",
+            dateTo: "",
+          });
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SelectField
+          label="العميل"
+          value={filters.customer}
+          onChange={(v) => setFilters({ ...filters, customer: v })}
+          options={[
+            { value: "all", label: "جميع العملاء" },
+            ...customers.map((customer) => ({
+              value: customer.id,
+              label: customer.name,
+            })),
+          ]}
+        />
+        <SelectField
+          label="النوع"
+          value={filters.type}
+          onChange={(v) => setFilters({ ...filters, type: v })}
+          options={[
+            { value: "all", label: "جميع الأنواع" },
+            { value: "cash", label: "نقدي" },
+            { value: "check", label: "شيك" },
+          ]}
+        />
+        <DateField
+          label="من تاريخ"
+          value={filters.dateFrom}
+          onChange={(v) => setFilters({ ...filters, dateFrom: v })}
+        />
+        <DateField
+          label="إلى تاريخ"
+          value={filters.dateTo}
+          onChange={(v) => setFilters({ ...filters, dateTo: v })}
+        />
+        <SortControl
+          value={sortBy.field}
+          onChange={(field) => handleSort(field)}
+          options={[
+            { value: "date", label: "التاريخ" },
+            { value: "customerName", label: "العميل" },
+            { value: "type", label: "النوع" },
+            { value: "amount", label: "المبلغ" },
+            { value: "notes", label: "ملاحظات" },
+            { value: "checkNumber", label: "تفاصيل الشيك" },
+          ]}
+          order={sortBy.order}
+          onToggleOrder={() =>
+            setSortBy((prev) => ({
+              ...prev,
+              order: prev.order === "asc" ? "desc" : "asc",
+            }))
+          }
+        />
+      </FiltersBar>
+
+      {/* Payments ledger feed — entries grouped by month */}
+      {paginatedPayments.length === 0 ? (
+        <div className="pay-empty">
+          <Banknote size={34} color="#D8CDBB" />
+          <p>لا توجد مدفوعات</p>
         </div>
-
-        <div className="filter-field">
-          <label>العميل</label>
-          <select
-            value={filters.customer}
-            onChange={(e) =>
-              setFilters({ ...filters, customer: e.target.value })
-            }
-          >
-            <option value="all">جميع العملاء</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>النوع</label>
-          <select
-            value={filters.type}
-            onChange={(e) => setFilters({ ...filters, type: e.target.value })}
-          >
-            <option value="all">جميع الأنواع</option>
-            <option value="cash">نقدي</option>
-            <option value="check">شيك</option>
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>من تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) =>
-              setFilters({ ...filters, dateFrom: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="filter-field">
-          <label>إلى تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-          />
-        </div>
-
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setFilters({
-              customer: "all",
-              type: "all",
-              dateFrom: "",
-              dateTo: "",
-            });
-          }}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
-
-      {/* Payments Table */}
-      <div className="payments-table-container">
-        <table className="payments-table">
-          <thead>
-            <tr>
-              <th
-                onClick={() => handleSort("date")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <Calendar className="th-icon" />
-                  التاريخ
-                  {getSortIcon("date")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("customerName")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <User className="th-icon" />
-                  العميل
-                  {getSortIcon("customerName")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("type")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  النوع
-                  {getSortIcon("type")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("amount")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <DollarSign className="th-icon" />
-                  المبلغ
-                  {getSortIcon("amount")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("notes")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  ملاحظات
-                  {getSortIcon("notes")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("checkNumber")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  تفاصيل الشيك
-                  {getSortIcon("checkNumber")}
-                </div>
-              </th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedPayments.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="no-data">
-                  لا توجد مدفوعات
-                </td>
-              </tr>
-            ) : (
-              paginatedPayments.map((payment) => (
-                <tr key={payment.id} className="payment-row">
-                  <td>{formatDate(payment.date)}</td>
-                  <td>
-                    <div className="customer-info">
-                      <div className="customer-avatar">
-                        <User className="avatar-icon" />
-                      </div>
-                      <div className="customer-details">
-                        <span className="customer-name">
-                          {payment.customerName}
-                        </span>
-                      </div>
+      ) : (
+        <div className="pay-feed">
+          {buildMonthGroups(paginatedPayments).map((group) => (
+            <section className="pay-month" key={group.key}>
+              <div className="pay-month-head">
+                <h4>{group.label}</h4>
+                <span className="pay-month-rule" />
+                <span className="pay-month-total">
+                  {formatCurrency(group.total)}
+                </span>
+              </div>
+              <div className="pay-month-list">
+                {group.items.map((payment) => (
+                  <article className="pay-entry" key={payment.id}>
+                    <div
+                      className="pay-dateleaf"
+                      title={formatDate(payment.date)}
+                    >
+                      <b>{dateLeafDay(payment.date)}</b>
+                      <span>{dateLeafMonth(payment.date)}</span>
                     </div>
-                  </td>
-                  <td>
-                    <div className={`type-badge ${getTypeClass(payment.type)}`}>
-                      {getTypeIcon(payment.type)}
-                      {getTypeText(payment.type)}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="payment-amount">
-                      {formatCurrency(payment.amount)}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="payment-notes">{payment.notes || "-"}</div>
-                  </td>
-                  <td>
-                    {payment.type === "check" ? (
-                      <div className="check-details">
-                        <span>رقم: {payment.checkNumber}</span>
-                        <span>بنك: {payment.checkBank}</span>
-                        {payment.isGrouped && (
-                          <span className="grouped-indicator">
-                            ({payment.groupedCount} شيك)
+
+                    <div className="pay-entry-main">
+                      <b>{payment.customerName}</b>
+                      <span>{payment.notes || "-"}</span>
+                      <div className="pay-meta">
+                        <div
+                          className={`type-badge ${getTypeClass(payment.type)}`}
+                        >
+                          {getTypeIcon(payment.type)}
+                          {getTypeText(payment.type)}
+                        </div>
+                        {payment.type === "check" ? (
+                          <>
+                            <span className="pay-chip">
+                              رقم: {payment.checkNumber}
+                            </span>
+                            <span className="pay-chip">
+                              بنك: {payment.checkBank}
+                            </span>
+                            {payment.isGrouped && (
+                              <span className="pay-chip grouped-indicator">
+                                ({payment.groupedCount} شيك)
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="pay-chip no-check">
+                            بدون تفاصيل شيك
                           </span>
                         )}
                       </div>
-                    ) : (
-                      <span className="no-check">-</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="action-buttons">
+                    </div>
+
+                    <div className="pay-entry-amount">
+                      {formatCurrency(payment.amount)}
+                    </div>
+
+                    <div className="pay-actions">
                       <button
                         className={`action-btn edit ${
                           payment.isGrouped ? "disabled" : ""
@@ -1121,85 +1115,23 @@ export function Payments() {
                         <Trash2 />
                       </button>
                     </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination Controls */}
-      {filteredPayments.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-              {Math.min(currentPage * itemsPerPage, filteredPayments.length)} من{" "}
-              {filteredPayments.length} دفعة
-            </span>
-            <div className="items-per-page">
-              <label>عدد العناصر في الصفحة:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="pagination-select"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              الأولى
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              السابقة
-            </button>
-
-            {getPageNumbers().map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${
-                  currentPage === page ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              التالية
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              الأخيرة
-            </button>
-          </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredPayments.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        itemLabel="دفعة"
+      />
 
       {/* Add Payment Modal */}
       {showAddModal && (

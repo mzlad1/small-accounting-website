@@ -36,6 +36,14 @@ import { db, storage } from "../config/firebase";
 import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+  SortControl,
+} from "../components/Filters";
 
 import "./Orders.css";
 
@@ -993,319 +1001,174 @@ export function Orders() {
       </div>
 
       {/* Search and Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </div>
-
-        <div className="filter-field">
-          <label>الحالة</label>
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-          >
-            <option value="all">جميع الحالات</option>
-            <option value="pending">في الانتظار</option>
-            <option value="in-progress">قيد التنفيذ</option>
-            <option value="completed">مكتمل</option>
-            <option value="cancelled">ملغي</option>
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>العميل</label>
-          <select
-            value={filters.customer}
-            onChange={(e) =>
-              setFilters({ ...filters, customer: e.target.value })
-            }
-          >
-            <option value="all">جميع العملاء</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>من تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) =>
-              setFilters({ ...filters, dateFrom: e.target.value })
-            }
-          />
-        </div>
-
-        <div className="filter-field">
-          <label>إلى تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-          />
-        </div>
-
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setFilters({
-              status: "all",
-              customer: "all",
-              dateFrom: "",
-              dateTo: "",
-            });
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setFilters({
+            status: "all",
+            customer: "all",
+            dateFrom: "",
+            dateTo: "",
+          });
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SelectField
+          label="الحالة"
+          value={filters.status}
+          onChange={(status) => setFilters({ ...filters, status })}
+          options={[
+            { value: "all", label: "جميع الحالات" },
+            { value: "pending", label: "في الانتظار" },
+            { value: "in-progress", label: "قيد التنفيذ" },
+            { value: "completed", label: "مكتمل" },
+            { value: "cancelled", label: "ملغي" },
+          ]}
+        />
+        <SelectField
+          label="العميل"
+          value={filters.customer}
+          onChange={(customer) => setFilters({ ...filters, customer })}
+          options={[
+            { value: "all", label: "جميع العملاء" },
+            ...customers.map((customer) => ({
+              value: customer.id,
+              label: customer.name,
+            })),
+          ]}
+        />
+        <DateField
+          label="من تاريخ"
+          value={filters.dateFrom}
+          onChange={(dateFrom) => setFilters({ ...filters, dateFrom })}
+        />
+        <DateField
+          label="إلى تاريخ"
+          value={filters.dateTo}
+          onChange={(dateTo) => setFilters({ ...filters, dateTo })}
+        />
+        <SortControl
+          value={sortBy.field}
+          onChange={(field) => {
+            if (field !== sortBy.field) handleSort(field);
           }}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+          options={[
+            { value: "customerName", label: "العميل" },
+            { value: "title", label: "عنوان الطلب" },
+            { value: "date", label: "التاريخ" },
+            { value: "status", label: "الحالة" },
+            { value: "total", label: "الإجمالي" },
+          ]}
+          order={sortBy.order}
+          onToggleOrder={() => handleSort(sortBy.field)}
+        />
+      </FiltersBar>
 
-      {/* Orders Table */}
-      <div className="orders-table-container">
-        <table className="orders-table">
-          <thead>
-            <tr>
-              <th
-                onClick={() => handleSort("customerName")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <User className="th-icon" />
-                  العميل
-                  {getSortIcon("customerName")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("title")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <Package className="th-icon" />
-                  عنوان الطلب
-                  {getSortIcon("title")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("date")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <Calendar className="th-icon" />
-                  التاريخ
-                  {getSortIcon("date")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("status")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <Package className="th-icon" />
-                  الحالة
-                  {getSortIcon("status")}
-                </div>
-              </th>
+      {/* Orders — work ticket list */}
+      {filteredOrders.length === 0 ? (
+        <div className="ord-empty">
+          <Package size={34} color="#D8CDBB" />
+          <p>لا توجد طلبات</p>
+        </div>
+      ) : (
+        <div className="ord-tickets">
+          {paginatedOrders.map((order) => (
+            <div
+              key={order.id}
+              className={`ord-ticket ord-st-${getStatusClass(order.status)}`}
+              onClick={(e) => {
+                if (
+                  (e.target as HTMLElement).closest("button, a, input, select")
+                )
+                  return;
+                navigate(`/orders/${order.id}`);
+              }}
+            >
+              <span className="ord-ticket-num" title="رقم الطلب">
+                #{order.id.slice(-5).toUpperCase()}
+              </span>
 
-              <th
-                onClick={() => handleSort("total")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <DollarSign className="th-icon" />
-                  الإجمالي
-                  {getSortIcon("total")}
+              <div className="ord-ticket-main">
+                <b>{order.customerName}</b>
+                <span title={order.title}>{order.title}</span>
+                {order.notes && (
+                  <em className="ord-note" title={order.notes}>
+                    {order.notes}
+                  </em>
+                )}
+              </div>
+
+              <div className="ord-money">
+                <div className="ord-money-row ord-money-total">
+                  <span>الإجمالي</span>
+                  <b className={order.total <= 0 ? "ord-undetermined" : ""}>
+                    {order.total > 0
+                      ? formatCurrency(order.total)
+                      : "لا توجد عناصر"}
+                  </b>
                 </div>
-              </th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="no-data">
-                  لا توجد طلبات
-                </td>
-              </tr>
-            ) : (
-              paginatedOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="order-row row-clickable"
-                  onClick={(e) => {
-                    if (
-                      (e.target as HTMLElement).closest(
-                        "button, a, input, select"
-                      )
-                    )
-                      return;
-                    navigate(`/orders/${order.id}`);
-                  }}
+                <div className="ord-money-row">
+                  <span>عدد العناصر</span>
+                  <b>{order.numberOfItems}</b>
+                </div>
+              </div>
+
+              <div className="ord-side">
+                <div className="ord-date">
+                  <Calendar size={12} />
+                  {formatDate(order.date)}
+                </div>
+                <div
+                  className={`status-badge ${getStatusClass(order.status)}`}
                 >
-                  <td>
-                    <div className="customer-info">
-                      <div className="customer-avatar">
-                        <User className="avatar-icon" />
-                      </div>
-                      <div className="customer-details">
-                        <span className="customer-name">
-                          {order.customerName}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="order-title">{order.title}</div>
-                    {order.notes && (
-                      <div className="order-notes">{order.notes}</div>
-                    )}
-                  </td>
-                  <td>{formatDate(order.date)}</td>
-                  <td>
-                    <div
-                      className={`status-badge ${getStatusClass(order.status)}`}
-                    >
-                      {getStatusIcon(order.status)}
-                      {getStatusText(order.status)}
-                    </div>
-                  </td>
-
-                  <td>
-                    <div
-                      className={`order-total ${
-                        order.total <= 0 ? "undetermined" : ""
-                      }`}
-                    >
-                      {order.total > 0
-                        ? formatCurrency(order.total)
-                        : "لا توجد عناصر"}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn add-element"
-                        title="إضافة عنصر"
-                        onClick={() => handleAddElement(order)}
-                      >
-                        <Plus />
-                      </button>
-                      <button
-                        className="action-btn view"
-                        title="عرض التفاصيل"
-                        onClick={() => navigate(`/orders/${order.id}`)}
-                      >
-                        <Eye />
-                      </button>
-                      <button
-                        className="action-btn edit"
-                        title="تعديل الطلب"
-                        onClick={() => handleEditOrder(order)}
-                      >
-                        <Edit />
-                      </button>
-                      <button
-                        className="action-btn delete"
-                        title="حذف الطلب"
-                        onClick={() => handleDeleteOrder(order.id)}
-                      >
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination Controls */}
-      {filteredOrders.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-              {Math.min(currentPage * itemsPerPage, filteredOrders.length)} من{" "}
-              {filteredOrders.length} طلب
-            </span>
-            <div className="items-per-page">
-              <label>عدد العناصر في الصفحة:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="pagination-select"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
+                  {getStatusIcon(order.status)}
+                  {getStatusText(order.status)}
+                </div>
+                <div className="ord-actions">
+                  <button
+                    className="action-btn add-element"
+                    title="إضافة عنصر"
+                    onClick={() => handleAddElement(order)}
+                  >
+                    <Plus />
+                  </button>
+                  <button
+                    className="action-btn view"
+                    title="عرض التفاصيل"
+                    onClick={() => navigate(`/orders/${order.id}`)}
+                  >
+                    <Eye />
+                  </button>
+                  <button
+                    className="action-btn edit"
+                    title="تعديل الطلب"
+                    onClick={() => handleEditOrder(order)}
+                  >
+                    <Edit />
+                  </button>
+                  <button
+                    className="action-btn delete"
+                    title="حذف الطلب"
+                    onClick={() => handleDeleteOrder(order.id)}
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              الأولى
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              السابقة
-            </button>
-
-            {getPageNumbers().map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${
-                  currentPage === page ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              التالية
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              الأخيرة
-            </button>
-          </div>
+          ))}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredOrders.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        itemLabel="طلب"
+      />
 
       {/* Add Order Modal */}
       {showAddModal && (

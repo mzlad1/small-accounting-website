@@ -18,6 +18,7 @@ import {
   Trash2,
   Printer,
   Upload,
+  Landmark,
 } from "lucide-react";
 import {
   collection,
@@ -41,6 +42,14 @@ import {
 } from "../utils/checkSeries";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+  SortControl,
+} from "../components/Filters";
 
 import "./Checks.css";
 
@@ -875,6 +884,15 @@ export function Checks() {
     }
   };
 
+  // Cheque stamp tone — mirrors the colour family the status pill uses
+  // (olive = collected, brick = returned/overdue, ochre = waiting).
+  const getStampTone = (status: string) => {
+    const cls = getStatusClass(status);
+    if (cls === "collected") return "chq-ok";
+    if (cls === "returned" || cls === "overdue") return "chq-bad";
+    return "chq-warn";
+  };
+
   const printChecks = () => {
     try {
       const printWindow = window.open("", "_blank");
@@ -1255,374 +1273,186 @@ export function Checks() {
       </div>
 
       {/* Search and Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </div>
-
-        <div className="filter-field">
-          <label>العميل</label>
-          <select
-            value={filters.customer}
-            onChange={(e) =>
-              setFilters({ ...filters, customer: e.target.value })
-            }
-            className="filter-select"
-          >
-            <option value="all">جميع العملاء</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>الحالة</label>
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="filter-select"
-          >
-            <option value="all">جميع الحالات</option>
-            <option value="pending">في الانتظار</option>
-            <option value="collected">محصّل</option>
-            <option value="returned">مرتجع</option>
-            <option value="overdue">متأخر</option>
-          </select>
-        </div>
-
-        <div className="filter-field">
-          <label>تاريخ الاستحقاق</label>
-          <select
-            value={filters.dueDateFilter}
-            onChange={(e) =>
-              setFilters({ ...filters, dueDateFilter: e.target.value })
-            }
-            className="filter-select"
-          >
-            <option value="all">جميع التواريخ</option>
-            <option value="today">اليوم</option>
-            <option value="week">هذا الأسبوع</option>
-            <option value="month">هذا الشهر</option>
-            <option value="range">نطاق مخصص</option>
-          </select>
-        </div>
-
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setFilters({
+            customer: "all",
+            status: "all",
+            dueDateFilter: "all",
+            dateFrom: "",
+            dateTo: "",
+          });
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SelectField
+          label="العميل"
+          value={filters.customer}
+          onChange={(value) => setFilters({ ...filters, customer: value })}
+          options={[
+            { value: "all", label: "جميع العملاء" },
+            ...customers.map((customer) => ({
+              value: customer.id,
+              label: customer.name,
+            })),
+          ]}
+        />
+        <SelectField
+          label="الحالة"
+          value={filters.status}
+          onChange={(value) => setFilters({ ...filters, status: value })}
+          options={[
+            { value: "all", label: "جميع الحالات" },
+            { value: "pending", label: "في الانتظار" },
+            { value: "collected", label: "محصّل" },
+            { value: "returned", label: "مرتجع" },
+            { value: "overdue", label: "متأخر" },
+          ]}
+        />
+        <SelectField
+          label="تاريخ الاستحقاق"
+          value={filters.dueDateFilter}
+          onChange={(value) => setFilters({ ...filters, dueDateFilter: value })}
+          options={[
+            { value: "all", label: "جميع التواريخ" },
+            { value: "today", label: "اليوم" },
+            { value: "week", label: "هذا الأسبوع" },
+            { value: "month", label: "هذا الشهر" },
+            { value: "range", label: "نطاق مخصص" },
+          ]}
+        />
         {filters.dueDateFilter === "range" && (
           <>
-            <div className="filter-field">
-              <label>من تاريخ</label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateFrom: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
-
-            <div className="filter-field">
-              <label>إلى تاريخ</label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) =>
-                  setFilters({ ...filters, dateTo: e.target.value })
-                }
-                className="filter-input"
-              />
-            </div>
+            <DateField
+              label="من تاريخ"
+              value={filters.dateFrom}
+              onChange={(value) => setFilters({ ...filters, dateFrom: value })}
+            />
+            <DateField
+              label="إلى تاريخ"
+              value={filters.dateTo}
+              onChange={(value) => setFilters({ ...filters, dateTo: value })}
+            />
           </>
         )}
+        <SortControl
+          value={sortBy.field}
+          onChange={(field) => setSortBy((prev) => ({ ...prev, field }))}
+          options={[
+            { value: "customerName", label: "العميل" },
+            { value: "checkNumber", label: "رقم الشيك" },
+            { value: "bank", label: "البنك" },
+            { value: "nameOnCheck", label: "الاسم على الشيك" },
+            { value: "amount", label: "المبلغ" },
+            { value: "dueDate", label: "تاريخ الاستحقاق" },
+            { value: "status", label: "الحالة" },
+            { value: "notes", label: "ملاحظات" },
+          ]}
+          order={sortBy.order}
+          onToggleOrder={() =>
+            setSortBy((prev) => ({
+              ...prev,
+              order: prev.order === "asc" ? "desc" : "asc",
+            }))
+          }
+        />
+      </FiltersBar>
 
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setFilters({
-              customer: "all",
-              status: "all",
-              dueDateFilter: "all",
-              dateFrom: "",
-              dateTo: "",
-            });
-          }}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+      {/* Checks — cheque cards */}
+      {paginatedChecks.length === 0 ? (
+        <div className="chq-empty">
+          <CreditCard size={34} color="#D8CDBB" />
+          <p>لا توجد شيكات مطابقة</p>
+        </div>
+      ) : (
+        <div className="chq-grid">
+          {paginatedChecks.map((check) => (
+            <article
+              key={check.id}
+              className={`chq-cheque ${
+                isOverdue(check.dueDate) ? "chq-overdue" : ""
+              }`}
+            >
+              <div className="chq-cheque-top">
+                <span className="chq-bank">
+                  <Landmark size={15} />
+                  <span className="chq-bank-name">{check.bank || "-"}</span>
+                </span>
+                <span className="chq-chqnum">#{check.checkNumber}</span>
+              </div>
 
-      {/* Checks Table */}
-      <div className="checks-table-container">
-        <table className="checks-table">
-          <thead>
-            <tr>
-              <th
-                onClick={() => handleSort("customerName")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <User className="th-icon" />
-                  العميل
-                  {getSortIcon("customerName")}
+              <div className="chq-payline">
+                لأمر: <b>{check.customerName}</b>
+              </div>
+
+              <div className="chq-cheque-mid">
+                <div className="chq-amountbox">
+                  {formatCurrency(check.amount)}
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("checkNumber")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  رقم الشيك
-                  {getSortIcon("checkNumber")}
+                <div className="chq-due">
+                  <span>تاريخ الاستحقاق</span>
+                  <b>{formatDate(check.dueDate)}</b>
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("bank")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  البنك
-                  {getSortIcon("bank")}
+                <div className={`chq-stamp ${getStampTone(check.status)}`}>
+                  {getStatusText(check.status)}
                 </div>
-              </th>
-              <th
-                onClick={() => handleSort("nameOnCheck")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  الاسم على الشيك
-                  {getSortIcon("nameOnCheck")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("amount")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <DollarSign className="th-icon" />
-                  المبلغ
-                  {getSortIcon("amount")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("dueDate")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  <Calendar className="th-icon" />
-                  تاريخ الاستحقاق
-                  {getSortIcon("dueDate")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("status")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  الحالة
-                  {getSortIcon("status")}
-                </div>
-              </th>
-              <th
-                onClick={() => handleSort("notes")}
-                className="sortable th-sortable"
-              >
-                <div className="th-content">
-                  ملاحظات
-                  {getSortIcon("notes")}
-                </div>
-              </th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedChecks.length === 0 ? (
-              <tr>
-                <td colSpan={9} className="no-data">
-                  لا توجد شيكات
-                </td>
-              </tr>
-            ) : (
-              paginatedChecks.map((check) => (
-                <tr
-                  key={check.id}
-                  className={`check-row ${
-                    isOverdue(check.dueDate) ? "overdue" : ""
-                  }`}
-                >
-                  <td>
-                    <div className="customer-info">
-                      <div className="customer-avatar">
-                        <User className="avatar-icon" />
-                      </div>
-                      <div className="customer-details">
-                        <span className="customer-name">
-                          {check.customerName}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="check-number">{check.checkNumber}</div>
-                  </td>
-                  <td>
-                    <div className="bank-name">{check.bank}</div>
-                  </td>
-                  <td>
-                    <div className="name-on-check">
-                      {check.nameOnCheck || "-"}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="check-amount">
-                      {formatCurrency(check.amount)}
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      className={`due-date ${
-                        isOverdue(check.dueDate) ? "overdue" : ""
-                      }`}
+              </div>
+
+              {check.notes && <div className="chq-note">{check.notes}</div>}
+
+              <div className="chq-cheque-foot">
+                <span className="chq-meta">
+                  الاسم على الشيك: <b>{check.nameOnCheck || "-"}</b>
+                </span>
+                <div className="chq-actions">
+                  <div className="status-update-dropdown">
+                    <select
+                      value={check.status}
+                      onChange={(e) =>
+                        handleStatusUpdate(
+                          check.id,
+                          e.target.value as CustomerCheck["status"]
+                        )
+                      }
+                      className="status-select"
                     >
-                      {formatDate(check.dueDate)}
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      className={`status-badge ${getStatusClass(check.status)}`}
-                    >
-                      {getStatusIcon(check.status)}
-                      {getStatusText(check.status)}
-                    </div>
-                  </td>
-                  <td>
-                    <div className="check-notes">{check.notes || "-"}</div>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <div className="status-update-dropdown">
-                        <select
-                          value={check.status}
-                          onChange={(e) =>
-                            handleStatusUpdate(
-                              check.id,
-                              e.target.value as CustomerCheck["status"]
-                            )
-                          }
-                          className="status-select"
-                        >
-                          <option value="pending">في الانتظار</option>
-                          <option value="collected">محصّل</option>
-                          <option value="returned">مرتجع</option>
-                        </select>
-                      </div>
-                      <button
-                        className="action-btn edit"
-                        onClick={() => openEditModal(check)}
-                        title="تعديل"
-                      >
-                        <Edit />
-                      </button>
-                      <button
-                        className="action-btn delete"
-                        onClick={() => openDeleteModal(check)}
-                        title="حذف"
-                      >
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                      <option value="pending">في الانتظار</option>
+                      <option value="collected">محصّل</option>
+                      <option value="returned">مرتجع</option>
+                    </select>
+                  </div>
+                  <button
+                    className="action-btn edit"
+                    onClick={() => openEditModal(check)}
+                    title="تعديل"
+                  >
+                    <Edit />
+                  </button>
+                  <button
+                    className="action-btn delete"
+                    onClick={() => openDeleteModal(check)}
+                    title="حذف"
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
 
       {/* Pagination Controls */}
       {filteredChecks.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-              {Math.min(currentPage * itemsPerPage, filteredChecks.length)} من{" "}
-              {filteredChecks.length} شيك
-            </span>
-            <div className="items-per-page">
-              <label>عدد العناصر في الصفحة:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="pagination-select"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              الأولى
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              السابقة
-            </button>
-
-            {getPageNumbers().map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${
-                  currentPage === page ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </button>
-            ))}
-
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              التالية
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              الأخيرة
-            </button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredChecks.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={handlePageChange}
+          onItemsPerPageChange={handleItemsPerPageChange}
+          itemLabel="شيك"
+        />
       )}
 
       {/* Add Check Modal */}

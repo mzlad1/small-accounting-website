@@ -1389,3 +1389,194 @@ input:focus-visible + .slider {
 input:checked + .slider:hover {
   background-color: var(--accent-hover);
 }
+
+/* ===== data-presentation redesign (bkp-) ===== */
+/* ============================================================
+   Archive shelf. Every saved backup — cloud or local — is a
+   hanging file folder in a drawer, reusing the folder-tab
+   geometry from the Dashboard quick actions: tab on the top
+   edge, all folders resting on the ink-rule drawer rail, hover
+   pulls the folder up while its bottom stays glued to the rail.
+   The KPI receipt stubs above are untouched, and every folder
+   keeps the exact buttons (and confirmation flows) it had.
+   ============================================================ */
+
+.bkp-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.9rem;
+  align-items: end;
+  border-bottom: var(--ink-rule); /* the drawer rail */
+  padding-bottom: 0;
+}
+
+.bkp-folder {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 15px; /* headroom for the tab (and the hover pull) */
+  padding: 0.95rem 1rem 0.85rem;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 11px 11px 0 0;
+  box-shadow: none;
+  transition: margin-top 0.16s var(--ease-out),
+    padding-top 0.16s var(--ease-out), background 0.14s var(--ease-out),
+    border-color 0.14s var(--ease-out);
+}
+
+/* The folder tab */
+.bkp-folder::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  inset-inline-start: 16px;
+  width: 40%;
+  min-width: 52px;
+  height: 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  transition: background 0.14s var(--ease-out),
+    border-color 0.14s var(--ease-out);
+}
+
+/* Hover: the folder is pulled up out of the drawer — the bottom
+   stays on the rail, so the shelf footprint never shifts */
+.bkp-folder:hover {
+  margin-top: 9px;
+  padding-top: calc(0.95rem + 6px);
+  background: var(--row-hover);
+  border-color: var(--accent);
+}
+
+.bkp-folder:hover::before {
+  background: var(--row-hover);
+  border-color: var(--accent);
+}
+
+/* Folder face --------------------------------------------- */
+.bkp-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bkp-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Newest folder on the shelf — olive marker */
+.bkp-newest {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #fff7ef;
+  background: #6b7f3f;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  white-space: nowrap;
+}
+
+.bkp-face {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.bkp-date {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bkp-time {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.bkp-file {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.bkp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Actions live on the folder's lower edge */
+.bkp-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  margin-top: auto;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.bkp-actions .action-btn {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.35rem 0.5rem;
+}
+
+/* Empty state --------------------------------------------- */
+.bkp-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-tertiary);
+  border: 1.5px dashed #d8cdbb;
+  border-radius: 14px;
+  background: var(--bg-surface);
+}
+
+.bkp-empty svg {
+  color: #d8cdbb;
+  margin-bottom: 0.75rem;
+}
+
+.bkp-empty h4 {
+  margin: 0 0 0.35rem 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.bkp-empty p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 560px) {
+  .bkp-shelf {
+    grid-template-columns: 1fr;
+  }
+}

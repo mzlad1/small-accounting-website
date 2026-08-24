@@ -34,6 +34,13 @@ import {
 import { db } from "../config/firebase";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  SortControl,
+} from "../components/Filters";
 
 import "./Customers.css";
 
@@ -106,7 +113,7 @@ export function Customers() {
     notes: "",
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Add-modal: focus the first field on open, and keep the dialog open
   // after a successful add so several customers can be entered in a row.
@@ -756,251 +763,157 @@ export function Customers() {
       </div>
 
       {/* Search and Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
-            />
-          </div>
-        </div>
-
-        <div className="filter-field">
-          <label>الرصيد</label>
-          <select
-            value={balanceFilter}
-            onChange={(e) => setBalanceFilter(e.target.value)}
-          >
-            <option value="all">جميع العملاء</option>
-            <option value="positive">مدين</option>
-            <option value="negative">دائن</option>
-            <option value="zero">متساوي</option>
-          </select>
-        </div>
-
-        <div className="filter-field" style={{ flex: "2 1 300px" }}>
-          <label>ترتيب</label>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-            <button
-              type="button"
-              className="sort-toggle-btn"
-              onClick={() => handleSort("name")}
-            >
-              الاسم {getSortIcon("name")}
-            </button>
-            <button
-              type="button"
-              className="sort-toggle-btn"
-              onClick={() => handleSort("balance")}
-            >
-              الرصيد {getSortIcon("balance")}
-            </button>
-            <button
-              type="button"
-              className="sort-toggle-btn"
-              onClick={() => handleSort("lastActivity")}
-            >
-              آخر نشاط {getSortIcon("lastActivity")}
-            </button>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setBalanceFilter("all");
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setBalanceFilter("all");
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SelectField
+          label="الرصيد"
+          value={balanceFilter}
+          onChange={setBalanceFilter}
+          options={[
+            { value: "all", label: "جميع العملاء" },
+            { value: "positive", label: "مدين" },
+            { value: "negative", label: "دائن" },
+            { value: "zero", label: "متساوي" },
+          ]}
+        />
+        <SortControl
+          value={sortBy}
+          onChange={(field) => {
+            if (field !== sortBy) handleSort(field);
           }}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+          options={[
+            { value: "name", label: "الاسم" },
+            { value: "phone", label: "رقم الهاتف" },
+            { value: "numberOfOrders", label: "عدد الطلبات" },
+            { value: "balance", label: "الرصيد الحالي" },
+            { value: "lastActivity", label: "آخر نشاط" },
+          ]}
+          order={sortOrder}
+          onToggleOrder={() => handleSort(sortBy)}
+        />
+      </FiltersBar>
 
-      {/* Customers Table */}
-      <div className="customers-table-container">
-        <table className="customers-table">
-          <thead>
-            <tr>
-              <th className="th-sortable" onClick={() => handleSort("name")}>
-                الاسم {getSortIcon("name")}
-              </th>
-              <th className="th-sortable" onClick={() => handleSort("phone")}>
-                رقم الهاتف {getSortIcon("phone")}
-              </th>
-              <th
-                className="th-sortable"
-                onClick={() => handleSort("numberOfOrders")}
-              >
-                عدد الطلبات {getSortIcon("numberOfOrders")}
-              </th>
-              <th className="th-sortable" onClick={() => handleSort("balance")}>
-                الرصيد الحالي {getSortIcon("balance")}
-              </th>
-              <th
-                className="th-sortable"
-                onClick={() => handleSort("lastActivity")}
-              >
-                آخر نشاط {getSortIcon("lastActivity")}
-              </th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCustomers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="no-data">
-                  {searchTerm || balanceFilter !== "all"
-                    ? "لا توجد نتائج للبحث"
-                    : "لا يوجد عملاء بعد"}
-                </td>
-              </tr>
-            ) : (
-              currentCustomers.map((customer) => (
-                <tr
-                  key={customer.id}
-                  className="customer-row row-clickable"
-                  onClick={(e) => {
-                    if (
-                      (e.target as HTMLElement).closest(
-                        "button, a, input, select"
-                      )
-                    )
-                      return;
-                    openCustomerAccount(customer.id);
-                  }}
+      {/* Customer register — entity cards (same page slice the table used) */}
+      {filteredCustomers.length === 0 ? (
+        <div className="cst-empty">
+          <User size={34} color="#D8CDBB" />
+          <p>
+            {searchTerm || balanceFilter !== "all"
+              ? "لا توجد نتائج للبحث"
+              : "لا يوجد عملاء بعد"}
+          </p>
+        </div>
+      ) : (
+        <div className="cst-grid">
+          {currentCustomers.map((customer) => (
+            <div
+              key={customer.id}
+              className="cst-card"
+              onClick={(e) => {
+                if (
+                  (e.target as HTMLElement).closest("button, a, input, select")
+                )
+                  return;
+                openCustomerAccount(customer.id);
+              }}
+            >
+              <div className="cst-tab" title={customer.name}>
+                {customer.name}
+              </div>
+
+              <div className="cst-lines">
+                <div className="cst-line">
+                  <span className="cst-line-label">الهاتف</span>
+                  <span className="cst-dots" />
+                  <span className="cst-line-val cst-phone">
+                    {customer.phone || "—"}
+                  </span>
+                </div>
+                <div className="cst-line">
+                  <span className="cst-line-label">عدد الطلبات</span>
+                  <span className="cst-dots" />
+                  <span className="cst-line-val">
+                    {customer.numberOfOrders}
+                  </span>
+                </div>
+                <div className="cst-line">
+                  <span className="cst-line-label">آخر نشاط</span>
+                  <span className="cst-dots" />
+                  <span className="cst-line-val">
+                    {formatDate(customer.lastActivity)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="cst-total">
+                <span className="cst-total-label">الرصيد الحالي</span>
+                <span
+                  className={`balance-info ${getBalanceClass(
+                    customer.currentBalance
+                  )} cst-balwrap`}
                 >
-                  <td>
-                    <div className="customer-info">
-                      <div className="customer-avatar">
-                        <User className="avatar-icon" />
-                      </div>
-                      <div className="customer-details">
-                        <span className="customer-name">{customer.name}</span>
-                        {customer.notes && (
-                          <span className="customer-notes">
-                            {customer.notes}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="phone-info">
-                      <Phone className="phone-icon" />
-                      <span className="phone-number">{customer.phone}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="orders-info">
-                      <Package className="orders-icon" />
-                      <span className="orders-count">
-                        {customer.numberOfOrders}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      className={`balance-info ${getBalanceClass(
-                        customer.currentBalance
-                      )}`}
-                    >
-                      <DollarSign className="balance-icon" />
-                      <span className="balance-amount">
-                        {formatCurrency(Math.abs(customer.currentBalance))}
-                      </span>
-                      <span className="balance-status">
-                        {getBalanceText(customer.currentBalance)}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="activity-info">
-                      <Calendar className="activity-icon" />
-                      <span className="activity-date">
-                        {formatDate(customer.lastActivity)}
-                      </span>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="action-btn view"
-                        onClick={() => openCustomerAccount(customer.id)}
-                        title="فتح الحساب"
-                      >
-                        <Eye />
-                      </button>
-                      <button
-                        className="action-btn edit"
-                        onClick={() => openEditModal(customer)}
-                        title="تعديل"
-                      >
-                        <Edit />
-                      </button>
-                      <button
-                        className="action-btn delete"
-                        onClick={() => openDeleteModal(customer)}
-                        title="حذف"
-                      >
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  <b className="cst-bal">
+                    {formatCurrency(Math.abs(customer.currentBalance))}
+                  </b>
+                  <span className="balance-status">
+                    {getBalanceText(customer.currentBalance)}
+                  </span>
+                </span>
+              </div>
+
+              {customer.notes && (
+                <div className="cst-notes">{customer.notes}</div>
+              )}
+
+              <div className="cst-foot">
+                <div className="cst-actions">
+                  <button
+                    className="action-btn view"
+                    onClick={() => openCustomerAccount(customer.id)}
+                    title="فتح الحساب"
+                  >
+                    <Eye />
+                  </button>
+                  <button
+                    className="action-btn edit"
+                    onClick={() => openEditModal(customer)}
+                    title="تعديل"
+                  >
+                    <Edit />
+                  </button>
+                  <button
+                    className="action-btn delete"
+                    onClick={() => openDeleteModal(customer)}
+                    title="حذف"
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+                <span className="cst-open">فتح الحساب ←</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
-      {filteredCustomers.length > 0 && totalPages > 1 && (
-        <div className="pagination-container">
-          <button
-            className="pagination-btn"
-            onClick={() => paginate(currentPage - 1)}
-            disabled={currentPage === 1}
-          >
-            السابق
-          </button>
-
-          <div className="pagination-pages">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-              (number) => (
-                <button
-                  key={number}
-                  className={`pagination-page ${
-                    currentPage === number ? "active" : ""
-                  }`}
-                  onClick={() => paginate(number)}
-                >
-                  {number}
-                </button>
-              )
-            )}
-          </div>
-
-          <button
-            className="pagination-btn"
-            onClick={() => paginate(currentPage + 1)}
-            disabled={currentPage === totalPages}
-          >
-            التالي
-          </button>
-
-          <div className="pagination-info">
-            عرض {indexOfFirstItem + 1} -{" "}
-            {Math.min(indexOfLastItem, filteredCustomers.length)} من{" "}
-            {filteredCustomers.length}
-          </div>
-        </div>
+      {filteredCustomers.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredCustomers.length}
+          itemsPerPage={itemsPerPage}
+          onPageChange={paginate}
+          onItemsPerPageChange={(size) => {
+            setItemsPerPage(size);
+            setCurrentPage(1);
+          }}
+          itemLabel="عميل"
+        />
       )}
 
       {/* Add Customer Modal */}

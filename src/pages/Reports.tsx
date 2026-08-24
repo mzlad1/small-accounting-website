@@ -28,6 +28,7 @@ import {
 import { db } from "../config/firebase";
 import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
+import { FiltersBar, DateField } from "../components/Filters";
 import "./Reports.css";
 
 interface Customer {
@@ -836,47 +837,29 @@ export function Reports() {
       </div>
 
       {/* Filters */}
-      <div className="filters-bar">
-        <div className="filter-field">
-          <label>من تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateFrom}
-            onChange={(e) =>
-              setFilters({ ...filters, dateFrom: e.target.value })
-            }
-            className="filter-input"
-          />
-        </div>
-
-        <div className="filter-field">
-          <label>إلى تاريخ</label>
-          <input
-            type="date"
-            value={filters.dateTo}
-            onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-            className="filter-input"
-          />
-        </div>
-
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() =>
-            setFilters({
-              ...filters,
-              dateFrom: "2025-01-01",
-              dateTo: new Date().toISOString().split("T")[0],
-            })
-          }
-        >
-          <Filter size={18} />
-          مسح الفلاتر
-        </button>
-      </div>
+      <FiltersBar
+        onClear={() =>
+          setFilters({
+            ...filters,
+            dateFrom: "2025-01-01",
+            dateTo: new Date().toISOString().split("T")[0],
+          })
+        }
+      >
+        <DateField
+          label="من تاريخ"
+          value={filters.dateFrom}
+          onChange={(dateFrom) => setFilters({ ...filters, dateFrom })}
+        />
+        <DateField
+          label="إلى تاريخ"
+          value={filters.dateTo}
+          onChange={(dateTo) => setFilters({ ...filters, dateTo })}
+        />
+      </FiltersBar>
 
       {/* Checks Due Summary */}
-      <div className="checks-summary">
+      <div className="checks-summary rpt-sheet">
         <h3>الشيكات المستحقة</h3>
         <div className="checks-grid">
           <div className="check-item today">
@@ -910,9 +893,9 @@ export function Reports() {
       </div>
 
       {/* Monthly Progress */}
-      <div className="monthly-progress">
+      <div className="monthly-progress rpt-sheet">
         <h3>التقدم الشهري</h3>
-        <div className="progress-table">
+        <div className="progress-table rpt-ledger">
           <table>
             <thead>
               <tr>

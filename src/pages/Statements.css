@@ -1071,3 +1071,232 @@ svg.stat-icon {
     gap: 0.5rem;
   }
 }
+
+/* ===== data-presentation redesign (stm-) ===== */
+/* Recipe I — Ledger paper. A running-balance statement IS a table,
+   so this is polish, not replacement: the container becomes a bound
+   sheet with an ink-rule top edge, the header row prints in the
+   display face over its signature ink rule, body rows are ruled with
+   paper-fine hairlines (plus whisper-faint column rules, like real
+   ledger stock), and every figure reads as a black-bold numeral.
+   Sorting stays on the table headers; the expandable rows,
+   pagination and print paths are untouched.
+   Every selector is scoped under .statements-container. */
+
+/* The sheet ------------------------------------------------- */
+.statements-container .stm-sheet {
+  background: var(--bg-surface);
+  border: 1px solid #e7dfd2;
+  border-top: 2px solid #2b241c;
+  border-radius: 14px;
+  overflow-x: auto;
+}
+
+/* Header row — ink rule + display face ---------------------- */
+.statements-container .stm-sheet .statements-table > thead > tr > th {
+  background: #faf6ee;
+  padding: 0.8rem 1rem;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  border-bottom: 2px solid #2b241c;
+}
+
+.statements-container
+  .stm-sheet
+  .statements-table
+  > thead
+  > tr
+  > th.sortable:hover {
+  background: #f2ebdf;
+  color: var(--text-primary);
+}
+
+/* The sort indicator is the one clay mark in the header; the
+   leading column icons stay quiet taupe. */
+.statements-container
+  .stm-sheet
+  .statements-table
+  th
+  .th-content
+  svg:not(.th-icon) {
+  width: 0.85rem;
+  height: 0.85rem;
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+/* Ruled paper — hairline rows + faint column rules ---------- */
+.statements-container .stm-sheet .statements-table > tbody > tr > td {
+  border-bottom: 1px solid #f0e9dc;
+}
+
+.statements-container .stm-sheet .statements-table > thead > tr > th + th,
+.statements-container
+  .stm-sheet
+  .statements-table
+  > tbody
+  > tr.main-row
+  > td
+  + td {
+  border-inline-start: 1px solid #f5f1ea;
+}
+
+.statements-container .stm-sheet .statements-table > tbody > tr.main-row:hover {
+  background: #faf6ee;
+}
+
+.statements-container .stm-sheet .statements-table > tbody > tr:last-child > td {
+  border-bottom: none;
+}
+
+/* Figures — black, bold, display face ----------------------- */
+.statements-container .stm-sheet .balance {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-display);
+  font-weight: 800 !important;
+  font-size: 1.06rem;
+  letter-spacing: -0.015em;
+}
+
+/* Ledger side marker. The money figure itself stays espresso —
+   this system never colors an amount — so the page's EXISTING
+   positive/negative semantics ride on this hairline tick instead:
+   brick on the debit side (owed), olive on the credit side. */
+.statements-container .stm-sheet .balance::before {
+  content: "";
+  width: 3px;
+  min-height: 1.05em;
+  align-self: stretch;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.statements-container .stm-sheet .balance.positive::before {
+  background: #a93f2c;
+}
+
+.statements-container .stm-sheet .balance.negative::before {
+  background: #6b7f3f;
+}
+
+.statements-container .stm-sheet .statements-table .count {
+  font-family: var(--font-display);
+  font-weight: 800 !important;
+  font-size: 1.02rem;
+}
+
+.statements-container .stm-sheet .customer-name {
+  font-family: var(--font-display);
+  font-weight: 800 !important;
+  font-size: 0.92rem;
+}
+
+.statements-container .stm-sheet .statements-table .total,
+.statements-container .stm-sheet .last-activity,
+.statements-container .stm-sheet .phone {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Expanded customer — a carbon copy tucked under the row ----- */
+.statements-container .stm-sheet .details-row > td {
+  background: #faf6ee;
+  border-bottom: 1px solid #e7dfd2;
+}
+
+.statements-container .details-section h4 {
+  font-weight: 800;
+  border-bottom-color: #f0e9dc;
+}
+
+/* Nested sub-ledgers get the same ruling as the main sheet */
+.statements-container .customer-details-content .orders-table table,
+.statements-container .customer-details-content .payments-table table,
+.statements-container .customer-details-content .checks-table table,
+.statements-container .order-items-table {
+  border-top: 2px solid #2b241c;
+  border-radius: 12px;
+}
+
+.statements-container .customer-details-content .orders-table th,
+.statements-container .customer-details-content .payments-table th,
+.statements-container .customer-details-content .checks-table th,
+.statements-container .order-items-table th {
+  background: #faf6ee;
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border-bottom: 2px solid #2b241c;
+}
+
+.statements-container .customer-details-content .orders-table td,
+.statements-container .customer-details-content .payments-table td,
+.statements-container .customer-details-content .checks-table td,
+.statements-container .order-items-table td {
+  border-bottom: 1px solid #f0e9dc;
+}
+
+.statements-container .customer-details-content .orders-table tbody tr:hover,
+.statements-container .customer-details-content .payments-table tbody tr:hover,
+.statements-container .customer-details-content .checks-table tbody tr:hover,
+.statements-container .order-items-table tbody tr:hover {
+  background: #faf6ee;
+}
+
+/* Empty state ---------------------------------------------- */
+.statements-container .stm-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-tertiary);
+  border: 1.5px dashed #d8cdbb;
+  border-radius: 14px;
+  background: var(--bg-surface);
+}
+
+.statements-container .stm-empty-icon {
+  display: block;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 0.85rem;
+  color: #d8cdbb;
+}
+
+/* Responsive — keep the original cell rhythm ---------------- */
+@media (max-width: 1024px) {
+  .statements-container .stm-sheet .statements-table > thead > tr > th {
+    padding: 0.7rem 0.9rem;
+  }
+}
+
+@media (max-width: 768px) {
+  /* the ledger runs edge-to-edge inside the sheet at every size,
+     so the header ink rule always reaches both margins */
+  .statements-container .stm-sheet {
+    padding: 0;
+    border-radius: 12px;
+  }
+
+  .statements-container .stm-sheet .statements-table > thead > tr > th {
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* Print — the sheet flattens back to plain paper ------------ */
+@media print {
+  .statements-container .stm-sheet {
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .statements-container .stm-sheet .statements-table > thead > tr > th,
+  .statements-container .stm-sheet .details-row > td {
+    background: transparent;
+  }
+}

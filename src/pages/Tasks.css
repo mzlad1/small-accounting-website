@@ -702,3 +702,254 @@
     display: none;
   }
 }
+
+/* ===== data-presentation redesign (tsk-) ===== */
+/* ============================================================
+   Checklist sheets. Each day the page already groups becomes a
+   sheet of ruled paper: the dateline stays on the ink rule, and
+   every task is a written line with a hand-drawn check square.
+   Ticking the square calls the same toggle handler as before;
+   description, notes and the row actions all stay on the line.
+   ============================================================ */
+
+/* The old panel becomes the desk surface — the sheets carry the
+   paper look now, so the wrapper stops drawing its own card. */
+.tasks-content.tsk-board {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.tsk-sheets {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Ruled sheet */
+.tsk-sheet {
+  background: repeating-linear-gradient(
+      transparent 0 27px,
+      #efe7d8 27px 28px
+    ),
+    var(--surface);
+  border: 1px solid #e7dfd2;
+  border-radius: 14px;
+  padding: 1rem 1.15rem;
+  box-shadow: var(--shadow-xs);
+}
+
+/* Dateline — kept on the espresso ink rule */
+.tsk-sheet-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: var(--ink-rule);
+}
+
+.tsk-sheet-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  color: var(--accent);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.tsk-sheet-head h3 {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.tsk-sheet-head small {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tsk-sheet-done {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #6b7f3f;
+  background: var(--success-soft);
+  border-radius: 999px;
+  padding: 0.16rem 0.5rem;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tsk-lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.tsk-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.42rem 0;
+  min-height: 28px;
+}
+
+/* Hand-drawn check square — same toggle handler as the old circle */
+.tsk-check {
+  width: 21px;
+  height: 21px;
+  border: 2px solid #2b241c;
+  border-radius: 7px;
+  background: #fff;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: transparent;
+  padding: 0;
+  font: inherit;
+  margin-top: 1px;
+  transition: background 0.12s ease, border-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.tsk-check:hover {
+  color: #d8cdbb;
+  border-color: var(--accent);
+}
+
+.tsk-check.done {
+  background: #6b7f3f;
+  border-color: #6b7f3f;
+  color: #fff7ef;
+}
+
+.tsk-check.done:hover {
+  color: #fff7ef;
+  border-color: #6b7f3f;
+}
+
+.tsk-check:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Written line: name, description, note well */
+.tsk-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.tsk-title {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.tsk-text small {
+  display: block;
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.74rem;
+  line-height: 1.7;
+}
+
+.tsk-desc {
+  margin-top: 0.1rem;
+}
+
+.tsk-note {
+  margin-top: 0.35rem;
+  background: #faf6ee;
+  border: 1px solid #efe7d8;
+  border-radius: 8px;
+  padding: 0.35rem 0.55rem;
+  overflow-wrap: anywhere;
+}
+
+.tsk-note strong {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+/* Completed — struck title, muted body (as the old card did) */
+.tsk-row.done .tsk-title {
+  text-decoration: line-through;
+  color: var(--text-tertiary);
+}
+
+.tsk-row.done .tsk-text small {
+  color: var(--text-tertiary);
+}
+
+/* Row actions — existing action-btn markup, quiet until hover */
+.tsk-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.14s var(--ease-out);
+}
+
+.tsk-row:hover .tsk-actions,
+.tsk-actions:focus-within {
+  opacity: 1;
+}
+
+/* Empty state */
+.tsk-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-tertiary);
+  border: 1.5px dashed #d8cdbb;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.tsk-empty-icon {
+  color: #d8cdbb;
+  margin-bottom: 0.8rem;
+}
+
+.tsk-empty h3 {
+  margin: 0 0 0.35rem 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.tsk-empty p {
+  margin: 0 0 1.2rem 0;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 560px) {
+  .tsk-sheet {
+    padding: 0.9rem 0.85rem;
+  }
+
+  .tsk-row {
+    flex-wrap: wrap;
+  }
+
+  .tsk-actions {
+    margin-inline-start: auto;
+    opacity: 1;
+  }
+}

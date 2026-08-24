@@ -32,6 +32,13 @@ import {
 import { db } from "../config/firebase";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  SortControl,
+} from "../components/Filters";
 import "./SupplierPayments.css";
 
 interface Supplier {
@@ -952,6 +959,34 @@ export function SupplierPayments() {
     }
   };
 
+  // Ledger feed: bucket the CURRENT PAGE SLICE (filteredPayments) into months.
+  // Purely presentational — the slice, its order and its contents are untouched.
+  const paymentMonths: Array<{
+    key: string;
+    label: string;
+    total: number;
+    items: SupplierPayment[];
+  }> = [];
+  filteredPayments.forEach((payment) => {
+    const d = new Date(payment.date);
+    const valid = !isNaN(d.getTime());
+    const key = valid ? `${d.getFullYear()}-${d.getMonth()}` : "no-date";
+    let group = paymentMonths.find((g) => g.key === key);
+    if (!group) {
+      group = {
+        key,
+        label: valid
+          ? d.toLocaleDateString("ar", { month: "long", year: "numeric" })
+          : "بدون تاريخ",
+        total: 0,
+        items: [],
+      };
+      paymentMonths.push(group);
+    }
+    group.items.push(payment);
+    group.total += payment.amount;
+  });
+
   const totalPayments = payments.reduce(
     (sum, payment) => sum + payment.amount,
     0
@@ -1051,500 +1086,252 @@ export function SupplierPayments() {
             <h2>أرصدة الموردين</h2>
 
             {/* Balance Filters */}
-            <div className="filters-bar">
-              <div className="filter-field filter-field-search">
-                <label>بحث</label>
-                <div className="search-box">
-                  <Search className="search-icon" />
-                  <input
-                    type="text"
-                    className="search-input"
-                    placeholder="بحث..."
-                    value={balanceSearchTerm}
-                    onChange={(e) => setBalanceSearchTerm(e.target.value)}
-                  />
-                </div>
+            <FiltersBar onClear={resetFilters}>
+              <SearchField
+                value={balanceSearchTerm}
+                onChange={setBalanceSearchTerm}
+              />
+              <SortControl
+                value={balanceSortBy.field}
+                onChange={(field) =>
+                  setBalanceSortBy((prev) => ({ ...prev, field }))
+                }
+                options={[
+                  { value: "supplierName", label: "اسم المورد" },
+                  { value: "totalOrdered", label: "إجمالي الطلبات" },
+                  { value: "totalPaid", label: "إجمالي المدفوع" },
+                  { value: "balance", label: "الرصيد المستحق" },
+                  { value: "lastPaymentDate", label: "آخر دفعة" },
+                  { value: "lastOrderDate", label: "آخر طلب" },
+                ]}
+                order={balanceSortBy.order}
+                onToggleOrder={() => handleBalanceSort(balanceSortBy.field)}
+              />
+            </FiltersBar>
+
+            {/* Balances — entity cards */}
+            {filteredBalances.length === 0 ? (
+              <div className="spy-empty">
+                <User size={34} color="#D8CDBB" />
+                <p>لا توجد أرصدة موردين</p>
               </div>
+            ) : (
+              <div className="spy-grid">
+                {filteredBalances.map((balance) => (
+                  <article key={balance.supplierId} className="spy-folio">
+                    <div className="spy-tab" title={balance.supplierName}>
+                      {balance.supplierName}
+                    </div>
 
-              <button
-                type="button"
-                className="filters-clear-btn"
-                onClick={resetFilters}
-              >
-                <Filter size={18} />
-                مسح الفلاتر
-              </button>
-            </div>
-
-            {/* Balances Table */}
-            <div className="supplier-payments-table-container">
-              <table className="payments-table">
-                <thead>
-                  <tr>
-                    <th
-                      onClick={() => handleBalanceSort("supplierName")}
-                      className="th-sortable"
-                    >
-                      اسم المورد
-                      {balanceSortBy.field === "supplierName" &&
-                        (balanceSortBy.order === "asc" ? (
-                          <SortAsc size={16} />
-                        ) : (
-                          <SortDesc size={16} />
-                        ))}
-                    </th>
-                    <th
-                      onClick={() => handleBalanceSort("totalOrdered")}
-                      className="th-sortable"
-                    >
-                      إجمالي الطلبات
-                      {balanceSortBy.field === "totalOrdered" &&
-                        (balanceSortBy.order === "asc" ? (
-                          <SortAsc size={16} />
-                        ) : (
-                          <SortDesc size={16} />
-                        ))}
-                    </th>
-                    <th
-                      onClick={() => handleBalanceSort("totalPaid")}
-                      className="th-sortable"
-                    >
-                      إجمالي المدفوع
-                      {balanceSortBy.field === "totalPaid" &&
-                        (balanceSortBy.order === "asc" ? (
-                          <SortAsc size={16} />
-                        ) : (
-                          <SortDesc size={16} />
-                        ))}
-                    </th>
-                    <th
-                      onClick={() => handleBalanceSort("balance")}
-                      className="th-sortable"
-                    >
-                      الرصيد المستحق
-                      {balanceSortBy.field === "balance" &&
-                        (balanceSortBy.order === "asc" ? (
-                          <SortAsc size={16} />
-                        ) : (
-                          <SortDesc size={16} />
-                        ))}
-                    </th>
-                    <th
-                      onClick={() => handleBalanceSort("lastPaymentDate")}
-                      className="th-sortable"
-                    >
-                      آخر دفعة
-                      {balanceSortBy.field === "lastPaymentDate" &&
-                        (balanceSortBy.order === "asc" ? (
-                          <SortAsc size={16} />
-                        ) : (
-                          <SortDesc size={16} />
-                        ))}
-                    </th>
-                    <th
-                      onClick={() => handleBalanceSort("lastOrderDate")}
-                      className="th-sortable"
-                    >
-                      آخر طلب
-                      {balanceSortBy.field === "lastOrderDate" &&
-                        (balanceSortBy.order === "asc" ? (
-                          <SortAsc size={16} />
-                        ) : (
-                          <SortDesc size={16} />
-                        ))}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan={6} className="text-center">
-                        جاري التحميل...
-                      </td>
-                    </tr>
-                  ) : filteredBalances.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="text-center">
-                        لا توجد أرصدة
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredBalances.map((balance) => (
-                      <tr key={balance.supplierId}>
-                        <td>{balance.supplierName}</td>
-                        <td className="amount">
+                    <div className="spy-lines">
+                      <div className="spy-line">
+                        <span className="spy-line-label">إجمالي الطلبات</span>
+                        <span className="spy-dots" />
+                        <span className="spy-line-val">
                           {balance.totalOrdered.toFixed(2)} ₪
-                        </td>
-                        <td className="amount">
+                        </span>
+                      </div>
+                      <div className="spy-line">
+                        <span className="spy-line-label">إجمالي المدفوع</span>
+                        <span className="spy-dots" />
+                        <span className="spy-line-val">
                           {balance.totalPaid.toFixed(2)} ₪
-                        </td>
-                        <td
-                          className={`amount ${
-                            balance.balance > 0
-                              ? "debt"
-                              : balance.balance < 0
-                              ? "credit"
-                              : ""
-                          }`}
-                        >
-                          {balance.balance.toFixed(2)} ₪
-                        </td>
-                        <td>
+                        </span>
+                      </div>
+                      <div className="spy-line">
+                        <span className="spy-line-label">آخر دفعة</span>
+                        <span className="spy-dots" />
+                        <span className="spy-line-val">
                           {balance.lastPaymentDate
                             ? new Date(
                                 balance.lastPaymentDate
                               ).toLocaleDateString("en-GB")
                             : "لا توجد دفعات"}
-                        </td>
-                        <td>
+                        </span>
+                      </div>
+                      <div className="spy-line">
+                        <span className="spy-line-label">آخر طلب</span>
+                        <span className="spy-dots" />
+                        <span className="spy-line-val">
                           {balance.lastOrderDate
                             ? new Date(
                                 balance.lastOrderDate
                               ).toLocaleDateString("en-GB")
                             : "لا توجد طلبات"}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        </span>
+                      </div>
+                    </div>
 
-            {/* Balance Pagination */}
-            {allFilteredBalances.length > 0 && (
-              <div className="pagination-container">
-                <div className="pagination-info">
-                  <span>
-                    عرض {(balanceCurrentPage - 1) * balanceItemsPerPage + 1} إلى{" "}
-                    {Math.min(
-                      balanceCurrentPage * balanceItemsPerPage,
-                      allFilteredBalances.length
-                    )}{" "}
-                    من {allFilteredBalances.length} مورد
-                  </span>
-                  <div className="items-per-page">
-                    <label>عدد العناصر في الصفحة:</label>
-                    <select
-                      value={balanceItemsPerPage}
-                      onChange={(e) =>
-                        handleBalanceItemsPerPageChange(Number(e.target.value))
-                      }
-                      className="pagination-select"
-                    >
-                      <option value={5}>5</option>
-                      <option value={10}>10</option>
-                      <option value={20}>20</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="pagination-controls">
-                  <button
-                    className="pagination-btn"
-                    onClick={() => handleBalancePageChange(1)}
-                    disabled={balanceCurrentPage === 1}
-                  >
-                    الأولى
-                  </button>
-                  <button
-                    className="pagination-btn"
-                    onClick={() =>
-                      handleBalancePageChange(balanceCurrentPage - 1)
-                    }
-                    disabled={balanceCurrentPage === 1}
-                  >
-                    السابقة
-                  </button>
-
-                  {getBalancePageNumbers().map((page) => (
-                    <button
-                      key={page}
-                      className={`pagination-btn ${
-                        balanceCurrentPage === page ? "active" : ""
-                      }`}
-                      onClick={() => handleBalancePageChange(page)}
-                    >
-                      {page}
-                    </button>
-                  ))}
-
-                  <button
-                    className="pagination-btn"
-                    onClick={() =>
-                      handleBalancePageChange(balanceCurrentPage + 1)
-                    }
-                    disabled={balanceCurrentPage === balanceTotalPages}
-                  >
-                    التالية
-                  </button>
-                  <button
-                    className="pagination-btn"
-                    onClick={() => handleBalancePageChange(balanceTotalPages)}
-                    disabled={balanceCurrentPage === balanceTotalPages}
-                  >
-                    الأخيرة
-                  </button>
-                </div>
+                    <div className="spy-total">
+                      <span className="spy-total-label">الرصيد المستحق</span>
+                      <b
+                        className={`amount ${
+                          balance.balance > 0
+                            ? "debt"
+                            : balance.balance < 0
+                            ? "credit"
+                            : ""
+                        }`}
+                      >
+                        {balance.balance.toFixed(2)} ₪
+                      </b>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
+
+            {/* Balance Pagination */}
+            <Pagination
+              currentPage={balanceCurrentPage}
+              totalItems={allFilteredBalances.length}
+              itemsPerPage={balanceItemsPerPage}
+              onPageChange={handleBalancePageChange}
+              onItemsPerPageChange={handleBalanceItemsPerPageChange}
+              itemLabel="مورد"
+            />
           </div>
         </>
       ) : (
         /* Payments View */
         <>
           {/* Filters */}
-          <div className="filters-bar">
-            <div className="filter-field filter-field-search">
-              <label>بحث</label>
-              <div className="search-box">
-                <Search className="search-icon" />
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="بحث..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+          <FiltersBar onClear={resetFilters}>
+            <SearchField value={searchTerm} onChange={setSearchTerm} />
+            <SelectField
+              label="المورد"
+              value={selectedSupplier}
+              onChange={setSelectedSupplier}
+              options={[
+                { value: "", label: "جميع الموردين" },
+                ...suppliers.map((supplier) => ({
+                  value: supplier.id,
+                  label: supplier.name,
+                })),
+              ]}
+            />
+            <SelectField
+              label="النوع"
+              value={selectedType}
+              onChange={setSelectedType}
+              options={[
+                { value: "", label: "جميع الأنواع" },
+                { value: "cash", label: "نقد" },
+                { value: "check", label: "شيك" },
+                { value: "transfer", label: "تحويل" },
+              ]}
+            />
+            <SortControl
+              value={sortBy.field}
+              onChange={(field) => setSortBy((prev) => ({ ...prev, field }))}
+              options={[
+                { value: "date", label: "التاريخ" },
+                { value: "supplierName", label: "المورد" },
+                { value: "amount", label: "المبلغ" },
+                { value: "type", label: "النوع" },
+                { value: "notes", label: "ملاحظات" },
+              ]}
+              order={sortBy.order}
+              onToggleOrder={() => handleSort(sortBy.field)}
+            />
+          </FiltersBar>
+
+          {/* Payments — month-grouped ledger feed */}
+          {filteredPayments.length === 0 ? (
+            <div className="spy-empty">
+              <CreditCard size={34} color="#D8CDBB" />
+              <p>لا توجد دفعات</p>
             </div>
+          ) : (
+            <div className="spy-feed">
+              {paymentMonths.map((group) => (
+                <section key={group.key} className="spy-month">
+                  <div className="spy-month-head">
+                    <h4>{group.label}</h4>
+                    <div className="spy-month-rule" />
+                    <div className="spy-month-total">
+                      {group.total.toFixed(2)} ₪
+                    </div>
+                  </div>
 
-            <div className="filter-field">
-              <label>المورد</label>
-              <select
-                value={selectedSupplier}
-                onChange={(e) => setSelectedSupplier(e.target.value)}
-              >
-                <option value="">جميع الموردين</option>
-                {suppliers.map((supplier) => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                  <div className="spy-month-list">
+                    {group.items.map((payment) => {
+                      const d = new Date(payment.date);
+                      const valid = !isNaN(d.getTime());
+                      return (
+                        <article key={payment.id} className="spy-entry">
+                          <div className="spy-dateleaf">
+                            <b>{valid ? d.getDate() : "—"}</b>
+                            <span>
+                              {valid
+                                ? d.toLocaleDateString("ar", {
+                                    month: "short",
+                                  })
+                                : "—"}
+                            </span>
+                          </div>
 
-            <div className="filter-field">
-              <label>النوع</label>
-              <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
-              >
-                <option value="">جميع الأنواع</option>
-                <option value="cash">نقد</option>
-                <option value="check">شيك</option>
-                <option value="transfer">تحويل</option>
-              </select>
-            </div>
+                          <div className="spy-entry-main">
+                            <b>{payment.supplierName}</b>
+                            <div className="spy-entry-meta">
+                              <span className={`type-badge ${payment.type}`}>
+                                {payment.type === "cash"
+                                  ? "نقد"
+                                  : payment.type === "check"
+                                  ? "شيك"
+                                  : "تحويل"}
+                              </span>
+                              <span className="spy-chip">
+                                {valid
+                                  ? d.toLocaleDateString("en-GB")
+                                  : payment.date}
+                              </span>
+                              {payment.notes && (
+                                <span className="spy-note">
+                                  {payment.notes}
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
-            <button
-              type="button"
-              className="filters-clear-btn"
-              onClick={resetFilters}
-            >
-              <Filter size={18} />
-              مسح الفلاتر
-            </button>
-          </div>
+                          <div className="spy-entry-amount">
+                            {payment.amount.toFixed(2)} ₪
+                          </div>
 
-          {/* Payments Table */}
-          <div className="supplier-payments-table-container">
-            <table className="payments-table">
-              <thead>
-                <tr>
-                  <th
-                    onClick={() => handleSort("supplierName")}
-                    className="th-sortable"
-                  >
-                    المورد
-                    {sortBy.field === "supplierName" &&
-                      (sortBy.order === "asc" ? (
-                        <SortAsc size={16} />
-                      ) : (
-                        <SortDesc size={16} />
-                      ))}
-                  </th>
-                  <th
-                    onClick={() => handleSort("amount")}
-                    className="th-sortable"
-                  >
-                    المبلغ
-                    {sortBy.field === "amount" &&
-                      (sortBy.order === "asc" ? (
-                        <SortAsc size={16} />
-                      ) : (
-                        <SortDesc size={16} />
-                      ))}
-                  </th>
-                  <th
-                    onClick={() => handleSort("date")}
-                    className="th-sortable"
-                  >
-                    التاريخ
-                    {sortBy.field === "date" &&
-                      (sortBy.order === "asc" ? (
-                        <SortAsc size={16} />
-                      ) : (
-                        <SortDesc size={16} />
-                      ))}
-                  </th>
-                  <th
-                    onClick={() => handleSort("type")}
-                    className="th-sortable"
-                  >
-                    النوع
-                    {sortBy.field === "type" &&
-                      (sortBy.order === "asc" ? (
-                        <SortAsc size={16} />
-                      ) : (
-                        <SortDesc size={16} />
-                      ))}
-                  </th>
-                  <th
-                    onClick={() => handleSort("notes")}
-                    className="th-sortable"
-                  >
-                    ملاحظات
-                    {sortBy.field === "notes" &&
-                      (sortBy.order === "asc" ? (
-                        <SortAsc size={16} />
-                      ) : (
-                        <SortDesc size={16} />
-                      ))}
-                  </th>
-                  <th>الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="text-center">
-                      جاري التحميل...
-                    </td>
-                  </tr>
-                ) : filteredPayments.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="text-center">
-                      لا توجد دفعات
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPayments.map((payment) => (
-                    <tr key={payment.id}>
-                      <td>{payment.supplierName}</td>
-                      <td className="amount">{payment.amount.toFixed(2)} ₪</td>
-                      <td>
-                        {new Date(payment.date).toLocaleDateString("en-GB")}
-                      </td>
-                      <td>
-                        <span className={`type-badge ${payment.type}`}>
-                          {payment.type === "cash"
-                            ? "نقد"
-                            : payment.type === "check"
-                            ? "شيك"
-                            : "تحويل"}
-                        </span>
-                      </td>
-                      <td>{payment.notes}</td>
-                      <td>
-                        <div className="actions">
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => openEditModal(payment)}
-                            title="تعديل"
-                          >
-                            <Edit size={16} />
-                          </button>
-                          <button
-                            className="btn btn-sm btn-danger"
-                            onClick={() => handleDeletePayment(payment)}
-                            title="حذف"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Payments Pagination */}
-          {allFilteredPayments.length > 0 && (
-            <div className="pagination-container">
-              <div className="pagination-info">
-                <span>
-                  عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-                  {Math.min(
-                    currentPage * itemsPerPage,
-                    allFilteredPayments.length
-                  )}{" "}
-                  من {allFilteredPayments.length} دفعة
-                </span>
-                <div className="items-per-page">
-                  <label>عدد العناصر في الصفحة:</label>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) =>
-                      handleItemsPerPageChange(Number(e.target.value))
-                    }
-                    className="pagination-select"
-                  >
-                    <option value={5}>5</option>
-                    <option value={10}>10</option>
-                    <option value={20}>20</option>
-                    <option value={50}>50</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pagination-controls">
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(1)}
-                  disabled={currentPage === 1}
-                >
-                  الأولى
-                </button>
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  السابقة
-                </button>
-
-                {getPageNumbers().map((page) => (
-                  <button
-                    key={page}
-                    className={`pagination-btn ${
-                      currentPage === page ? "active" : ""
-                    }`}
-                    onClick={() => handlePageChange(page)}
-                  >
-                    {page}
-                  </button>
-                ))}
-
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  التالية
-                </button>
-                <button
-                  className="pagination-btn"
-                  onClick={() => handlePageChange(totalPages)}
-                  disabled={currentPage === totalPages}
-                >
-                  الأخيرة
-                </button>
-              </div>
+                          <div className="spy-actions">
+                            <button
+                              className="btn btn-sm btn-secondary"
+                              onClick={() => openEditModal(payment)}
+                              title="تعديل"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button
+                              className="btn btn-sm btn-danger"
+                              onClick={() => handleDeletePayment(payment)}
+                              title="حذف"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
+
+          {/* Payments Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalItems={allFilteredPayments.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+            onItemsPerPageChange={handleItemsPerPageChange}
+            itemLabel="دفعة"
+          />
         </>
       )}
 

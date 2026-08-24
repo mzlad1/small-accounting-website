@@ -12,7 +12,10 @@ import {
   Settings,
   SortAsc,
   SortDesc,
+  User,
+  ArrowLeft,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   collection,
   doc,
@@ -29,6 +32,14 @@ import { db, storage } from "../config/firebase";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
 import { ReceiptDialog } from "../components/ReceiptDialog";
+import { Pagination } from "../components/Pagination";
+import {
+  FiltersBar,
+  SearchField,
+  SelectField,
+  DateField,
+  SortControl,
+} from "../components/Filters";
 import {
   DEFAULT_TEMPLATE,
   STANDARD_VARIABLES,
@@ -58,6 +69,7 @@ interface Receipt {
 }
 
 export function Receipts() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -398,223 +410,141 @@ export function Receipts() {
       </div>
 
       {/* Filters */}
-      <div className="filters-bar">
-        <div className="filter-field filter-field-search">
-          <label>بحث</label>
-          <div className="search-box">
-            <Search className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="بحث..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+      <FiltersBar
+        onClear={() => {
+          setSearchTerm("");
+          setCustomerFilter("all");
+          setDateFrom("");
+          setDateTo("");
+        }}
+      >
+        <SearchField value={searchTerm} onChange={setSearchTerm} />
+        <SelectField
+          label="العميل"
+          value={customerFilter}
+          onChange={setCustomerFilter}
+          options={[
+            { value: "all", label: "جميع العملاء" },
+            ...customers.map((c) => ({ value: c.id, label: c.name })),
+          ]}
+        />
+        <DateField label="من تاريخ" value={dateFrom} onChange={setDateFrom} />
+        <DateField label="إلى تاريخ" value={dateTo} onChange={setDateTo} />
+        <SortControl
+          value={sortBy.field}
+          onChange={(field) => handleSort(field)}
+          options={[
+            { value: "receiptNumber", label: "رقم السند" },
+            { value: "customerName", label: "العميل" },
+            { value: "amount", label: "المبلغ" },
+            { value: "description", label: "البيان" },
+            { value: "date", label: "التاريخ" },
+          ]}
+          order={sortBy.order}
+          onToggleOrder={() =>
+            setSortBy((prev) => ({
+              ...prev,
+              order: prev.order === "asc" ? "desc" : "asc",
+            }))
+          }
+        />
+      </FiltersBar>
+
+      {/* Receipt stubs — one slip per سند */}
+      {filteredReceipts.length === 0 ? (
+        <div className="rcp-empty">
+          <ReceiptText size={34} color="#D8CDBB" />
+          <p>لا توجد سندات قبض</p>
         </div>
-        <div className="filter-field">
-          <label>العميل</label>
-          <select
-            value={customerFilter}
-            onChange={(e) => setCustomerFilter(e.target.value)}
-          >
-            <option value="all">جميع العملاء</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="filter-field">
-          <label>من تاريخ</label>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
-        </div>
-        <div className="filter-field">
-          <label>إلى تاريخ</label>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
-        </div>
-        <button
-          type="button"
-          className="filters-clear-btn"
-          onClick={() => {
-            setSearchTerm("");
-            setCustomerFilter("all");
-            setDateFrom("");
-            setDateTo("");
-          }}
-        >
-          مسح الفلاتر
-        </button>
-      </div>
+      ) : (
+        <div className="rcp-grid">
+          {paginatedReceipts.map((receipt) => (
+            <article className="rcp-rcpt" key={receipt.id}>
+              <div className="rcp-rcpt-top">
+                <span className="rcp-rcpt-num">
+                  سند رقم {receipt.receiptNumber}
+                </span>
+                <span className="rcp-rcpt-date">
+                  {receipt.date
+                    ? new Date(receipt.date).toLocaleDateString("en-GB")
+                    : "—"}
+                </span>
+              </div>
 
-      {/* Table */}
-      <div className="receipts-table-container">
-        <table className="receipts-table">
-          <thead>
-            <tr>
-              <th
-                className="th-sortable"
-                onClick={() => handleSort("receiptNumber")}
-              >
-                رقم السند {getSortIcon("receiptNumber")}
-              </th>
-              <th
-                className="th-sortable"
-                onClick={() => handleSort("customerName")}
-              >
-                العميل {getSortIcon("customerName")}
-              </th>
-              <th className="th-sortable" onClick={() => handleSort("amount")}>
-                المبلغ {getSortIcon("amount")}
-              </th>
-              <th
-                className="th-sortable"
-                onClick={() => handleSort("description")}
-              >
-                البيان {getSortIcon("description")}
-              </th>
-              <th className="th-sortable" onClick={() => handleSort("date")}>
-                التاريخ {getSortIcon("date")}
-              </th>
-              <th>إجراءات</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredReceipts.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="receipts-no-data">
-                  لا توجد سندات قبض
-                </td>
-              </tr>
-            ) : (
-              paginatedReceipts.map((receipt) => (
-                <tr key={receipt.id}>
-                  <td className="receipt-number">#{receipt.receiptNumber}</td>
-                  <td>{receipt.customerName || "—"}</td>
-                  <td>₪{(receipt.amount || 0).toLocaleString()}</td>
-                  <td className="receipt-description">
-                    {receipt.values?.["البيان"] || "—"}
-                  </td>
-                  <td>
-                    {receipt.date
-                      ? new Date(receipt.date).toLocaleDateString("en-GB")
-                      : "—"}
-                  </td>
-                  <td>
-                    <div className="receipts-actions">
-                      <button
-                        className="action-btn view"
-                        onClick={() => viewReceipt(receipt)}
-                        title="عرض"
-                      >
-                        <Eye />
-                      </button>
-                      <button
-                        className="action-btn"
-                        onClick={() => printReceipt(receipt)}
-                        title="طباعة"
-                      >
-                        <Printer />
-                      </button>
-                      <button
-                        className="action-btn delete"
-                        onClick={() => {
-                          setReceiptToDelete(receipt);
-                          setDeleteConfirmText("");
-                        }}
-                        title="حذف"
-                      >
-                        <Trash2 />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              <div className="rcp-rcpt-name">{receipt.customerName || "—"}</div>
 
-      {/* Pagination Controls */}
-      {filteredReceipts.length > 0 && (
-        <div className="pagination-container">
-          <div className="pagination-info">
-            <span>
-              عرض {(currentPage - 1) * itemsPerPage + 1} إلى{" "}
-              {Math.min(currentPage * itemsPerPage, filteredReceipts.length)} من{" "}
-              {filteredReceipts.length} سند
-            </span>
-            <div className="items-per-page">
-              <label>عدد العناصر في الصفحة:</label>
-              <select
-                value={itemsPerPage}
-                onChange={(e) =>
-                  handleItemsPerPageChange(Number(e.target.value))
-                }
-                className="pagination-select"
-              >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
+              <div className="rcp-rcpt-amount">
+                ₪{(receipt.amount || 0).toLocaleString()}
+              </div>
 
-          <div className="pagination-controls">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(1)}
-              disabled={currentPage === 1}
-            >
-              الأولى
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              السابقة
-            </button>
+              {receipt.values?.["المبلغ_كتابة"] && (
+                <div className="rcp-rcpt-words">
+                  {receipt.values["المبلغ_كتابة"]}
+                </div>
+              )}
 
-            {getPageNumbers().map((page) => (
-              <button
-                key={page}
-                className={`pagination-btn ${
-                  currentPage === page ? "active" : ""
-                }`}
-                onClick={() => handlePageChange(page)}
-              >
-                {page}
-              </button>
-            ))}
+              <div className="rcp-rcpt-desc">
+                <span>البيان</span>
+                {receipt.values?.["البيان"] || "—"}
+              </div>
 
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              التالية
-            </button>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(totalPages)}
-              disabled={currentPage === totalPages}
-            >
-              الأخيرة
-            </button>
-          </div>
+              <div className="rcp-rcpt-foot">
+                {receipt.customerId ? (
+                  <button
+                    type="button"
+                    className="rcp-rcpt-link"
+                    onClick={() => navigate(`/customers/${receipt.customerId}`)}
+                    title="فتح حساب العميل"
+                  >
+                    <User size={12} />
+                    كشف الحساب
+                    <ArrowLeft size={12} />
+                  </button>
+                ) : (
+                  <span className="rcp-rcpt-link-none">بدون عميل مرتبط</span>
+                )}
+
+                <div className="rcp-actions">
+                  <button
+                    className="action-btn view"
+                    onClick={() => viewReceipt(receipt)}
+                    title="عرض"
+                  >
+                    <Eye />
+                  </button>
+                  <button
+                    className="action-btn"
+                    onClick={() => printReceipt(receipt)}
+                    title="طباعة"
+                  >
+                    <Printer />
+                  </button>
+                  <button
+                    className="action-btn delete"
+                    onClick={() => {
+                      setReceiptToDelete(receipt);
+                      setDeleteConfirmText("");
+                    }}
+                    title="حذف"
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
+              </div>
+            </article>
+          ))}
         </div>
       )}
+
+      {/* Pagination Controls */}
+      <Pagination
+        currentPage={currentPage}
+        totalItems={filteredReceipts.length}
+        itemsPerPage={itemsPerPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+        itemLabel="سند"
+      />
 
       {/* New receipt dialog */}
       {showNewReceipt && (

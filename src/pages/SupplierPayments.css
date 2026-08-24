@@ -1072,3 +1072,472 @@
     display: none !important;
   }
 }
+
+/* ===== data-presentation redesign (spy-) ===== */
+/* Payments tab  → Recipe C: month-grouped ledger feed of the page slice.
+   Balances tab  → Recipe A: supplier entity cards.
+   All rules are prefixed spy-; nothing above is modified. */
+
+/* ---------- shared: empty state ---------- */
+.spy-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-tertiary);
+  border: 1.5px dashed #d8cdbb;
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.spy-empty p {
+  margin: 0.7rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* ---------- shared: row actions ---------- */
+.spy-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Recipe C — ledger feed (payments tab)
+   ============================================================ */
+.spy-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.spy-month-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+}
+
+.spy-month-head h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.spy-month-rule {
+  flex: 1;
+  height: 1.5px;
+  background: #e7dfd2;
+}
+
+.spy-month-total {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.spy-month-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.spy-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: var(--surface);
+  border: 1px solid #e7dfd2;
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.spy-entry:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(34, 28, 21, 0.08);
+}
+
+.spy-dateleaf {
+  width: 52px;
+  flex-shrink: 0;
+  text-align: center;
+  border: 1.5px solid #2b241c;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.spy-dateleaf b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  padding: 0.15rem 0 0.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.spy-dateleaf span {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff7ef;
+  background: var(--accent);
+  padding: 0.12rem 0;
+}
+
+.spy-entry-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.spy-entry-main b {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  margin-bottom: 0.28rem;
+}
+
+/* direct-child only: the chips below keep their own sizing, and the
+   existing .type-badge pill keeps its shared colors untouched */
+.spy-entry-main > span {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.spy-entry-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.spy-chip {
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: #faf6ee;
+  border: 1px solid #efe7d8;
+  border-radius: 999px;
+  padding: 0.18rem 0.55rem;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* notes ride on their own line when they are long */
+.spy-note {
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: #faf6ee;
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.spy-entry-amount {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.08rem;
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .spy-entry {
+    flex-wrap: wrap;
+  }
+
+  .spy-entry-amount {
+    order: 2;
+  }
+}
+
+/* ============================================================
+   Recipe A — supplier entity cards (balances tab)
+   ============================================================ */
+.spy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 1rem;
+}
+
+.spy-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid #e7dfd2;
+  border-top: 2px solid #8f3e1b; /* supplier variant of the ink rule */
+  border-radius: 14px;
+  padding: 1.05rem 1.1rem 0.9rem;
+  /* no per-row navigation on this page → no pointer affordance */
+  cursor: default;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  transition: transform 0.16s ease, box-shadow 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.spy-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(34, 28, 21, 0.1);
+  border-color: #d8cdbb;
+  border-top-color: #8f3e1b;
+}
+
+.spy-card:hover .spy-avatar {
+  background: var(--accent);
+  color: #fff7ef;
+}
+
+.spy-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.spy-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%; /* suppliers: round avatar */
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-soft, #f6e7dc);
+  color: var(--accent, #bc5727);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.spy-title {
+  min-width: 0;
+}
+
+.spy-title h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spy-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.spy-sub svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.spy-stats {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.spy-stat {
+  flex: 1;
+  min-width: 0;
+  background: #faf6ee;
+  border: 1px solid #efe7d8;
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  text-align: center;
+}
+
+.spy-stat b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.spy-stat span {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.spy-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.spy-meta svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.spy-balance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  border-top: 1.5px dashed #d8cdbb;
+  padding-top: 0.65rem;
+  margin-top: auto;
+}
+
+.spy-balance span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+}
+
+.spy-balance b {
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .spy-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* ===== redesign v2 (spy-folio) — balances as index cards, no avatars ===== */
+.spy-grid {
+  padding-top: 16px;
+}
+
+.spy-folio {
+  position: relative;
+  margin-top: 15px;
+  background: var(--surface, #fffefb);
+  border: 1px solid #e0d6c4;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 0.85rem;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.spy-folio::before {
+  content: "";
+  position: absolute;
+  top: 14px;
+  inset-inline: 0;
+  height: 2px;
+  background: rgba(143, 62, 27, 0.45);
+}
+
+.spy-folio:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(34, 28, 21, 0.08);
+}
+
+.spy-tab {
+  position: absolute;
+  top: -15px;
+  inset-inline-start: 16px;
+  max-width: 65%;
+  background: var(--surface, #fffefb);
+  border: 1px solid #e0d6c4;
+  border-bottom: none;
+  border-top: 3px solid #8f3e1b;
+  border-radius: 9px 9px 0 0;
+  padding: 0.2rem 0.85rem 0.34rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spy-folio:nth-child(3n + 2) .spy-tab {
+  inset-inline-start: 32%;
+}
+.spy-folio:nth-child(3n) .spy-tab {
+  inset-inline-start: auto;
+  inset-inline-end: 16px;
+}
+
+.spy-lines {
+  padding: 1.05rem 1.1rem 0.2rem;
+}
+
+.spy-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.34rem 0;
+}
+
+.spy-line-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.spy-dots {
+  flex: 1;
+  min-width: 14px;
+  border-bottom: 2px dotted #d8cdbb;
+  transform: translateY(-4px);
+}
+
+.spy-line-val {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.spy-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0.55rem 1.1rem 0;
+  padding-top: 0.6rem;
+  border-top: 2px solid #2b241c;
+}
+
+.spy-total-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-tertiary);
+}
+
+.spy-total .amount {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.12rem;
+}
