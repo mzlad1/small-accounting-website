@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "alirida-93ea4"
+    "default": "howwebuildtest",
+    "old": "alirida-93ea4"
   }
 }

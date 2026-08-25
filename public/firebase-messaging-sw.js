@@ -9,12 +9,12 @@ importScripts(
 
 // Firebase configuration (same as your app config - these are public values)
 firebase.initializeApp({
-  apiKey: "AIzaSyDbNeT2o0e31j6K-bNpvngkon_c-E0S8c0",
-  authDomain: "alirida-93ea4.firebaseapp.com",
-  projectId: "alirida-93ea4",
-  storageBucket: "alirida-93ea4.firebasestorage.app",
-  messagingSenderId: "3174726709",
-  appId: "1:3174726709:web:9179fe20bfc335b5e1057c",
+  apiKey: "AIzaSyBC1GirsXX2qywlNukL9bI42OSlEe71M7o",
+  authDomain: "howwebuildtest.firebaseapp.com",
+  projectId: "howwebuildtest",
+  storageBucket: "howwebuildtest.firebasestorage.app",
+  messagingSenderId: "241247852651",
+  appId: "1:241247852651:web:27e974ca0276697551b92e",
 });
 
 const messaging = firebase.messaging();

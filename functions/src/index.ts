@@ -106,8 +106,8 @@ export const checkCalendarReminders = onSchedule(
               },
               webpush: {
                 notification: {
-                  icon: "/vite.svg",
-                  badge: "/vite.svg",
+                  icon: "/pwa-192x192.png",
+                  badge: "/pwa-192x192.png",
                   dir: "rtl" as const,
                   lang: "ar",
                 },
@@ -170,6 +170,9 @@ export const sendTestNotification = onCall(async (request) => {
       );
     }
 
+    // Count real outcomes — a "success" that delivered to zero devices
+    // must surface as an error, not a green message.
+    let sentCount = 0;
     const promises = tokensSnapshot.docs.map((tokenDoc) => {
       return messaging
         .send({
@@ -180,11 +183,14 @@ export const sendTestNotification = onCall(async (request) => {
           },
           webpush: {
             notification: {
-              icon: "/vite.svg",
+              icon: "/pwa-192x192.png",
               dir: "rtl" as const,
               lang: "ar",
             },
           },
+        })
+        .then(() => {
+          sentCount++;
         })
         .catch((err) => {
           console.error(`Failed to send to token: ${err.message}`);
@@ -199,10 +205,18 @@ export const sendTestNotification = onCall(async (request) => {
     });
 
     await Promise.all(promises);
+
+    if (sentCount === 0) {
+      throw new HttpsError(
+        "unavailable",
+        "فشل الإرسال إلى جميع الأجهزة المسجلة — أعد تفعيل الإشعارات من هذه الصفحة ثم جرب مجدداً"
+      );
+    }
+
     return {
       success: true,
-      message: "تم إرسال الإشعار التجريبي بنجاح",
-      devicesCount: tokensSnapshot.size,
+      message: `تم إرسال الإشعار التجريبي إلى ${sentCount} من ${tokensSnapshot.size} جهاز`,
+      devicesCount: sentCount,
     };
   } catch (error: any) {
     console.error("Test notification failed:", error);
@@ -281,7 +295,7 @@ export const scheduledBackup = onSchedule(
             },
             webpush: {
               notification: {
-                icon: "/vite.svg",
+                icon: "/pwa-192x192.png",
                 dir: "rtl" as const,
                 lang: "ar",
               },

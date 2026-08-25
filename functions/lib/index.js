@@ -123,8 +123,8 @@ exports.checkCalendarReminders = (0, scheduler_1.onSchedule)({
                         },
                         webpush: {
                             notification: {
-                                icon: "/vite.svg",
-                                badge: "/vite.svg",
+                                icon: "/pwa-192x192.png",
+                                badge: "/pwa-192x192.png",
                                 dir: "rtl",
                                 lang: "ar",
                             },
@@ -171,6 +171,9 @@ exports.sendTestNotification = (0, https_1.onCall)(async (request) => {
         if (tokensSnapshot.empty) {
             throw new https_1.HttpsError("not-found", "لم يتم العثور على أجهزة مسجلة للإشعارات");
         }
+        // Count real outcomes — a "success" that delivered to zero devices
+        // must surface as an error, not a green message.
+        let sentCount = 0;
         const promises = tokensSnapshot.docs.map((tokenDoc) => {
             return messaging
                 .send({
@@ -181,11 +184,14 @@ exports.sendTestNotification = (0, https_1.onCall)(async (request) => {
                 },
                 webpush: {
                     notification: {
-                        icon: "/vite.svg",
+                        icon: "/pwa-192x192.png",
                         dir: "rtl",
                         lang: "ar",
                     },
                 },
+            })
+                .then(() => {
+                sentCount++;
             })
                 .catch((err) => {
                 console.error(`Failed to send to token: ${err.message}`);
@@ -197,10 +203,13 @@ exports.sendTestNotification = (0, https_1.onCall)(async (request) => {
             });
         });
         await Promise.all(promises);
+        if (sentCount === 0) {
+            throw new https_1.HttpsError("unavailable", "فشل الإرسال إلى جميع الأجهزة المسجلة — أعد تفعيل الإشعارات من هذه الصفحة ثم جرب مجدداً");
+        }
         return {
             success: true,
-            message: "تم إرسال الإشعار التجريبي بنجاح",
-            devicesCount: tokensSnapshot.size,
+            message: `تم إرسال الإشعار التجريبي إلى ${sentCount} من ${tokensSnapshot.size} جهاز`,
+            devicesCount: sentCount,
         };
     }
     catch (error) {
@@ -262,7 +271,7 @@ exports.scheduledBackup = (0, scheduler_1.onSchedule)({
                 },
                 webpush: {
                     notification: {
-                        icon: "/vite.svg",
+                        icon: "/pwa-192x192.png",
                         dir: "rtl",
                         lang: "ar",
                     },

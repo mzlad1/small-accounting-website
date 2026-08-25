@@ -175,8 +175,11 @@ export function CalendarPage() {
   const handleTestNotification = async () => {
     try {
       const sendTest = httpsCallable(functions, "sendTestNotification");
-      await sendTest();
-      alert("تم إرسال إشعار تجريبي بنجاح!");
+      const res = await sendTest();
+      alert(
+        (res.data as { message?: string })?.message ||
+          "تم إرسال إشعار تجريبي بنجاح!"
+      );
     } catch (error: any) {
       console.error("Test notification failed:", error);
       alert(error.message || "فشل في إرسال الإشعار التجريبي");
