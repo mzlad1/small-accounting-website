@@ -36,6 +36,7 @@ import { db, storage } from "../config/firebase";
 import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { compressImage, IMMUTABLE_CACHE } from "../utils/imageCompress";
 import { Pagination } from "../components/Pagination";
 import {
   FiltersBar,
@@ -661,11 +662,15 @@ export function Orders() {
       let imageUrls: string[] = [];
       if (selectedFiles.length > 0) {
         const uploadPromises = selectedFiles.map(async (file) => {
+          const upload = await compressImage(file);
           const fileName = `order-items/${
             selectedOrderForElement.id
-          }/${Date.now()}_${file.name}`;
+          }/${Date.now()}_${upload.name}`;
           const storageRef = ref(storage, fileName);
-          await uploadBytes(storageRef, file);
+          await uploadBytes(storageRef, upload, {
+            contentType: upload.type,
+            cacheControl: IMMUTABLE_CACHE,
+          });
           return await getDownloadURL(storageRef);
         });
         imageUrls = await Promise.all(uploadPromises);

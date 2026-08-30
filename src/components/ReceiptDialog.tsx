@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "../config/firebase";
+import { IMMUTABLE_CACHE } from "../utils/imageCompress";
 import { amountWords } from "../utils/tafqit";
 import {
   AUTO_VARIABLES,
@@ -208,7 +209,8 @@ export function ReceiptDialog({
         ref(storage, storagePath),
         new Blob([buildPrintDocument(finalHtml)], {
           type: "text/html",
-        })
+        }),
+        { contentType: "text/html", cacheControl: IMMUTABLE_CACHE }
       );
 
       // History record (rendered HTML kept so history views/prints are

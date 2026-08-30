@@ -28,6 +28,7 @@ import { db, storage } from "../config/firebase";
 import { fetchCacheFirst } from "../utils/cacheFirst";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import { compressImage, IMMUTABLE_CACHE } from "../utils/imageCompress";
 import { useNavigate } from "react-router-dom";
 import "./Lands.css";
 
@@ -137,8 +138,12 @@ export function Lands() {
     setUploading(true);
     try {
       const uploadPromises = Array.from(files).map(async (file) => {
-        const storageRef = ref(storage, `lands/${Date.now()}_${file.name}`);
-        await uploadBytes(storageRef, file);
+        const upload = await compressImage(file);
+        const storageRef = ref(storage, `lands/${Date.now()}_${upload.name}`);
+        await uploadBytes(storageRef, upload, {
+          contentType: upload.type,
+          cacheControl: IMMUTABLE_CACHE,
+        });
         const url = await getDownloadURL(storageRef);
         return url;
       });

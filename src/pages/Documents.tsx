@@ -35,6 +35,7 @@ import {
   uploadBytes,
 } from "firebase/storage";
 import { db, storage } from "../config/firebase";
+import { compressImage, IMMUTABLE_CACHE } from "../utils/imageCompress";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
 import { Pagination } from "../components/Pagination";
@@ -322,7 +323,9 @@ export function Documents() {
     setUploadProgress({ done: 0, total: uploadFiles.length });
     try {
       for (let i = 0; i < uploadFiles.length; i++) {
-        const file = uploadFiles[i];
+        // Images get downscaled/re-encoded before upload (storage cost);
+        // other file types pass through untouched
+        const file = await compressImage(uploadFiles[i]);
         const ext = getExt(file.name);
         const safeName = file.name.replace(/[/\\#?]/g, "_");
         const storagePath = `documents/${Date.now()}_${i}_${safeName}`;
@@ -333,6 +336,7 @@ export function Documents() {
           // inline so the viewer (pdf iframe / images) renders instead
           // of forcing a download
           contentDisposition: "inline",
+          cacheControl: IMMUTABLE_CACHE,
         });
         const downloadURL = await getDownloadURL(storageRef);
         await addDoc(collection(db, "documents"), {
