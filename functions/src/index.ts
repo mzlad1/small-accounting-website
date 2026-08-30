@@ -23,6 +23,7 @@ const COLLECTIONS = [
   "calendarEvents",
   "receipts",
   "settings",
+  "documents",
 ];
 
 // ==========================================

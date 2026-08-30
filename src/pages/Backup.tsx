@@ -31,6 +31,28 @@ interface BackupStats {
   [collectionName: string]: number;
 }
 
+// Arabic display names for every backed-up collection — anything new
+// added to the backup COLLECTIONS list needs a row here too.
+const COLLECTION_LABELS: Record<string, string> = {
+  customers: "العملاء",
+  suppliers: "الموردين",
+  orders: "الطلبات",
+  orderItems: "عناصر الطلبات",
+  payments: "المدفوعات",
+  supplierPayments: "مدفوعات الموردين",
+  customerChecks: "شيكات العملاء",
+  personalChecks: "الشيكات الشخصية",
+  apartments: "الشقق",
+  lands: "الأراضي",
+  tasks: "المهام",
+  calendarEvents: "مواعيد التقويم",
+  receipts: "سندات القبض",
+  settings: "الإعدادات",
+  documents: "المستندات",
+  backupHistory: "سجل النسخ",
+  fcmTokens: "أجهزة الإشعارات",
+};
+
 interface BackupHistory {
   filename: string;
   date: string;
@@ -476,27 +498,7 @@ const Backup: React.FC = () => {
                 <div key={collection} className="collection-item">
                   <div className="collection-info">
                     <span className="collection-name">
-                      {collection === "customers"
-                        ? "العملاء"
-                        : collection === "suppliers"
-                        ? "الموردين"
-                        : collection === "orders"
-                        ? "الطلبات"
-                        : collection === "orderItems"
-                        ? "عناصر الطلبات"
-                        : collection === "payments"
-                        ? "المدفوعات"
-                        : collection === "supplierPayments"
-                        ? "مدفوعات الموردين"
-                        : collection === "customerChecks"
-                        ? "شيكات العملاء"
-                        : collection === "personalChecks"
-                        ? "الشيكات الشخصية"
-                        : collection === "apartments"
-                        ? "الشقق"
-                        : collection === "lands"
-                        ? "الأراضي"
-                        : collection}
+                      {COLLECTION_LABELS[collection] || collection}
                     </span>
                     <span className="collection-count">{count} سجل</span>
                   </div>

@@ -49,6 +49,10 @@ const SupplierPayments = named(
 const Reports = named(() => import("./pages/Reports"), (m) => m.Reports);
 const Receipts = named(() => import("./pages/Receipts"), (m) => m.Receipts);
 const Backup = lazy(() => import("./pages/Backup"));
+const Documents = named(
+  () => import("./pages/Documents"),
+  (m) => m.Documents
+);
 const CalendarPage = named(
   () => import("./pages/Calendar"),
   (m) => m.CalendarPage
@@ -129,6 +133,7 @@ function App() {
             />
             <Route path="/reports" element={page(<Reports />)} />
             <Route path="/backup" element={page(<Backup />)} />
+            <Route path="/documents" element={page(<Documents />)} />
             <Route path="/apartments" element={page(<Apartments />)} />
             <Route
               path="/apartments/:apartmentId"

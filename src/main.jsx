@@ -23,6 +23,7 @@ import './pages/SupplierPayments.css'
 import './pages/Reports.css'
 import './pages/Receipts.css'
 import './pages/Backup.css'
+import './pages/Documents.css'
 // react-calendar's library defaults must load BEFORE Calendar.css so the
 // page's overrides win (the lazy chunk's own import dedupes to this one)
 import 'react-calendar/dist/Calendar.css'

@@ -17,6 +17,7 @@ import {
   Building2,
   LandPlot,
   DatabaseBackup,
+  FolderOpen,
   LogOut,
   Menu,
   User,
@@ -77,6 +78,7 @@ const navGroups = [
   {
     label: "النظام",
     items: [
+      { name: "المستندات", href: "/documents", icon: FolderOpen },
       { name: "النسخ الاحتياطي", href: "/backup", icon: DatabaseBackup },
     ],
   },

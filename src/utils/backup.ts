@@ -57,6 +57,7 @@ const COLLECTIONS = [
   "calendarEvents",
   "receipts",
   "settings",
+  "documents",
 ];
 
 export class FirebaseBackupService {

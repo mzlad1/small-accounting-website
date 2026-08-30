@@ -56,6 +56,7 @@ const COLLECTIONS = [
     "calendarEvents",
     "receipts",
     "settings",
+    "documents",
 ];
 // ==========================================
 // CALENDAR REMINDERS - FCM Push Notifications
