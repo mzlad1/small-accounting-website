@@ -32,6 +32,10 @@ import {
 import { db } from "../config/firebase";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import {
+  AMBIGUOUS_LINK_MESSAGE,
+  findCheckForPayment,
+} from "../utils/checkLink";
 import { Pagination } from "../components/Pagination";
 import {
   FiltersBar,
@@ -61,6 +65,8 @@ interface Payment {
   checkBank?: string;
   checkDate?: string;
   nameOnCheck?: string;
+  /** Doc id of the mirrored cheque in customerChecks. */
+  checkId?: string;
   createdAt: string;
   isGrouped?: boolean;
   groupedCount?: number;
@@ -469,7 +475,11 @@ export function Payments() {
           collection(db, "customerChecks"),
           newCheck
         );
-        console.log("Check created with ID:", checkRef.id);
+        // Link the two rows so later edits/deletes can never resolve to
+        // a different cheque that happens to share this number.
+        await updateDoc(doc(db, "payments", paymentRef.id), {
+          checkId: checkRef.id,
+        });
       }
 
       // Stay open for the next entry: reset the form, confirm inline,
@@ -525,6 +535,7 @@ export function Payments() {
   const handleUpdatePayment = async () => {
     if (!editingPayment) return;
 
+    let checkLinkWarned = false;
     try {
       const updatedPayment = {
         ...paymentForm,
@@ -558,22 +569,20 @@ export function Payments() {
           updatedAt: new Date().toISOString(),
         };
 
-        // Find and update the corresponding check
-        const checksSnapshot = await getDocs(
-          query(
-            collection(db, "customerChecks"),
-            where("checkNumber", "==", editingPayment.checkNumber),
-            where("customerId", "==", editingPayment.customerId)
-          )
-        );
-
-        if (!checksSnapshot.empty) {
-          const checkDoc = checksSnapshot.docs[0];
-          await updateDoc(doc(db, "customerChecks", checkDoc.id), updatedCheck);
+        // Resolve the cheque through its stored link rather than by
+        // number, which is not unique when a customer holds two cheque
+        // books.
+        const link = await findCheckForPayment(editingPayment);
+        if (link.status === "found") {
+          await updateDoc(doc(db, "customerChecks", link.id), updatedCheck);
+        }
+        if (link.status === "ambiguous") {
+          alert("تم تحديث الدفعة. " + AMBIGUOUS_LINK_MESSAGE);
+          checkLinkWarned = true;
         }
       }
 
-      alert("تم تحديث الدفعة بنجاح!");
+      if (!checkLinkWarned) alert("تم تحديث الدفعة بنجاح!");
       setShowEditModal(false);
       setEditingPayment(null);
       setPaymentForm({
@@ -609,23 +618,21 @@ export function Payments() {
       // Delete the payment
       await deleteDoc(doc(db, "payments", payment.id));
 
-      // If it's a check payment, also delete the corresponding check
+      // If it's a check payment, also delete the mirrored cheque — but
+      // only when the link is unambiguous, so a shared cheque number can
+      // never delete a different cheque.
+      let deleteWarned = false;
       if (payment.type === "check") {
-        const checksSnapshot = await getDocs(
-          query(
-            collection(db, "customerChecks"),
-            where("checkNumber", "==", payment.checkNumber),
-            where("customerId", "==", payment.customerId)
-          )
-        );
-
-        if (!checksSnapshot.empty) {
-          const checkDoc = checksSnapshot.docs[0];
-          await deleteDoc(doc(db, "customerChecks", checkDoc.id));
+        const link = await findCheckForPayment(payment);
+        if (link.status === "found") {
+          await deleteDoc(doc(db, "customerChecks", link.id));
+        } else if (link.status === "ambiguous") {
+          alert("تم حذف الدفعة. " + AMBIGUOUS_LINK_MESSAGE);
+          deleteWarned = true;
         }
       }
 
-      alert("تم حذف الدفعة بنجاح!");
+      if (!deleteWarned) alert("تم حذف الدفعة بنجاح!");
     } catch (error) {
       console.error("Error deleting payment:", error);
     }

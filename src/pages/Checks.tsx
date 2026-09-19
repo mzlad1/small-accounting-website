@@ -42,6 +42,10 @@ import {
 } from "../utils/checkSeries";
 import { subscribeAll } from "../utils/live";
 import { matchesSearch } from "../utils/search";
+import {
+  AMBIGUOUS_LINK_MESSAGE,
+  findPaymentForCheck,
+} from "../utils/checkLink";
 import { Pagination } from "../components/Pagination";
 import {
   FiltersBar,
@@ -588,6 +592,7 @@ export function Checks() {
 
           const paymentRef = doc(collection(db, "payments"));
           batch.set(paymentRef, {
+            checkId: checkRef.id,
             customerId: checkForm.customerId,
             customerName: customer?.name || "",
             date: today,
@@ -643,6 +648,7 @@ export function Checks() {
       // Also add it as a payment
       const customer = customers.find((c) => c.id === checkForm.customerId);
       const newPayment = {
+        checkId: checkRef.id,
         customerId: checkForm.customerId,
         customerName: customer?.name || "",
         date: new Date().toISOString().split("T")[0], // Use current date for payment
@@ -722,23 +728,19 @@ export function Checks() {
         updatedAt: new Date().toISOString(),
       };
 
-      // Find and update the corresponding payment
-      const paymentsSnapshot = await getDocs(
-        query(
-          collection(db, "payments"),
-          where("checkNumber", "==", selectedCheck.checkNumber),
-          where("customerId", "==", selectedCheck.customerId),
-          where("type", "==", "check")
-        )
-      );
-
-      if (!paymentsSnapshot.empty) {
-        const paymentDoc = paymentsSnapshot.docs[0];
-        await updateDoc(doc(db, "payments", paymentDoc.id), updatedPayment);
-        console.log("Updated corresponding payment:", paymentDoc.id);
+      // Update the mirror payment row — resolved by its stored link, so a
+      // duplicate cheque number can never send this edit to another
+      // cheque's row.
+      const link = await findPaymentForCheck(selectedCheck);
+      if (link.status === "found") {
+        await updateDoc(doc(db, "payments", link.id), updatedPayment);
       }
 
-      alert("تم تحديث الشيك والدفعة بنجاح!");
+      alert(
+        link.status === "ambiguous"
+          ? "تم تحديث الشيك. " + AMBIGUOUS_LINK_MESSAGE
+          : "تم تحديث الشيك والدفعة بنجاح!"
+      );
       setShowEditModal(false);
       setSelectedCheck(null);
       setCheckForm({
@@ -765,20 +767,14 @@ export function Checks() {
       // Delete the check
       await deleteDoc(doc(db, "customerChecks", selectedCheck.id));
 
-      // Also delete the corresponding payment if it exists
-      const paymentsSnapshot = await getDocs(
-        query(
-          collection(db, "payments"),
-          where("checkNumber", "==", selectedCheck.checkNumber),
-          where("customerId", "==", selectedCheck.customerId),
-          where("type", "==", "check")
-        )
-      );
-
-      if (!paymentsSnapshot.empty) {
-        const paymentDoc = paymentsSnapshot.docs[0];
-        await deleteDoc(doc(db, "payments", paymentDoc.id));
-        console.log("Deleted corresponding payment:", paymentDoc.id);
+      // Delete the mirror payment row, resolved by its stored link. If the
+      // link is ambiguous we keep the row rather than risk deleting the
+      // payment belonging to a different cheque with the same number.
+      const link = await findPaymentForCheck(selectedCheck);
+      if (link.status === "found") {
+        await deleteDoc(doc(db, "payments", link.id));
+      } else if (link.status === "ambiguous") {
+        alert("تم حذف الشيك. " + AMBIGUOUS_LINK_MESSAGE);
       }
 
       setShowDeleteModal(false);
