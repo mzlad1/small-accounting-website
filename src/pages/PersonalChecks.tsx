@@ -114,6 +114,10 @@ export function PersonalChecks() {
   const [seriesCount, setSeriesCount] = useState(6);
   const [seriesInterval, setSeriesInterval] = useState<SeriesInterval>("month");
   const [addSuccessCount, setAddSuccessCount] = useState(1);
+  // Guards the save. Without it a second click while the first write
+  // is still in flight runs the whole series again — one double-click
+  // once produced 41 duplicate cheques.
+  const [addingCheck, setAddingCheck] = useState(false);
   const [seriesEntries, setSeriesEntries] = useState<
     Array<{ checkNumber: string; dueDate: string; amount: number }>
   >([]);
@@ -376,6 +380,8 @@ export function PersonalChecks() {
   };
 
   const handleAddCheck = async () => {
+    if (addingCheck) return;
+    setAddingCheck(true);
     try {
       // Series mode: create every check in ONE atomic batch
       if (seriesEnabled && seriesEntries.length >= 2) {
@@ -445,6 +451,8 @@ export function PersonalChecks() {
       // The live subscription picks up the change automatically.
     } catch (error) {
       console.error("Error adding check:", error);
+    } finally {
+      setAddingCheck(false);
     }
   };
 
@@ -1402,6 +1410,7 @@ export function PersonalChecks() {
                 className="btn-primary"
                 onClick={handleAddCheck}
                 disabled={
+                  addingCheck ||
                   !checkForm.payee ||
                   !checkForm.checkNumber ||
                   !checkForm.bank ||
@@ -1409,7 +1418,7 @@ export function PersonalChecks() {
                   !checkForm.dueDate
                 }
               >
-                إضافة الشيك
+                {addingCheck ? "جاري الحفظ..." : "إضافة الشيك"}
               </button>
             </div>
           </div>
