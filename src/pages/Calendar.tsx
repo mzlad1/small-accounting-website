@@ -40,6 +40,7 @@ import {
 import { format } from "date-fns";
 import "react-calendar/dist/Calendar.css";
 import "./Calendar.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface CalendarEvent {
   id: string;
@@ -53,6 +54,7 @@ interface CalendarEvent {
 }
 
 export function CalendarPage() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const { currentUser } = useAuth();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -498,7 +500,10 @@ export function CalendarPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="event-form">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              runGuarded(() => handleSubmit(e));
+            }} className="event-form">
               {addSuccess && (
                 <div className="modal-success-banner">
                   <CheckCircle />
@@ -554,7 +559,7 @@ export function CalendarPage() {
               </div>
 
               <div className="form-actions">
-                <button type="submit" className="submit-btn">
+                <button type="submit" className="submit-btn" disabled={submitting}>
                   {editingEvent ? "تحديث الموعد" : "حفظ الموعد"}
                 </button>
                 <button

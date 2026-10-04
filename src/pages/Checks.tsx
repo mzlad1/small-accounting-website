@@ -56,6 +56,7 @@ import {
 } from "../components/Filters";
 
 import "./Checks.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Customer {
   id: string;
@@ -80,6 +81,7 @@ interface CustomerCheck {
 }
 
 export function Checks() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const [checks, setChecks] = useState<CustomerCheck[]>([]);
   const [filteredChecks, setFilteredChecks] = useState<CustomerCheck[]>([]);
   const [paginatedChecks, setPaginatedChecks] = useState<CustomerCheck[]>([]);
@@ -1934,8 +1936,9 @@ export function Checks() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleEditCheck}
+                onClick={() => runGuarded(handleEditCheck)}
                 disabled={
+                  submitting ||
                   !checkForm.customerId ||
                   !checkForm.checkNumber ||
                   !checkForm.bank ||

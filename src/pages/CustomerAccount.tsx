@@ -56,6 +56,7 @@ import {
 } from "../components/Filters";
 
 import "./CustomerAccount.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Customer {
   id: string;
@@ -118,6 +119,7 @@ interface StatementEntry {
 }
 
 export function CustomerAccount() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const { customerId } = useParams<{ customerId: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("orders");
@@ -3116,8 +3118,8 @@ export function CustomerAccount() {
               </button>
               <button
                 className="ca-btn-primary"
-                onClick={handleEditOrder}
-                disabled={!editingOrder.title}
+                onClick={() => runGuarded(handleEditOrder)}
+                disabled={submitting || !editingOrder.title}
               >
                 حفظ التغييرات
               </button>

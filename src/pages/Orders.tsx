@@ -47,6 +47,7 @@ import {
 } from "../components/Filters";
 
 import "./Orders.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Customer {
   id: string;
@@ -68,6 +69,7 @@ interface Order {
 }
 
 export function Orders() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
@@ -1318,8 +1320,8 @@ export function Orders() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleAddOrder}
-                disabled={!orderForm.customerId || !orderForm.title}
+                onClick={() => runGuarded(handleAddOrder)}
+                disabled={submitting || !orderForm.customerId || !orderForm.title}
               >
                 إضافة الطلب
               </button>
@@ -1465,8 +1467,8 @@ export function Orders() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleUpdateOrder}
-                disabled={!orderForm.customerId || !orderForm.title}
+                onClick={() => runGuarded(handleUpdateOrder)}
+                disabled={submitting || !orderForm.customerId || !orderForm.title}
               >
                 حفظ التعديلات
               </button>
@@ -1696,8 +1698,9 @@ export function Orders() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleSaveElement}
+                onClick={() => runGuarded(handleSaveElement)}
                 disabled={
+                  submitting ||
                   !elementForm.name ||
                   !elementForm.type ||
                   !elementForm.itemDate ||

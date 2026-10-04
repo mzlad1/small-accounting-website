@@ -55,6 +55,7 @@ import {
 } from "../components/Filters";
 
 import "./OrderDetails.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Customer {
   id: string;
@@ -91,6 +92,7 @@ interface OrderItem {
 }
 
 export function OrderDetails() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const [order, setOrder] = useState<Order | null>(null);
@@ -1227,8 +1229,9 @@ export function OrderDetails() {
               </button>
               <button
                 className="od-btn-primary"
-                onClick={handleAddItem}
+                onClick={() => runGuarded(handleAddItem)}
                 disabled={
+                  submitting ||
                   !itemForm.name ||
                   !itemForm.type ||
                   !itemForm.itemDate ||
@@ -1514,8 +1517,9 @@ export function OrderDetails() {
               </button>
               <button
                 className="od-btn-primary"
-                onClick={handleEditItem}
+                onClick={() => runGuarded(handleEditItem)}
                 disabled={
+                  submitting ||
                   !itemForm.name ||
                   !itemForm.type ||
                   !itemForm.itemDate ||

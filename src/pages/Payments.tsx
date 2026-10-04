@@ -46,6 +46,7 @@ import {
 } from "../components/Filters";
 
 import "./Payments.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Customer {
   id: string;
@@ -74,6 +75,7 @@ interface Payment {
 }
 
 export function Payments() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [paginatedPayments, setPaginatedPayments] = useState<Payment[]>([]);
@@ -1357,8 +1359,9 @@ export function Payments() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleAddPayment}
+                onClick={() => runGuarded(handleAddPayment)}
                 disabled={
+                  submitting ||
                   !paymentForm.customerId ||
                   !paymentForm.date ||
                   paymentForm.amount <= 0 ||
@@ -1582,8 +1585,9 @@ export function Payments() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleUpdatePayment}
+                onClick={() => runGuarded(handleUpdatePayment)}
                 disabled={
+                  submitting ||
                   !paymentForm.customerId ||
                   !paymentForm.date ||
                   paymentForm.amount <= 0 ||

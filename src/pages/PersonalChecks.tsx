@@ -51,6 +51,7 @@ import {
   SortControl,
 } from "../components/Filters";
 import "./PersonalChecks.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface PersonalCheck {
   id: string;
@@ -68,6 +69,7 @@ interface PersonalCheck {
 }
 
 export function PersonalChecks() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const [checks, setChecks] = useState<PersonalCheck[]>([]);
   const [filteredChecks, setFilteredChecks] = useState<PersonalCheck[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1554,8 +1556,9 @@ export function PersonalChecks() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleEditCheck}
+                onClick={() => runGuarded(handleEditCheck)}
                 disabled={
+                  submitting ||
                   !checkForm.payee ||
                   !checkForm.checkNumber ||
                   !checkForm.bank ||

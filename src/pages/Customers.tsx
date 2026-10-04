@@ -43,6 +43,7 @@ import {
 } from "../components/Filters";
 
 import "./Customers.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Customer {
   id: string;
@@ -91,6 +92,7 @@ interface CustomerCheck {
 }
 
 export function Customers() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
@@ -982,8 +984,8 @@ export function Customers() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleAddCustomer}
-                disabled={!formData.name || !formData.phone}
+                onClick={() => runGuarded(handleAddCustomer)}
+                disabled={submitting || !formData.name || !formData.phone}
               >
                 إضافة العميل
               </button>
@@ -1052,8 +1054,8 @@ export function Customers() {
               </button>
               <button
                 className="btn-primary"
-                onClick={handleEditCustomer}
-                disabled={!formData.name || !formData.phone}
+                onClick={() => runGuarded(handleEditCustomer)}
+                disabled={submitting || !formData.name || !formData.phone}
               >
                 حفظ التغييرات
               </button>

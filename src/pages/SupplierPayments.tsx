@@ -40,6 +40,7 @@ import {
   SortControl,
 } from "../components/Filters";
 import "./SupplierPayments.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Supplier {
   id: string;
@@ -75,6 +76,7 @@ interface SupplierBalance {
 }
 
 export function SupplierPayments() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [payments, setPayments] = useState<SupplierPayment[]>([]);
   const [filteredPayments, setFilteredPayments] = useState<SupplierPayment[]>(
@@ -1348,7 +1350,10 @@ export function SupplierPayments() {
                 ×
               </button>
             </div>
-            <form onSubmit={handleAddPayment}>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              runGuarded(() => handleAddPayment(e));
+            }}>
               {addSuccess && (
                 <div className="modal-success-banner">
                   <CheckCircle />
@@ -1495,7 +1500,7 @@ export function SupplierPayments() {
                 <button type="button" onClick={() => setShowAddModal(false)}>
                   إلغاء
                 </button>
-                <button type="submit">إضافة الدفعة</button>
+                <button type="submit" disabled={submitting}>إضافة الدفعة</button>
               </div>
             </form>
           </div>
@@ -1515,7 +1520,10 @@ export function SupplierPayments() {
                 ×
               </button>
             </div>
-            <form onSubmit={handleEditPayment}>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              runGuarded(() => handleEditPayment(e));
+            }}>
               <div className="form-group">
                 <label>المورد *</label>
                 <div className="custom-dropdown">
@@ -1654,7 +1662,7 @@ export function SupplierPayments() {
                 <button type="button" onClick={() => setShowEditModal(false)}>
                   إلغاء
                 </button>
-                <button type="submit">حفظ التغييرات</button>
+                <button type="submit" disabled={submitting}>حفظ التغييرات</button>
               </div>
             </form>
           </div>

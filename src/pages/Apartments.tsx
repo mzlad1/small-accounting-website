@@ -33,6 +33,7 @@ import { matchesSearch } from "../utils/search";
 import { compressImage, IMMUTABLE_CACHE } from "../utils/imageCompress";
 import { useNavigate } from "react-router-dom";
 import "./Apartments.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Apartment {
   id: string;
@@ -51,6 +52,7 @@ interface Apartment {
 }
 
 export function Apartments() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const [loading, setLoading] = useState(true);
   const [apartments, setApartments] = useState<Apartment[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -526,7 +528,10 @@ export function Apartments() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2>{editingApartment ? "تعديل شقة" : "إضافة شقة جديدة"}</h2>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              runGuarded(() => handleSubmit(e));
+            }}>
               {addSuccess && (
                 <div className="modal-success-banner">
                   <CheckCircle />
@@ -693,7 +698,7 @@ export function Apartments() {
               </div>
 
               <div className="apartments-modal-actions">
-                <button type="submit" className="apartments-submit-btn" disabled={uploading}>
+                <button type="submit" className="apartments-submit-btn" disabled={submitting || uploading}>
                   {editingApartment ? "تحديث" : "إضافة"}
                 </button>
                 <button

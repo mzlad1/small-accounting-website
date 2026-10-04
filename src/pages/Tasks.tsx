@@ -29,6 +29,7 @@ import {
   Search,
 } from "lucide-react";
 import "./Tasks.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Task {
   id: string;
@@ -41,6 +42,7 @@ interface Task {
 }
 
 export function Tasks() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -404,7 +406,10 @@ export function Tasks() {
                 <X />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="modal-form">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              runGuarded(() => handleSubmit(e));
+            }} className="modal-form">
               {addSuccess && (
                 <div className="modal-success-banner">
                   <CheckCircle />
@@ -466,7 +471,7 @@ export function Tasks() {
               </div>
 
               <div className="modal-actions">
-                <button type="submit" className="save-btn">
+                <button type="submit" className="save-btn" disabled={submitting}>
                   <Save className="btn-icon" />
                   <span>{editingTask ? "تحديث" : "حفظ"}</span>
                 </button>

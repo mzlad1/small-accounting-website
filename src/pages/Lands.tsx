@@ -31,6 +31,7 @@ import { matchesSearch } from "../utils/search";
 import { compressImage, IMMUTABLE_CACHE } from "../utils/imageCompress";
 import { useNavigate } from "react-router-dom";
 import "./Lands.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Land {
   id: string;
@@ -49,6 +50,7 @@ interface Land {
 }
 
 export function Lands() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const [loading, setLoading] = useState(true);
   const [lands, setLands] = useState<Land[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -518,7 +520,10 @@ export function Lands() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2>{editingLand ? "تعديل أرض" : "إضافة أرض جديدة"}</h2>
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              runGuarded(() => handleSubmit(e));
+            }}>
               {addSuccess && (
                 <div className="modal-success-banner">
                   <CheckCircle />
@@ -681,7 +686,7 @@ export function Lands() {
               </div>
 
               <div className="lands-modal-actions">
-                <button type="submit" className="lands-submit-btn" disabled={uploading}>
+                <button type="submit" className="lands-submit-btn" disabled={submitting || uploading}>
                   {editingLand ? "تحديث" : "إضافة"}
                 </button>
                 <button

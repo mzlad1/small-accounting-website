@@ -46,6 +46,7 @@ import {
 
 import { useNavigate } from "react-router-dom";
 import "./Suppliers.css";
+import { useSubmitGuard } from "../utils/submitGuard";
 
 interface Supplier {
   id: string;
@@ -80,6 +81,7 @@ interface SupplierElement {
 }
 
 export function Suppliers() {
+  const [submitting, runGuarded] = useSubmitGuard();
   const navigate = useNavigate();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [filteredSuppliers, setFilteredSuppliers] = useState<Supplier[]>([]);
@@ -951,8 +953,8 @@ export function Suppliers() {
               </button>
               <button
                 className="suppliers-btn-primary"
-                onClick={handleAddSupplier}
-                disabled={!supplierForm.name.trim()}
+                onClick={() => runGuarded(handleAddSupplier)}
+                disabled={submitting || !supplierForm.name.trim()}
               >
                 إضافة المورد
               </button>
@@ -1059,8 +1061,8 @@ export function Suppliers() {
               </button>
               <button
                 className="suppliers-btn-primary"
-                onClick={handleUpdateSupplier}
-                disabled={!supplierForm.name.trim()}
+                onClick={() => runGuarded(handleUpdateSupplier)}
+                disabled={submitting || !supplierForm.name.trim()}
               >
                 تحديث المورد
               </button>
