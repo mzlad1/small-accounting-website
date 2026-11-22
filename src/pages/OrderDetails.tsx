@@ -109,7 +109,7 @@ export function OrderDetails() {
     type: "all",
   });
   const [sortBy, setSortBy] = useState({
-    field: "name",
+    field: "itemDate",
     order: "asc" as "asc" | "desc",
   });
 
@@ -1146,7 +1146,6 @@ export function OrderDetails() {
                         unitPrice: parseFloat(e.target.value),
                       })
                     }
-                    min="0"
                     step="0.01"
                     className="od-form-input"
                   />
@@ -1236,7 +1235,7 @@ export function OrderDetails() {
                   !itemForm.type ||
                   !itemForm.itemDate ||
                   itemForm.quantity <= 0 ||
-                  itemForm.unitPrice <= 0 ||
+                  Number.isNaN(itemForm.unitPrice) ||
                   uploadingImages
                 }
               >
@@ -1390,7 +1389,6 @@ export function OrderDetails() {
                         unitPrice: parseFloat(e.target.value),
                       })
                     }
-                    min="0"
                     step="0.01"
                     className="od-form-input"
                   />
@@ -1524,7 +1522,7 @@ export function OrderDetails() {
                   !itemForm.type ||
                   !itemForm.itemDate ||
                   itemForm.quantity <= 0 ||
-                  itemForm.unitPrice <= 0 ||
+                  Number.isNaN(itemForm.unitPrice) ||
                   uploadingImages
                 }
               >
