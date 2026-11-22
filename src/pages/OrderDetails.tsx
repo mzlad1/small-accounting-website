@@ -117,15 +117,21 @@ export function OrderDetails() {
   const [itemForm, setItemForm] = useState({
     name: "",
     type: "",
-    quantity: 1,
+    quantity: "1",
     unit: "",
     itemDate: "",
-    unitPrice: 0,
+    unitPrice: "0",
     notes: "",
     supplierId: "",
     supplierName: "",
     images: [] as string[],
   });
+  // The inputs above hold raw text so a value can be typed freely (a
+  // leading "-", a trailing "."); these are the numbers everything else
+  // works with. NaN means the field is empty or still half-typed.
+  const formQuantity = parseFloat(itemForm.quantity);
+  const formUnitPrice = parseFloat(itemForm.unitPrice);
+
   const [uploadingImages, setUploadingImages] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
@@ -276,9 +282,13 @@ export function OrderDetails() {
         imageUrls = await handleImageUpload(selectedFiles);
       }
 
-      const total = itemForm.quantity * itemForm.unitPrice;
+      const quantity = parseFloat(itemForm.quantity) || 0;
+      const unitPrice = parseFloat(itemForm.unitPrice) || 0;
+      const total = quantity * unitPrice;
       const newItem = {
         ...itemForm,
+        quantity,
+        unitPrice,
         orderId: orderId!,
         total,
         images: imageUrls,
@@ -292,10 +302,10 @@ export function OrderDetails() {
       setItemForm({
         name: "",
         type: "",
-        quantity: 1,
+        quantity: "1",
         unit: "",
         itemDate: "",
-        unitPrice: 0,
+        unitPrice: "0",
         notes: "",
         supplierId: "",
         supplierName: "",
@@ -331,9 +341,13 @@ export function OrderDetails() {
       // Combine existing and new images
       const allImages = [...itemForm.images, ...newImageUrls];
 
-      const total = itemForm.quantity * itemForm.unitPrice;
+      const quantity = parseFloat(itemForm.quantity) || 0;
+      const unitPrice = parseFloat(itemForm.unitPrice) || 0;
+      const total = quantity * unitPrice;
       const updatedItem = {
         ...itemForm,
+        quantity,
+        unitPrice,
         total,
         images: allImages,
       };
@@ -345,10 +359,10 @@ export function OrderDetails() {
       setItemForm({
         name: "",
         type: "",
-        quantity: 1,
+        quantity: "1",
         unit: "",
         itemDate: "",
-        unitPrice: 0,
+        unitPrice: "0",
         notes: "",
         supplierId: "",
         supplierName: "",
@@ -492,10 +506,10 @@ export function OrderDetails() {
     setItemForm({
       name: item.name,
       type: item.type,
-      quantity: item.quantity,
+      quantity: String(item.quantity),
       unit: item.unit,
       itemDate: getItemDateIso(item),
-      unitPrice: item.unitPrice,
+      unitPrice: String(item.unitPrice),
       notes: item.notes || "",
       supplierId: item.supplierId || "",
       supplierName: item.supplierName || "",
@@ -1122,31 +1136,31 @@ export function OrderDetails() {
                 <div className="od-form-group">
                   <label>الكمية *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={itemForm.quantity}
-                    onChange={(e) =>
-                      setItemForm({
-                        ...itemForm,
-                        quantity: parseFloat(e.target.value),
-                      })
-                    }
-                    min="0.01"
-                    step="0.01"
+                    onChange={(e) => {
+                      const typed = e.target.value;
+                      if (typed === "" || /^\d*\.?\d*$/.test(typed)) {
+                        setItemForm({ ...itemForm, quantity: typed });
+                      }
+                    }}
                     className="od-form-input"
                   />
                 </div>
                 <div className="od-form-group">
                   <label>سعر الوحدة *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={itemForm.unitPrice}
-                    onChange={(e) =>
-                      setItemForm({
-                        ...itemForm,
-                        unitPrice: parseFloat(e.target.value),
-                      })
-                    }
-                    step="0.01"
+                    onChange={(e) => {
+                      const typed = e.target.value;
+                      // a leading "-" is allowed: a discount line
+                      if (typed === "" || /^-?\d*\.?\d*$/.test(typed)) {
+                        setItemForm({ ...itemForm, unitPrice: typed });
+                      }
+                    }}
                     className="od-form-input"
                   />
                 </div>
@@ -1210,11 +1224,11 @@ export function OrderDetails() {
                 )}
               </div>
 
-              {itemForm.quantity > 0 && itemForm.unitPrice > 0 && (
+              {formQuantity > 0 && !Number.isNaN(formUnitPrice) && (
                 <div className="od-total-preview">
                   <span>الإجمالي:</span>
                   <span className="od-total-amount">
-                    {formatCurrency(itemForm.quantity * itemForm.unitPrice)}
+                    {formatCurrency(formQuantity * formUnitPrice)}
                   </span>
                 </div>
               )}
@@ -1234,8 +1248,8 @@ export function OrderDetails() {
                   !itemForm.name ||
                   !itemForm.type ||
                   !itemForm.itemDate ||
-                  itemForm.quantity <= 0 ||
-                  Number.isNaN(itemForm.unitPrice) ||
+                  !(formQuantity > 0) ||
+                  Number.isNaN(formUnitPrice) ||
                   uploadingImages
                 }
               >
@@ -1259,10 +1273,10 @@ export function OrderDetails() {
                   setItemForm({
                     name: "",
                     type: "",
-                    quantity: 1,
+                    quantity: "1",
                     unit: "",
                     itemDate: "",
-                    unitPrice: 0,
+                    unitPrice: "0",
                     notes: "",
                     supplierId: "",
                     supplierName: "",
@@ -1365,31 +1379,31 @@ export function OrderDetails() {
                 <div className="od-form-group">
                   <label>الكمية *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={itemForm.quantity}
-                    onChange={(e) =>
-                      setItemForm({
-                        ...itemForm,
-                        quantity: parseFloat(e.target.value),
-                      })
-                    }
-                    min="0.01"
-                    step="0.01"
+                    onChange={(e) => {
+                      const typed = e.target.value;
+                      if (typed === "" || /^\d*\.?\d*$/.test(typed)) {
+                        setItemForm({ ...itemForm, quantity: typed });
+                      }
+                    }}
                     className="od-form-input"
                   />
                 </div>
                 <div className="od-form-group">
                   <label>سعر الوحدة *</label>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={itemForm.unitPrice}
-                    onChange={(e) =>
-                      setItemForm({
-                        ...itemForm,
-                        unitPrice: parseFloat(e.target.value),
-                      })
-                    }
-                    step="0.01"
+                    onChange={(e) => {
+                      const typed = e.target.value;
+                      // a leading "-" is allowed: a discount line
+                      if (typed === "" || /^-?\d*\.?\d*$/.test(typed)) {
+                        setItemForm({ ...itemForm, unitPrice: typed });
+                      }
+                    }}
                     className="od-form-input"
                   />
                 </div>
@@ -1481,11 +1495,11 @@ export function OrderDetails() {
                 )}
               </div>
 
-              {itemForm.quantity > 0 && itemForm.unitPrice > 0 && (
+              {formQuantity > 0 && !Number.isNaN(formUnitPrice) && (
                 <div className="od-total-preview">
                   <span>الإجمالي:</span>
                   <span className="od-total-amount">
-                    {formatCurrency(itemForm.quantity * itemForm.unitPrice)}
+                    {formatCurrency(formQuantity * formUnitPrice)}
                   </span>
                 </div>
               )}
@@ -1498,10 +1512,10 @@ export function OrderDetails() {
                   setItemForm({
                     name: "",
                     type: "",
-                    quantity: 1,
+                    quantity: "1",
                     unit: "",
                     itemDate: "",
-                    unitPrice: 0,
+                    unitPrice: "0",
                     notes: "",
                     supplierId: "",
                     supplierName: "",
@@ -1521,8 +1535,8 @@ export function OrderDetails() {
                   !itemForm.name ||
                   !itemForm.type ||
                   !itemForm.itemDate ||
-                  itemForm.quantity <= 0 ||
-                  Number.isNaN(itemForm.unitPrice) ||
+                  !(formQuantity > 0) ||
+                  Number.isNaN(formUnitPrice) ||
                   uploadingImages
                 }
               >
